@@ -33,7 +33,6 @@ const ThesisPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ThesisItem | null>(null);
   const [searchText, setSearchText] = useState("");
-
   const [form] = Form.useForm();
 
   // ================= LOAD DATA =================
@@ -54,12 +53,11 @@ const ThesisPage: React.FC = () => {
       setLoading(false);
     }
   };
-
+//sas
   useEffect(() => {
     loadData();
   }, []);
 
-  // ================= SUBMIT =================
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
@@ -90,7 +88,7 @@ const ThesisPage: React.FC = () => {
     item.title.toLowerCase().includes(searchText.toLowerCase())
   );
 
-  // ================= TABLE =================
+
   const columns = [
     {
       title: "Tên đề tài",
