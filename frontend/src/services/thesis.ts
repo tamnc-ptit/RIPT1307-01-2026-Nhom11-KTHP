@@ -20,3 +20,17 @@ export async function addThesis(data: Partial<ThesisItem>) {
     data,
   });
 }
+
+export const updateThesis = (id: number, data: any) => {
+  return request(`/api/thesis/${id}`, {
+    method: "PUT",
+    data,
+  });
+};
+
+export const deleteThesis = (id: number) => {
+  return request(`/api/thesis/${id}`, {
+    method: "DELETE",
+  });
+};
+

@@ -11,9 +11,16 @@ import {
   Tag,
   Typography,
   message,
+  Popconfirm,
 } from "antd";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
-import { getThesisList, addThesis, ThesisItem } from "@/services/thesis";
+import {
+  getThesisList,
+  addThesis,
+  updateThesis,
+  deleteThesis,
+  ThesisItem,
+} from "@/services/thesis";
 import { getUsers, User } from "@/services/user";
 
 const { Title } = Typography;
@@ -24,11 +31,12 @@ const ThesisPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ThesisItem | null>(null);
   const [searchText, setSearchText] = useState("");
 
   const [form] = Form.useForm();
 
-  // Load đồng thời cả Thesis và Users
+  // ================= LOAD DATA =================
   const loadData = async () => {
     setLoading(true);
     try {
@@ -36,10 +44,12 @@ const ThesisPage: React.FC = () => {
         getThesisList(),
         getUsers(),
       ]);
-      setData(thesisRes || []);
-      setUsers(userRes || []);
+
+      // ⚠️ do Umi dùng dataField = "data"
+      setData(thesisRes);
+      setUsers(userRes);
     } catch (error) {
-      message.error("Lỗi tải dữ liệu!");
+      message.error("Lỗi load dữ liệu");
     } finally {
       setLoading(false);
     }
@@ -49,62 +59,111 @@ const ThesisPage: React.FC = () => {
     loadData();
   }, []);
 
-  const handleCreate = async () => {
+  // ================= SUBMIT =================
+  const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
+      console.log(">>> Frontend gửi JSON này đi:", values);
       setSubmitLoading(true);
-      await addThesis(values);
-      message.success("Thêm đề tài thành công!");
+
+      if (editingItem) {
+        await updateThesis(editingItem.id, values);
+        message.success("Cập nhật thành công!");
+      } else {
+        await addThesis(values);
+        message.success("Thêm đề tài thành công!");
+      }
+
       setIsModalOpen(false);
+      setEditingItem(null);
       form.resetFields();
       loadData();
     } catch (error) {
-      console.log("Validate failed:", error);
+      message.error("Có lỗi xảy ra");
     } finally {
       setSubmitLoading(false);
     }
   };
 
-  // Cấu hình bảng dữ liệu
+  // ================= SEARCH =================
+  const filteredData = data.filter((item) =>
+    item.title.toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  // ================= TABLE =================
   const columns = [
     {
       title: "Tên đề tài",
       dataIndex: "title",
       key: "title",
-      
-      sorter: (a: ThesisItem, b: ThesisItem) => a.title.localeCompare(b.title),
+      sorter: (a: ThesisItem, b: ThesisItem) =>
+        a.title.localeCompare(b.title),
       render: (text: string) => <b style={{ color: "#1890ff" }}>{text}</b>,
     },
     {
-      title: "Sinh viên thực hiện",
+      title: "Sinh viên",
       dataIndex: "student_name",
-      key: "student_name",
-      
       render: (name: string) => (
-        <Tag color="blue" style={{ borderRadius: "4px" }}>
-          {name ? name.toUpperCase() : "CHƯA GÁN"}
-        </Tag>
+        <Tag color="blue">{name?.toUpperCase() || "CHƯA GÁN"}</Tag>
       ),
     },
     {
-      title: "Giảng viên hướng dẫn",
+      title: "Giảng viên",
       dataIndex: "lecturer_name",
-      key: "lecturer_name",
       render: (name: string) => (
-        <Tag color="green">{name || "Đang cập nhật..."}</Tag>
+        <Tag color="green">{name || "Đang cập nhật"}</Tag>
       ),
     },
     {
       title: "Mô tả",
       dataIndex: "description",
-      key: "description",
       ellipsis: true,
-      width: "30%",
+    },
+    {
+      title: "Hành động",
+      render: (_: any, record: ThesisItem) => (
+        <Space>
+          <Button
+            type="link"
+            onClick={() => {
+              setEditingItem(record);
+              setIsModalOpen(true);
+
+              // ⚠️ set đúng field
+              form.setFieldsValue({
+                title: record.title,
+                description: record.description,
+                student_id: record.student_id,
+                lecturer_id: record.lecturer_id,
+              });
+            }}
+          >
+            Sửa
+          </Button>
+
+          <Popconfirm
+            title="Xóa đề tài này?"
+            onConfirm={async () => {
+              try {
+                await deleteThesis(record.id);
+                message.success("Xóa thành công");
+                loadData();
+              } catch {
+                message.error("Xóa thất bại");
+              }
+            }}
+          >
+            <Button danger type="link">
+              Xóa
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
     },
   ];
 
   return (
-    <div style={{ padding: "24px" }}>
+    <div style={{ padding: 24 }}>
       <Card>
         <Space
           style={{
@@ -113,20 +172,23 @@ const ThesisPage: React.FC = () => {
             width: "100%",
           }}
         >
-          <Title level={4} style={{ margin: 0 }}>
-            Quản lý Khóa luận
-          </Title>
+          <Title level={4}>Quản lý Khóa luận</Title>
+
           <Space>
             <Input
               placeholder="Tìm tên đề tài..."
               prefix={<SearchOutlined />}
               onChange={(e) => setSearchText(e.target.value)}
-              style={{ width: 250 }}
             />
+
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => {
+                setEditingItem(null);
+                form.resetFields();
+                setIsModalOpen(true);
+              }}
             >
               Thêm đề tài
             </Button>
@@ -134,7 +196,7 @@ const ThesisPage: React.FC = () => {
         </Space>
 
         <Table
-          dataSource={data}
+          dataSource={filteredData}
           columns={columns}
           rowKey="id"
           loading={loading}
@@ -142,69 +204,62 @@ const ThesisPage: React.FC = () => {
         />
       </Card>
 
+      {/* ================= MODAL ================= */}
       <Modal
-        title="Tạo đề tài mới"
+        title={editingItem ? "Cập nhật đề tài" : "Tạo đề tài"}
         open={isModalOpen}
-        onOk={handleCreate}
+        onOk={handleSubmit}
         confirmLoading={submitLoading}
-        onCancel={() => setIsModalOpen(false)}
-        width={600}
+        onCancel={() => {
+          setIsModalOpen(false);
+          setEditingItem(null);
+          form.resetFields();
+        }}
       >
-        <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+        <Form form={form} layout="vertical">
           <Form.Item
             label="Tên đề tài"
             name="title"
-            rules={[{ required: true, message: "Vui lòng nhập tên đề tài!" }]}
+            rules={[{ required: true, message: "Nhập tên đề tài!" }]}
           >
-            <Input placeholder="Nhập tên đề tài..." />
+            <Input />
           </Form.Item>
 
           <Form.Item label="Mô tả" name="description">
-            <Input.TextArea
-              rows={4}
-              placeholder="Mô tả ngắn gọn về đề tài..."
-            />
+            <Input.TextArea rows={4} />
           </Form.Item>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "16px",
-            }}
+          <Form.Item
+            label="Sinh viên"
+            name="student_id"
+            rules={[{ required: true }]}
           >
-            <Form.Item
-              label="Sinh viên"
-              name="student_id"
-              rules={[{ required: true, message: "Chọn sinh viên!" }]}
-            >
-              <Select placeholder="Chọn sinh viên">
-                {users
-                  .filter((u) => u.role === "student")
-                  .map((u) => (
-                    <Select.Option key={u.id} value={u.id}>
-                      {u.name}
-                    </Select.Option>
-                  ))}
-              </Select>
-            </Form.Item>
+            <Select>
+              {users
+                .filter((u) => u.role === "student")
+                .map((u) => (
+                  <Select.Option key={u.id} value={u.id}>
+                    {u.name}
+                  </Select.Option>
+                ))}
+            </Select>
+          </Form.Item>
 
-            <Form.Item
-              label="Giảng viên hướng dẫn"
-              name="lecturer_id"
-              rules={[{ required: true, message: "Chọn giảng viên!" }]}
-            >
-              <Select placeholder="Chọn giảng viên">
-                {users
-                  .filter((u) => u.role === "lecturer")
-                  .map((u) => (
-                    <Select.Option key={u.id} value={u.id}>
-                      {u.name}
-                    </Select.Option>
-                  ))}
-              </Select>
-            </Form.Item>
-          </div>
+          <Form.Item
+            label="Giảng viên"
+            name="lecturer_id"
+            rules={[{ required: true }]}
+          >
+            <Select>
+              {users
+                .filter((u) => u.role === "lecturer")
+                .map((u) => (
+                  <Select.Option key={u.id} value={u.id}>
+                    {u.name}
+                  </Select.Option>
+                ))}
+            </Select>
+          </Form.Item>
         </Form>
       </Modal>
     </div>

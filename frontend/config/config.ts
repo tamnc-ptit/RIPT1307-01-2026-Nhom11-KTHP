@@ -18,7 +18,9 @@ export default defineConfig({
   initialState: {}, // Kích hoạt getInitialState trong app.ts
   model: {}, // Kích hoạt useModel
   access: {}, // Kích hoạt access.ts
-  antd: {},
+  antd: {configProvider: {
+    locale: 'en_US',
+  },},
   request: {
     dataField: "data",
   },
