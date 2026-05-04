@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { Table, Card, Tag, Input, Select, Space } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
-import { getUsers, User } from "@/services/user";
+import { getUsers, User, UserRole } from "@/services/user";
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filterRole, setFilterRole] = useState<string | undefined>(undefined);
+  const [filterRole, setFilterRole] = useState<UserRole | undefined>(undefined);
   const [searchText, setSearchText] = useState("");
 
-  const fetchUsers = async (role?: string) => {
+  const fetchUsers = async (role?: UserRole) => {
     setLoading(true);
     const res = await getUsers({ role });
-    setUsers(res || []);
+    setUsers(res.data || []);
     setLoading(false);
   };
 
