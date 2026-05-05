@@ -77,3 +77,36 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: "Lỗi server", error: err.message });
   }
 };
+exports.updateRole = async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+  const validRoles = ["student", "lecturer", "admin"];
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ message: "Vai trò không hợp lệ" });
+  }
+  try {
+    const pool = await poolPromise;
+    await pool
+      .request()
+      .input("id", sql.Int, id)
+      .input("role", sql.NVarChar, role)
+      .query("UPDATE Users SET role = @role WHERE id = @id");
+
+    res.json({ message: "Cập nhật vai trò thành công" });
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi server", error: err.message });
+  }
+};
+
+exports.getAllUsers = async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool
+      .request()
+      .query("SELECT id, name, email, role FROM Users");
+    console.log("Dữ liệu từ DB:", result.recordset);
+    res.json(result.recordset);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi", error: err.message });
+  }
+};

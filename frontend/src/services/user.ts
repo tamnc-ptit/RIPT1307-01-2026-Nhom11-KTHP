@@ -18,3 +18,10 @@ export async function getUsers(params?: { role?: UserRole; name?: string }) {
     params,
   });
 }
+
+export const updateUserRole = async (id: number, role: string) => {
+  return request(`/api/users/${id}/role`, {
+    method: "PATCH",
+    data: { role },
+  });
+};
