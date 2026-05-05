@@ -2,10 +2,10 @@ const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");
 
-// 1. Route Đăng ký (Register)
 router.post("/register", authController.register);
 
-// 2. Route Đăng nhập (Login) - CÁI NÀY ĐANG THIẾU NÈ!
 router.post("/login", authController.login);
+router.patch("/users/:id/role", authController.updateRole);
+
 
 module.exports = router;
