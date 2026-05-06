@@ -1,9 +1,8 @@
 export default [
   { path: "/", redirect: "/login" },
   { path: "/login", component: "Login/index", layout: false },
-  { path: "/register", component: "Register/index", layout: false },
+  // { path: "/register", component: "Register/index", layout: false },
 
-  // Trang Dashboard chung
   {
     path: "/dashboard",
     name: "Bảng điều khiển",
@@ -11,24 +10,32 @@ export default [
     icon: "DashboardOutlined",
   },
 
-  // Route dành riêng cho SINH VIÊN và GIẢNG VIÊN (Quản lý chung đề tài)
   {
-    path: "/thesis",
-    name: "Danh sách đề tài",
-    component: "Thesis/index",
-    icon: "TableOutlined",
-    access: "canSeeThesis",
-  },
-
-  // Route dành riêng cho ADMIN
-  {
-    path: "/admin/users",
-    name: "Quản lý người dùng",
-    component: "Admin/Users",
-    icon: "UserOutlined",
+    path: "/admin",
+    name: "Quản trị hệ thống",
+    icon: "SettingOutlined",
     access: "isAdmin",
+    routes: [
+      {
+        path: "/admin/users",
+        name: "Quản lý người dùng",
+        component: "Admin/Users",
+        icon: "UserOutlined",
+      },
+      {
+        path: "/admin/class-management",
+        name: "Quản lý Lớp tín chỉ",
+        component: "ClassManagement/index",
+        icon: "ApartmentOutlined",
+      },
+      {
+        path: "/admin/session-settings",
+        name: "Cấu hình đợt đồ án",
+        component: "Admin/SessionSettings",
+        icon: "CalendarOutlined",
+      },
+    ],
   },
 
-  // Trang 403/404 nếu cần
   { path: "*", component: "404" },
 ];
