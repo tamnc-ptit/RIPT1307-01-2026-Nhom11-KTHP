@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const { poolPromise, sql } = require("../config/db");
 
-// 1. Lấy danh sách các đợt đồ án
 router.get("/", async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -15,12 +14,10 @@ router.get("/", async (req, res) => {
   }
 });
 
-// 2. Thiết lập đợt mới
 router.post("/", async (req, res) => {
   const { semester, start_date, end_date } = req.body;
   try {
     const pool = await poolPromise;
-    // Tự động đóng các đợt cũ khi tạo đợt mới (tùy chọn logic của Vinh)
     await pool.request().query("UPDATE Sessions SET is_active = 0");
 
     await pool
@@ -34,6 +31,26 @@ router.post("/", async (req, res) => {
     res.status(201).json({ message: "Thiết lập đợt đồ án mới thành công!" });
   } catch (err) {
     res.status(500).json({ message: "Lỗi thiết lập", error: err.message });
+  }
+});
+
+router.patch("/:id/close", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const pool = await poolPromise;
+    
+    const result = await pool
+      .request()
+      .input("id", sql.Int, id)
+      .query("UPDATE Sessions SET is_active = 0 WHERE id = @id");
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ message: "Không tìm thấy đợt đồ án này" });
+    }
+
+    res.json({ message: "Đã đóng đợt đồ án thủ công thành công!" });
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
   }
 });
 

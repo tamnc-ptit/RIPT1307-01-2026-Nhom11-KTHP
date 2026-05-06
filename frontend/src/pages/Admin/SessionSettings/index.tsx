@@ -11,12 +11,14 @@ import {
   Space,
   notification,
   Typography,
+  Popconfirm,
 } from "antd";
 import {
   CalendarOutlined,
   PlusOutlined,
   ReloadOutlined,
   ClockCircleOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
@@ -32,6 +34,10 @@ interface SessionItem {
   is_active: boolean;
   created_at: string;
 }
+interface SessionFormValues {
+  semester: string;
+  timeRange: [dayjs.Dayjs, dayjs.Dayjs]; 
+}
 
 const SessionSettings: React.FC = () => {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
@@ -39,7 +45,6 @@ const SessionSettings: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [form] = Form.useForm();
 
-  // --- Logic Fetch Data ---
   const fetchSessions = async () => {
     setLoading(true);
     try {
@@ -61,11 +66,32 @@ const SessionSettings: React.FC = () => {
     fetchSessions();
   }, []);
 
-  // --- Handler Tạo đợt mới ---
-  const handleCreate = async (values: any) => {
+  // --- Logic Đóng Session thủ công ---
+  const handleCloseSession = async (id: number) => {
+    try {
+      // Giả sử API update trạng thái là PATCH /api/sessions/:id
+      const res = await fetch(
+        `http://localhost:5000/api/sessions/${id}/close`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+
+      if (res.ok) {
+        notification.success({ message: "Đã đóng đợt đồ án thủ công." });
+        fetchSessions();
+      } else {
+        notification.error({ message: "Không thể đóng đợt đồ án này." });
+      }
+    } catch (err) {
+      notification.error({ message: "Lỗi hệ thống khi đóng đợt." });
+    }
+  };
+
+  const handleCreate = async (values: SessionFormValues) => {
     const payload = {
       semester: values.semester,
-      // Chuyển đổi định dạng ngày để khớp với SQL DateTime
       start_date: values.timeRange[0].format("YYYY-MM-DD HH:mm:ss"),
       end_date: values.timeRange[1].format("YYYY-MM-DD HH:mm:ss"),
     };
@@ -80,20 +106,17 @@ const SessionSettings: React.FC = () => {
       if (res.ok) {
         notification.success({
           message: "Thành công",
-          description: `Đã thiết lập đợt đồ án mới cho học kỳ ${values.semester}. Các đợt cũ đã được đóng.`,
+          description: `Đã thiết lập đợt mới.`,
         });
         setIsModalOpen(false);
         form.resetFields();
         fetchSessions();
-      } else {
-        notification.error({ message: "Thiết lập thất bại" });
       }
     } catch (err) {
       notification.error({ message: "Lỗi hệ thống" });
     }
   };
 
-  // --- Table Columns ---
   const columns: ColumnsType<SessionItem> = [
     {
       title: "Học kỳ",
@@ -129,11 +152,25 @@ const SessionSettings: React.FC = () => {
         </Tag>
       ),
     },
+    // --- BỔ SUNG CỘT THAO TÁC ---
     {
-      title: "Ngày tạo",
-      dataIndex: "created_at",
-      key: "created_at",
-      render: (date: string) => dayjs(date).format("DD/MM/YYYY"),
+      title: "Thao tác",
+      key: "action",
+      align: "center",
+      render: (_, record) =>
+        record.is_active && (
+          <Popconfirm
+            title="Bạn có chắc muốn đóng đợt đồ án này sớm hơn dự kiến?"
+            onConfirm={() => handleCloseSession(record.id)}
+            okText="Đóng ngay"
+            cancelText="Hủy"
+            okButtonProps={{ danger: true }}
+          >
+            <Button danger size="small" icon={<StopOutlined />} type="text">
+              Đóng đợt thủ công
+            </Button>
+          </Popconfirm>
+        ),
     },
   ];
 
@@ -164,7 +201,8 @@ const SessionSettings: React.FC = () => {
         <div style={{ marginBottom: 16 }}>
           <Text type="secondary">
             * Lưu ý: Khi tạo đợt mới, hệ thống sẽ tự động đóng các đợt đồ án
-            đang hoạt động trước đó.
+            đang hoạt động trước đó. Bạn cũng có thể đóng thủ công ở bảng bên
+            dưới.
           </Text>
         </div>
 
@@ -177,7 +215,6 @@ const SessionSettings: React.FC = () => {
         />
       </Card>
 
-      {/* Modal Thiết lập đợt mới */}
       <Modal
         title="Cấu hình thời gian nộp đề tài"
         open={isModalOpen}

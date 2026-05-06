@@ -17,6 +17,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   SearchOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 
 // --- Định nghĩa Types ---
@@ -33,6 +34,7 @@ export interface UserFormValues {
   name: string;
   email: string;
   role: UserRole;
+  password?: string;
 }
 
 const AdminUsers: React.FC = () => {
@@ -45,6 +47,7 @@ const AdminUsers: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form] = Form.useForm<UserFormValues>();
+  const [submitting, setSubmitting] = useState(false);
 
   const roleColors = {
     student: "#1677ff",
@@ -106,22 +109,32 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  // 2. Xóa người dùng (Từ file 2)
   const handleDelete = async (id: number) => {
     try {
       const res = await fetch(`http://localhost:5000/api/admin/users/${id}`, {
         method: "DELETE",
       });
+
       if (res.ok) {
         message.success("Xóa người dùng thành công");
         fetchUsers();
+      } else {
+        const errorData = await res.json();
+        message.error(
+          errorData.message ||
+            "Không thể xóa do người dùng có dữ liệu liên quan!",
+        );
       }
     } catch (err) {
-      message.error("Lỗi khi xóa người dùng");
+      message.error("Lỗi kết nối hệ thống khi xóa");
     }
   };
+  const showCreateModal = () => {
+    setEditingUser(null); // Đảm bảo không ở chế độ chỉnh sửa
+    form.resetFields(); // Xóa trắng form cho tài khoản mới
+    setIsModalVisible(true);
+  };
 
-  // 3. Mở Modal sửa (Từ file 2)
   const handleEdit = (user: User) => {
     setEditingUser(user);
     form.setFieldsValue({
@@ -132,25 +145,37 @@ const AdminUsers: React.FC = () => {
     setIsModalVisible(true);
   };
 
-  // 4. Lưu thông tin từ Modal (Từ file 2)
   const handleSave = async (values: UserFormValues) => {
-    if (!editingUser) return;
+    setSubmitting(true);
     try {
-      const res = await fetch(
-        `http://localhost:5000/api/admin/users/${editingUser.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        },
-      );
+      const isEditing = !!editingUser;
+      const url = isEditing
+        ? `http://localhost:5000/api/admin/users/${editingUser.id}`
+        : `http://localhost:5000/api/admin/users`;
+
+      const method = isEditing ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+
       if (res.ok) {
-        message.success("Cập nhật thông tin thành công");
+        message.success(
+          `${isEditing ? "Cập nhật" : "Tạo mới"} người dùng thành công`,
+        );
         setIsModalVisible(false);
+        form.resetFields();
         fetchUsers();
+      } else {
+        const errData = await res.json();
+        message.error(errData.message || "Thao tác thất bại");
       }
     } catch (err) {
-      message.error("Cập nhật thất bại");
+      message.error("Lỗi kết nối hệ thống");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -223,7 +248,19 @@ const AdminUsers: React.FC = () => {
   ];
 
   return (
-    <Card title="Quản trị Người dùng hệ thống" style={{ margin: 24 }}>
+    <Card
+      title="Quản trị Người dùng hệ thống"
+      style={{ margin: 24 }}
+      extra={
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={showCreateModal}
+        >
+          Thêm người dùng
+        </Button>
+      }
+    >
       <Space style={{ marginBottom: 20 }}>
         <Input
           placeholder="Tìm theo tên hoặc email..."
@@ -277,8 +314,20 @@ const AdminUsers: React.FC = () => {
               { required: true, type: "email", message: "Email không hợp lệ" },
             ]}
           >
-            <Input />
+            <Input placeholder="vi-du@school.edu.vn" />
           </Form.Item>
+          {!editingUser && (
+            <Form.Item
+              name="password"
+              label="Mật khẩu tạm thời"
+              rules={[
+                { required: true, message: "Vui lòng đặt mật khẩu mặc định" },
+                { min: 6, message: "Mật khẩu ít nhất 6 ký tự" },
+              ]}
+            >
+              <Input.Password placeholder="Nhập mật khẩu ít nhất 6 ký tự" />
+            </Form.Item>
+          )}
           <Form.Item
             name="role"
             label="Vai trò hệ thống"
@@ -297,4 +346,3 @@ const AdminUsers: React.FC = () => {
 };
 
 export default AdminUsers;
-
