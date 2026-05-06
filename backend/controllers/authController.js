@@ -38,43 +38,50 @@ exports.register = async (req, res) => {
   }
 };
 
+
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
+
+  const isStudent = email.endsWith("@student.ptit.edu.vn");
+  const isLecturer = email.endsWith("@ptit.edu.vn") && !isStudent;
+  const isAdmin = email.endsWith("@admin.ptit.edu.vn");
+
+  if (!isStudent && !isLecturer && !isAdmin) {
+    return res.status(403).json({ 
+      message: "Vui lòng sử dụng Email do Học viện cấp để đăng nhập!" 
+    });
+  }
+
   try {
     const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input("email", sql.NVarChar, email)
+    const result = await pool.request()
+      .input("email", sql.VarChar, email)
       .query("SELECT * FROM Users WHERE email = @email");
 
     const user = result.recordset[0];
+
+
     if (!user) {
-      return res
-        .status(401)
-        .json({ message: "Email hoặc mật khẩu không chính xác" });
+      return res.status(404).json({ 
+        message: "Tài khoản không tồn tại trên hệ thống. Vui lòng liên hệ Admin." 
+      });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res
-        .status(401)
-        .json({ message: "Email hoặc mật khẩu không chính xác" });
-    }
 
-    const token = jwt.sign(
-      { id: user.id, role: user.role, name: user.name },
-      JWT_SECRET,
-      { expiresIn: "24h" },
-    );
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Sai mật khẩu!" });
+    }
 
     res.json({
-      message: "Đăng nhập thành công",
-      token,
-      user: { id: user.id, name: user.name, role: user.role },
+      id: user.id,
+      name: user.name,
+      role: user.role, 
+      email: user.email
     });
+
   } catch (err) {
-    res.status(500).json({ message: "Lỗi server", error: err.message });
+    res.status(500).json({ message: "Lỗi hệ thống", error: err.message });
   }
 };
 exports.updateRole = async (req, res) => {

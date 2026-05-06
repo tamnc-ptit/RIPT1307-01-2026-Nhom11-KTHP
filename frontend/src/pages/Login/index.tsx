@@ -2,29 +2,36 @@ import { Form, Input, Button, Card, message } from "antd";
 import { history, useModel } from "umi";
 import type { CurrentUser } from "@/app";
 
-
 interface LoginValues {
   email?: string;
   password?: string;
 }
 
-
-interface LoginResponse {
-  token: string;
-  user: CurrentUser;
+interface LoginResponse extends CurrentUser {
   message?: string;
+  token?: string;
 }
 
 const LoginPage: React.FC = () => {
   const [form] = Form.useForm<LoginValues>();
 
-
   const { refresh, setInitialState } = useModel("@@initialState");
 
   const handleLogin = async (values: LoginValues) => {
-    try {
+    const { email } = values;
 
-      const response = await fetch("/api/auth/login", {
+    // 1. Kiểm tra domain email trước khi gọi API
+    const isStudent = email?.endsWith("@student.ptit.edu.vn");
+    const isLecturer = email?.endsWith("@ptit.edu.vn") && !isStudent;
+    const isAdmin = email?.endsWith("@admin.ptit.edu.vn"); // Chấp nhận mail admin
+
+    if (!isStudent && !isLecturer && !isAdmin) {
+      message.error("Vui lòng sử dụng Email hợp lệ của Học viện PTIT!");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
@@ -32,31 +39,33 @@ const LoginPage: React.FC = () => {
 
       const data: LoginResponse = await response.json();
 
-      if (response.ok) {
+      if (response.ok && data.id) {
         message.success("Chào mừng quay trở lại!");
 
-
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-
-        await refresh();
+        localStorage.setItem("user", JSON.stringify(data));
+        if (data.token) localStorage.setItem("token", data.token);
 
         await setInitialState((s) => ({
           ...s,
-          currentUser: data.user,
+          currentUser: data,
         }));
 
-        if (data.user.role === "admin") {
+        // Điều hướng dựa trên role thực tế
+        if (data.role === "admin") {
           history.push("/admin/users");
         } else {
+          // Sinh viên và Giảng viên vào trang Thesis
           history.push("/thesis");
         }
+
+        await refresh();
       } else {
+        // Hiện thông báo lỗi từ Backend (ví dụ: Sai mật khẩu)
         message.error(data.message || "Đăng nhập thất bại");
       }
     } catch (error) {
       console.error("Login Error:", error);
-      message.error("Không thể kết nối tới server. Hãy kiểm tra Backend!");
+      message.error("Lỗi kết nối Server. Hãy kiểm tra Backend!");
     }
   };
 
@@ -97,11 +106,6 @@ const LoginPage: React.FC = () => {
           <Button type="primary" htmlType="submit" block size="large">
             Đăng nhập
           </Button>
-
-          <div style={{ marginTop: 16, textAlign: "center" }}>
-            Chưa có tài khoản?{" "}
-            <a onClick={() => history.push("/register")}>Đăng ký ngay</a>
-          </div>
         </Form>
       </Card>
     </div>
