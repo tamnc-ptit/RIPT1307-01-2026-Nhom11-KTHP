@@ -21,31 +21,45 @@ interface ClassItem {
   lecturer_name: string;
 }
 
+interface CreateClassValues {
+  class_name: string;
+  course_name: string;
+  semester: string;
+  lecturer_id: number;
+}
+
 const ClassManagement: React.FC = () => {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [lecturers, setLecturers] = useState<{ id: number; name: string }[]>(
     [],
   );
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
 
   const fetchData = async () => {
-    // Lấy danh sách lớp
-    const resClasses = await fetch("http://localhost:5000/api/classes");
-    setClasses(await resClasses.json());
+    try {
+      const [resClasses, resLecs] = await Promise.all([
+        fetch("http://localhost:5000/api/classes"),
+        fetch("http://localhost:5000/api/admin/users?role=lecturer"),
+      ]);
 
-    // Lấy danh sách giảng viên để đổ vào Select
-    const resLecs = await fetch(
-      "http://localhost:5000/api/admin/users?role=lecturer",
-    );
-    setLecturers(await resLecs.json());
+      const classesData = await resClasses.json();
+      const lecturersData = await resLecs.json();
+
+      setClasses(classesData);
+      setLecturers(lecturersData);
+    } catch (error) {
+      message.error("Không thể tải dữ liệu từ server!");
+      console.error(error);
+    }
   };
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  const handleCreate = async (values: any) => {
+  const handleCreate = async (values: CreateClassValues) => {
     try {
       const res = await fetch("http://localhost:5000/api/classes", {
         method: "POST",
@@ -136,7 +150,11 @@ const ClassManagement: React.FC = () => {
             label="Giảng viên phụ trách"
             rules={[{ required: true }]}
           >
-            <Select placeholder="Chọn giảng viên">
+            <Select
+              placeholder="Chọn giảng viên"
+              showSearch
+              optionFilterProp="children"
+            >
               {lecturers.map((lec) => (
                 <Select.Option key={lec.id} value={lec.id}>
                   {lec.name}
