@@ -102,4 +102,47 @@ router.delete("/users/:id", async (req, res) => {
     res.status(500).json({ message: "Lỗi hệ thống", error: err.message });
   }
 });
+
+// --- 2. Lấy danh sách đề tài (Admin View kèm bộ lọc) ---
+router.get("/thesis", async (req, res) => {
+  try {
+    const { status, classId, semester } = req.query;
+    const pool = await poolPromise;
+    const request = pool.request();
+
+    // Truyền tham số an toàn vào SQL (nếu không có thì gán null để khớp với logic IS NULL)
+    request.input('status', sql.NVarChar, status || null);
+    request.input('classId', sql.Int, classId ? parseInt(classId) : null);
+    request.input('semester', sql.NVarChar, semester || null);
+
+    const query = `
+        SELECT 
+            t.id, 
+            t.title, 
+            t.status, 
+            t.created_at,
+            s.name AS student_name,
+            c.id AS class_id,
+            c.class_name,
+            c.semester,
+            l.id AS lecturer_id,
+            l.name AS lecturer_name
+        FROM dbo.Thesis t
+        LEFT JOIN dbo.Users s ON t.student_id = s.id
+        LEFT JOIN dbo.Classes c ON t.class_id = c.id
+        LEFT JOIN dbo.Users l ON c.lecturer_id = l.id
+        WHERE 
+            (@status IS NULL OR t.status = @status) AND
+            (@classId IS NULL OR c.id = @classId) AND
+            (@semester IS NULL OR c.semester = @semester)
+        ORDER BY t.created_at DESC;
+    `;
+
+    const result = await request.query(query);
+    res.json(result.recordset);
+  } catch (error) {
+    console.error("Lỗi khi lấy danh sách đề tài cho Admin:", error);
+    res.status(500).json({ message: "Lỗi kết nối cơ sở dữ liệu" });
+  }
+});
 module.exports = router;
