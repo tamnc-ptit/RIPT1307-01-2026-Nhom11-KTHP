@@ -66,10 +66,8 @@ const SessionSettings: React.FC = () => {
     fetchSessions();
   }, []);
 
-  // --- Logic Đóng Session thủ công ---
   const handleCloseSession = async (id: number) => {
     try {
-      // Giả sử API update trạng thái là PATCH /api/sessions/:id
       const res = await fetch(
         `http://localhost:5000/api/sessions/${id}/close`,
         {

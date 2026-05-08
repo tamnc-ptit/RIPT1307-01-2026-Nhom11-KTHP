@@ -34,6 +34,12 @@ export default [
         component: "Admin/SessionSettings",
         icon: "CalendarOutlined",
       },
+      {
+        path: "/admin/thesis-review",
+        name: "Duyệt đề tài đồ án",
+        component: "Admin/ThesisReview",
+        icon: "FileSearchOutlined",
+      },
     ],
   },
 

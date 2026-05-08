@@ -11,8 +11,6 @@ export interface CurrentUser {
   email: string;
   role: "student" | "lecturer" | "admin";
 }
-
-// 2. Định nghĩa cấu trúc của InitialState
 export interface InitialState {
   currentUser?: CurrentUser;
   settings?: Record<string, unknown>;
