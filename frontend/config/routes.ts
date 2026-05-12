@@ -42,6 +42,37 @@ export default [
       },
     ],
   },
-
+  {
+    path:"/lecturer",
+    name :"Quản lý giảng dạy",
+    icon :"DashboardOutlined",
+    access: "isLecturer",
+    routes : [
+      
+      {
+        path :"/lecturer/thesis-management",
+        name : "Quản lý đề tài",
+        component : "./Lecturer/ThesisLecturer",
+        icon:"FileTextOutlined",
+      },
+      {
+        path: "/lecturer/class-groups",
+        name: "Lớp & Nhóm hướng dẫn",
+        component: "./Lecturer/ClassGroups",
+        icon: "TeamOutlined",
+      },
+      {
+        path: "/lecturer/milestones",
+        name: "Chấm điểm & Tiến độ",
+        component: "./Lecturer/Milestones",
+        icon: "ClockCircleOutlined",
+      },
+      {
+        path:"/lecturer/session",
+        name:"Học kỳ",
+        component :"./Lecturer/SessionSettings"
+      }
+    ]
+  },
   { path: "*", component: "404" },
 ];
