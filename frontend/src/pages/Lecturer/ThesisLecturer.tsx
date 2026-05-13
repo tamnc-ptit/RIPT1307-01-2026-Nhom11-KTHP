@@ -23,7 +23,7 @@ import {
   ExclamationCircleOutlined 
 } from "@ant-design/icons";
 // Import các hàm từ service bạn đã cung cấp
-import { ThesisItem, getThesisList, updateThesis, deleteThesis } from "../../services/thesis";
+import { ThesisItem, addThesis , getThesisList, updateThesis, deleteThesis } from "../../services/thesis";
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -53,6 +53,9 @@ const ThesisLecturer: React.FC = () => {
     fetchTheses();
   }, []);
 
+  const handleAddThesis = (record:ThesisItem)=>{
+    
+  }
   // --- Xử lý Duyệt đề tài (Sử dụng hàm updateThesis) ---
   const handleApprove = (record: ThesisItem) => {
     confirm({

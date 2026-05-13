@@ -19,23 +19,8 @@ import {
   SearchOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
+import {UserRole,User,UserFormValues} from "@/types/AdminTypes/ThesisTypes"
 
-// --- Định nghĩa Types ---
-export type UserRole = "admin" | "lecturer" | "student";
-
-export interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: UserRole;
-}
-
-export interface UserFormValues {
-  name: string;
-  email: string;
-  role: UserRole;
-  password?: string;
-}
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);

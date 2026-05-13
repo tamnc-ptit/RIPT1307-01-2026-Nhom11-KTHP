@@ -25,7 +25,7 @@ export default [
       {
         path: "/admin/class-management",
         name: "Quản lý Lớp tín chỉ",
-        component: "ClassManagement/index",
+        component: "Admin/ClassManagement/index",
         icon: "ApartmentOutlined",
       },
       {
