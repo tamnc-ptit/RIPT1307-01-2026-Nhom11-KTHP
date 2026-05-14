@@ -60,3 +60,80 @@ exports.getRiskFlags = async (lecturerId) => {
     
   return risks.recordset;
 };
+
+exports.getClasses = async (lecturerId) => {
+  const pool = await poolPromise;
+  const result = await pool.request()
+    .input("lecturerId", sql.Int, lecturerId)
+    .query(`
+      SELECT c.*, 
+        (SELECT COUNT(*) FROM Thesis t WHERE t.class_id = c.id) as studentCount
+      FROM Classes c 
+      WHERE c.lecturer_id = @lecturerId
+    `);
+  return result.recordset;
+};
+
+exports.approveThesis = async (thesisId) => {
+  const pool = await poolPromise;
+  const transaction = new sql.Transaction(pool);
+  
+  try {
+    await transaction.begin();
+    
+    // 1. Cập nhật trạng thái Thesis
+    const thesisResult = await transaction.request()
+      .input("id", sql.Int, thesisId)
+      .query(`
+        UPDATE Thesis 
+        SET status = 'Approved', updated_at = GETDATE() 
+        OUTPUT INSERTED.class_id
+        WHERE id = @id
+      `);
+      
+    const classId = thesisResult.recordset[0]?.class_id;
+    
+    if (classId) {
+      // 2. Lấy templates của lớp này
+      const templatesResult = await transaction.request()
+        .input("classId", sql.Int, classId)
+        .query("SELECT * FROM MilestoneTemplates WHERE class_id = @classId");
+        
+      const templates = templatesResult.recordset;
+      
+      // 3. Sinh Milestones thực tế
+      for (const tmpl of templates) {
+        await transaction.request()
+          .input("thesisId", sql.Int, thesisId)
+          .input("name", sql.NVarChar, tmpl.name)
+          .input("desc", sql.NVarChar, tmpl.description)
+          .input("isMandatory", sql.Bit, tmpl.is_mandatory)
+          .input("reqPlagiarism", sql.Bit, tmpl.requires_plagiarism_check)
+          .input("deadline", sql.DateTime, new Date(Date.now() + tmpl.relative_deadline_days * 24 * 60 * 60 * 1000))
+          .query(`
+            INSERT INTO Milestones (thesis_id, name, description, deadline, is_mandatory, requires_plagiarism_check, status)
+            VALUES (@thesisId, @name, @desc, @deadline, @isMandatory, @reqPlagiarism, 'todo')
+          `);
+      }
+    }
+    
+    await transaction.commit();
+    return { success: true };
+  } catch (err) {
+    await transaction.rollback();
+    throw err;
+  }
+};
+
+exports.rejectThesis = async (thesisId, reason) => {
+  const pool = await poolPromise;
+  await pool.request()
+    .input("id", sql.Int, thesisId)
+    .input("reason", sql.NVarChar, reason)
+    .query(`
+      UPDATE Thesis 
+      SET status = 'Rejected', reject_reason = @reason, updated_at = GETDATE() 
+      WHERE id = @id
+    `);
+  return { success: true };
+};
