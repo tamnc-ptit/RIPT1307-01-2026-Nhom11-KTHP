@@ -40,6 +40,7 @@ interface RealMilestone {
   evidence_url: string;
   lecturer_comment: string;
   plagiarism_index: number;
+  requires_plagiarism_check: boolean;
 }
 
 const Milestones: React.FC = () => {
@@ -47,6 +48,7 @@ const Milestones: React.FC = () => {
   const [milestones, setMilestones] = useState<RealMilestone[]>([]);
   const [selectedMilestone, setSelectedMilestone] = useState<RealMilestone | null>(null);
   const [feedback, setFeedback] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);

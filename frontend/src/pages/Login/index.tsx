@@ -53,9 +53,10 @@ const LoginPage: React.FC = () => {
         // Điều hướng dựa trên role thực tế
         if (data.role === "admin") {
           history.push("/admin/users");
+        } else if (data.role === "lecturer") {
+          history.push("/lecturer/dashboard");
         } else {
-          // Sinh viên và Giảng viên vào trang Thesis
-          history.push("/thesis");
+          history.push("/dashboard");
         }
 
         await refresh();

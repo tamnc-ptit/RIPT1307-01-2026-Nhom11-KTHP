@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Table, 
-  Tag, 
-  Space, 
-  Button, 
-  Input, 
-  Card, 
-  Select, 
-  Modal, 
-  message, 
+import {
+  Table,
+  Tag,
+  Space,
+  Button,
+  Input,
+  Card,
+  Select,
+  Modal,
+  message,
   Typography,
   Row,
   Tooltip,
   Col
 } from "antd";
-import { 
+import {
   PlusOutlined,
   ExclamationCircleOutlined,
   FileExcelOutlined,
@@ -25,9 +25,9 @@ import {
   SearchOutlined
 } from "@ant-design/icons";
 // Import các hàm từ service bạn đã cung cấp
-import { ThesisItem, getThesisList, deleteThesis } from "../../services/thesis";
+import { getThesisList, deleteThesis } from "../../services/thesis";
 import { approveThesis, rejectThesis, finalizeThesis, exportExcelReport } from "../../services/lecturer";
-
+import { ThesisItem } from "@/types/LecturerTypes/ThesisTypes";
 const { Title } = Typography;
 const { Option } = Select;
 const { confirm } = Modal;
@@ -48,7 +48,7 @@ const ThesisLecturer: React.FC = () => {
     try {
       const res = await getThesisList();
       // Nếu API trả về trực tiếp mảng ThesisItem[]
-      setData(res || []); 
+      setData(res || []);
     } catch (error) {
       message.error("Không thể tải danh sách đề tài từ máy chủ");
     } finally {
@@ -60,8 +60,8 @@ const ThesisLecturer: React.FC = () => {
     fetchTheses();
   }, []);
 
-  const handleAddThesis = (record:ThesisItem)=>{
-    
+  const handleAddThesis = (record: ThesisItem) => {
+
   }
   // --- Xử lý Duyệt đề tài ---
   const handleApprove = (record: ThesisItem) => {
@@ -209,23 +209,23 @@ const ThesisLecturer: React.FC = () => {
           <Tooltip title="Xem chi tiết">
             <Button shape="circle" icon={<EyeOutlined />} />
           </Tooltip>
-          
+
           {record.status === 'Pending' && (
             <>
               <Tooltip title="Phê duyệt">
-                <Button 
-                  type="primary" 
-                  shape="circle" 
-                  icon={<CheckOutlined />} 
-                  onClick={() => handleApprove(record)} 
+                <Button
+                  type="primary"
+                  shape="circle"
+                  icon={<CheckOutlined />}
+                  onClick={() => handleApprove(record)}
                 />
               </Tooltip>
               <Tooltip title="Từ chối">
-                <Button 
-                  danger 
-                  shape="circle" 
-                  icon={<CloseOutlined />} 
-                  onClick={() => handleReject(record.id)} 
+                <Button
+                  danger
+                  shape="circle"
+                  icon={<CloseOutlined />}
+                  onClick={() => handleReject(record.id)}
                 />
               </Tooltip>
             </>
@@ -233,22 +233,22 @@ const ThesisLecturer: React.FC = () => {
 
           {record.status === 'Approved' && (
             <Tooltip title="Nhập điểm & Kết thúc">
-               <Button 
-                type="primary" 
-                shape="circle" 
+              <Button
+                type="primary"
+                shape="circle"
                 style={{ background: '#52c41a', borderColor: '#52c41a' }}
-                icon={<SafetyCertificateOutlined />} 
-                onClick={() => handleFinalize(record.id)} 
+                icon={<SafetyCertificateOutlined />}
+                onClick={() => handleFinalize(record.id)}
               />
             </Tooltip>
           )}
 
           <Tooltip title="Xóa đề tài">
-            <Button 
+            <Button
               type="text"
-              danger 
-              shape="circle" 
-              icon={<ExclamationCircleOutlined />} 
+              danger
+              shape="circle"
+              icon={<ExclamationCircleOutlined />}
               onClick={() => handleDelete(record.id)}
             />
           </Tooltip>
@@ -277,18 +277,18 @@ const ThesisLecturer: React.FC = () => {
 
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={12} md={8}>
-          <Input 
-            placeholder="Tìm kiếm theo tiêu đề đề tài..." 
-            prefix={<SearchOutlined />} 
+          <Input
+            placeholder="Tìm kiếm theo tiêu đề đề tài..."
+            prefix={<SearchOutlined />}
             allowClear
             onChange={e => setSearchText(e.target.value)}
           />
         </Col>
       </Row>
 
-      <Table 
-        columns={columns} 
-        dataSource={data.filter(item => 
+      <Table
+        columns={columns}
+        dataSource={data.filter(item =>
           item.title.toLowerCase().includes(searchText.toLowerCase())
         )}
         loading={loading}
@@ -306,8 +306,8 @@ const ThesisLecturer: React.FC = () => {
         cancelText="Hủy"
         okButtonProps={{ danger: true }}
       >
-        <Input.TextArea 
-          rows={4} 
+        <Input.TextArea
+          rows={4}
           placeholder="Nhập lý do cụ thể để sinh viên chỉnh sửa..."
           value={rejectReason}
           onChange={e => setRejectReason(e.target.value)}
@@ -324,12 +324,12 @@ const ThesisLecturer: React.FC = () => {
         cancelText="Hủy"
       >
         <p>Nhập điểm tổng kết cho sinh viên sau khi đã hoàn thành các mốc tiến độ:</p>
-        <Input 
-          type="number" 
-          step={0.1} 
-          min={0} 
-          max={10} 
-          value={finalScore} 
+        <Input
+          type="number"
+          step={0.1}
+          min={0}
+          max={10}
+          value={finalScore}
           onChange={e => setFinalScore(parseFloat(e.target.value))}
           prefix={<SafetyCertificateOutlined />}
         />

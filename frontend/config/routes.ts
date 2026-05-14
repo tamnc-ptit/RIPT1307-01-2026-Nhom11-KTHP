@@ -48,7 +48,12 @@ export default [
     icon :"DashboardOutlined",
     access: "isLecturer",
     routes : [
-      
+      {
+        path :"/lecturer/dashboard",
+        name : "Bảng điều khiển",
+        component : "./Lecturer/LecturerView",
+        icon:"DashboardOutlined",
+      },
       {
         path :"/lecturer/thesis-management",
         name : "Quản lý đề tài",
