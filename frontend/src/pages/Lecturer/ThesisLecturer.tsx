@@ -15,16 +15,14 @@ import {
   Col
 } from "antd";
 import { 
-  SearchOutlined, 
-  CheckOutlined, 
-  CloseOutlined, 
-  EyeOutlined,
   PlusOutlined,
-  ExclamationCircleOutlined 
+  ExclamationCircleOutlined,
+  FileExcelOutlined,
+  SafetyCertificateOutlined
 } from "@ant-design/icons";
 // Import các hàm từ service bạn đã cung cấp
 import { ThesisItem, getThesisList, deleteThesis } from "../../services/thesis";
-import { approveThesis, rejectThesis } from "../../services/lecturer";
+import { approveThesis, rejectThesis, finalizeThesis, exportExcelReport } from "../../services/lecturer";
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -35,8 +33,10 @@ const ThesisLecturer: React.FC = () => {
   const [data, setData] = useState<ThesisItem[]>([]);
   const [searchText, setSearchText] = useState("");
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
-  const [rejectingThesis, setRejectingThesis] = useState<number | null>(null);
+  const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
+  const [selectedThesisId, setSelectedThesisId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [finalScore, setFinalScore] = useState<number>(0);
 
   // --- Lấy dữ liệu thực tế từ API ---
   const fetchTheses = async () => {
@@ -83,20 +83,53 @@ const ThesisLecturer: React.FC = () => {
   };
 
   const handleReject = (id: number) => {
-    setRejectingThesis(id);
+    setSelectedThesisId(id);
     setIsRejectModalOpen(true);
   };
 
   const submitReject = async () => {
     if (!rejectReason) return message.warning("Vui lòng nhập lý do từ chối");
     try {
-      await rejectThesis(rejectingThesis!, rejectReason);
+      await rejectThesis(selectedThesisId!, rejectReason);
       message.success("Đã từ chối đề tài");
       setIsRejectModalOpen(false);
       setRejectReason("");
       fetchTheses();
     } catch (error) {
       message.error("Thao tác thất bại");
+    }
+  };
+
+  const handleFinalize = (id: number) => {
+    setSelectedThesisId(id);
+    setIsFinalizeModalOpen(true);
+  };
+
+  const submitFinalize = async () => {
+    try {
+      await finalizeThesis(selectedThesisId!, finalScore);
+      message.success("Đã xác nhận hoàn thành và nhập điểm!");
+      setIsFinalizeModalOpen(false);
+      fetchTheses();
+    } catch (error) {
+      message.error("Lỗi khi kết thúc đề tài");
+    }
+  };
+
+  const handleExport = async () => {
+    // Giả sử classId lấy từ item đầu tiên hoặc filter
+    const classId = data[0]?.class_id || 1;
+    try {
+      const blob = await exportExcelReport(classId);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `BaoCaoLop_${classId}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      message.error("Lỗi khi xuất báo cáo");
     }
   };
 
@@ -138,6 +171,12 @@ const ThesisLecturer: React.FC = () => {
       dataIndex: 'studentName', // Sửa lại cho khớp service (t.studentName)
       key: 'studentName',
       render: (text: string) => text || <Tag>Chưa gán</Tag>
+    },
+    {
+      title: 'Điểm',
+      dataIndex: 'final_score',
+      key: 'final_score',
+      render: (score: number) => score !== null ? <Tag color="blue">{score}</Tag> : '-'
     },
     {
       title: 'Trạng thái',
@@ -188,6 +227,18 @@ const ThesisLecturer: React.FC = () => {
             </>
           )}
 
+          {record.status === 'Approved' && (
+            <Tooltip title="Nhập điểm & Kết thúc">
+               <Button 
+                type="primary" 
+                shape="circle" 
+                style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                icon={<SafetyCertificateOutlined />} 
+                onClick={() => handleFinalize(record.id)} 
+              />
+            </Tooltip>
+          )}
+
           <Tooltip title="Xóa đề tài">
             <Button 
               type="text"
@@ -209,9 +260,14 @@ const ThesisLecturer: React.FC = () => {
           <Title level={3} style={{ margin: 0 }}>Quản lý Đề tài Hướng dẫn</Title>
         </Col>
         <Col>
-          <Button type="primary" icon={<PlusOutlined />} onClick={fetchTheses}>
-            Làm mới dữ liệu
-          </Button>
+          <Space>
+            <Button icon={<FileExcelOutlined />} onClick={handleExport}>
+              Xuất báo cáo
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={fetchTheses}>
+              Làm mới dữ liệu
+            </Button>
+          </Space>
         </Col>
       </Row>
 
@@ -251,6 +307,27 @@ const ThesisLecturer: React.FC = () => {
           placeholder="Nhập lý do cụ thể để sinh viên chỉnh sửa..."
           value={rejectReason}
           onChange={e => setRejectReason(e.target.value)}
+        />
+      </Modal>
+
+      {/* Modal nhập điểm tổng kết */}
+      <Modal
+        title="Xác nhận hoàn thành & Nhập điểm"
+        open={isFinalizeModalOpen}
+        onOk={submitFinalize}
+        onCancel={() => setIsFinalizeModalOpen(false)}
+        okText="Hoàn thành"
+        cancelText="Hủy"
+      >
+        <p>Nhập điểm tổng kết cho sinh viên sau khi đã hoàn thành các mốc tiến độ:</p>
+        <Input 
+          type="number" 
+          step={0.1} 
+          min={0} 
+          max={10} 
+          value={finalScore} 
+          onChange={e => setFinalScore(parseFloat(e.target.value))}
+          prefix={<SafetyCertificateOutlined />}
         />
       </Modal>
     </Card>

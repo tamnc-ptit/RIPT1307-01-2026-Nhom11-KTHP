@@ -55,3 +55,18 @@ export async function updateMilestoneFeedback(id: number, data: { comment?: stri
         data
     });
 }
+
+export async function finalizeThesis(id: number, finalScore: number) {
+    return request(`/api/lecturer/theses/${id}/finalize`, {
+        method: "PUT",
+        data: { finalScore }
+    });
+}
+
+export async function exportExcelReport(classId: number) {
+    return request("/api/lecturer/reports/export-excel", {
+        method: "GET",
+        params: { classId },
+        responseType: "blob"
+    });
+}
