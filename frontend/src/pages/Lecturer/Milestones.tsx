@@ -12,7 +12,9 @@ import {
   Rate, 
   Modal, 
   Input, 
-  message 
+  message,
+  DatePicker,
+  Form
 } from "antd";
 import { 
   ClockCircleOutlined, 
@@ -20,9 +22,10 @@ import {
   SyncOutlined, 
   FileTextOutlined,
   EditOutlined,
-  WarningOutlined
+  WarningOutlined,
+  PlusOutlined
 } from "@ant-design/icons";
-import { getMilestones, updateMilestoneFeedback } from "@/services/lecturer";
+import { getMilestones, updateMilestoneFeedback, createMilestone } from "@/services/lecturer";
 import { useLocation } from "umi";
 
 const { Title, Text, Paragraph } = Typography;
@@ -49,6 +52,8 @@ const Milestones: React.FC = () => {
   const [selectedMilestone, setSelectedMilestone] = useState<RealMilestone | null>(null);
   const [feedback, setFeedback] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addForm] = Form.useForm();
   
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -90,6 +95,21 @@ const Milestones: React.FC = () => {
       fetchMilestones();
     } catch (error) {
       message.error("Lỗi khi lưu nhận xét");
+    }
+  };
+
+  const handleAddSubmit = async (values: any) => {
+    try {
+      await createMilestone({
+        ...values,
+        thesis_id: thesisId,
+      });
+      message.success("Đã thêm mốc tiến độ!");
+      setIsAddModalOpen(false);
+      addForm.resetFields();
+      fetchMilestones();
+    } catch (error) {
+      message.error("Lỗi khi thêm mốc tiến độ");
     }
   };
 
@@ -161,10 +181,15 @@ const Milestones: React.FC = () => {
         <Col span={24}>
           <Card 
             title={
-              <span>
-                <SyncOutlined spin={loading} style={{ marginRight: 8, color: '#1890ff' }} />
-                Danh sách các mốc tiến độ
-              </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>
+                  <SyncOutlined spin={loading} style={{ marginRight: 8, color: '#1890ff' }} />
+                  Danh sách các mốc tiến độ
+                </span>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsAddModalOpen(true)}>
+                  Thêm Mốc Tiến Độ
+                </Button>
+              </div>
             }
           >
             <Table 
@@ -218,6 +243,28 @@ const Milestones: React.FC = () => {
             onChange={e => setFeedback(e.target.value)}
           />
         </div>
+      </Modal>
+
+      {/* Modal Thêm Mốc Tiến Độ */}
+      <Modal
+        title="Thêm Mốc Tiến Độ Riêng"
+        open={isAddModalOpen}
+        onOk={() => addForm.submit()}
+        onCancel={() => setIsAddModalOpen(false)}
+        okText="Thêm Mốc"
+        cancelText="Hủy"
+      >
+        <Form form={addForm} layout="vertical" onFinish={handleAddSubmit}>
+          <Form.Item name="name" label="Tên Milestone" rules={[{ required: true }]}>
+            <Input placeholder="VD: Báo cáo giữa kỳ" />
+          </Form.Item>
+          <Form.Item name="description" label="Mô tả / Yêu cầu">
+            <TextArea rows={3} placeholder="Mô tả yêu cầu cần nộp..." />
+          </Form.Item>
+          <Form.Item name="deadline" label="Hạn nộp" rules={[{ required: true }]}>
+            <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );

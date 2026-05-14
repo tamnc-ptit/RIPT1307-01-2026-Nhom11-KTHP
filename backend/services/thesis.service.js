@@ -40,7 +40,7 @@ exports.createThesis = async (data) => {
     .request()
     .input("title", sql.NVarChar, title)
     .input("description", sql.NVarChar, description || null)
-    .input("student_id", sql.Int, student_id)
+    .input("student_id", sql.Int, student_id || null)
     .input("lecturer_id", sql.Int, lecturer_id || null)
     .input("class_id", sql.Int, class_id || null).query(`
       INSERT INTO Thesis (title, description, student_id, lecturer_id, class_id, status)

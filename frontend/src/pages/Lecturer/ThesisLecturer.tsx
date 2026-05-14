@@ -12,7 +12,8 @@ import {
   Typography,
   Row,
   Tooltip,
-  Col
+  Col,
+  Form
 } from "antd";
 import {
   PlusOutlined,
@@ -25,11 +26,13 @@ import {
   SearchOutlined
 } from "@ant-design/icons";
 // Import các hàm từ service bạn đã cung cấp
-import { getThesisList, deleteThesis } from "../../services/thesis";
 import { approveThesis, rejectThesis, finalizeThesis, exportExcelReport } from "../../services/lecturer";
+import { getThesisList, deleteThesis } from "../../services/thesis";
 import { ThesisItem } from "@/types/LecturerTypes/ThesisTypes";
 import { useModel } from "umi";
-const { Title } = Typography;
+
+
+const { Title, Text } = Typography;
 const { Option } = Select;
 const { confirm } = Modal;
 
@@ -39,9 +42,11 @@ const ThesisLecturer: React.FC = () => {
   const [searchText, setSearchText] = useState("");
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedThesisId, setSelectedThesisId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [finalScore, setFinalScore] = useState<number>(0);
+  const [addForm] = Form.useForm();
 
   const { initialState } = useModel("@@initialState");
   const lecturerId = initialState?.currentUser?.id;
@@ -66,9 +71,21 @@ const ThesisLecturer: React.FC = () => {
     }
   }, [lecturerId]);
 
-  const handleAddThesis = (record: ThesisItem) => {
-
-  }
+  const handleAddSubmit = async (values: any) => {
+    try {
+      const { addThesis } = await import('@/services/thesis');
+      await addThesis({
+        ...values,
+        lecturer_id: lecturerId,
+      });
+      message.success("Đã đăng đề tài lên chợ!");
+      setIsAddModalOpen(false);
+      addForm.resetFields();
+      fetchTheses();
+    } catch (error) {
+      message.error("Lỗi đăng đề tài");
+    }
+  };
   // --- Xử lý Duyệt đề tài ---
   const handleApprove = (record: ThesisItem) => {
     confirm({
@@ -274,8 +291,8 @@ const ThesisLecturer: React.FC = () => {
             <Button icon={<FileExcelOutlined />} onClick={handleExport}>
               Xuất báo cáo
             </Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={fetchTheses}>
-              Làm mới dữ liệu
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsAddModalOpen(true)}>
+              Đăng đề tài lên chợ
             </Button>
           </Space>
         </Col>
@@ -322,23 +339,47 @@ const ThesisLecturer: React.FC = () => {
 
       {/* Modal nhập điểm tổng kết */}
       <Modal
-        title="Xác nhận hoàn thành & Nhập điểm"
+        title="Nhập điểm tổng kết"
         open={isFinalizeModalOpen}
         onOk={submitFinalize}
         onCancel={() => setIsFinalizeModalOpen(false)}
-        okText="Hoàn thành"
+        okText="Lưu điểm"
         cancelText="Hủy"
       >
-        <p>Nhập điểm tổng kết cho sinh viên sau khi đã hoàn thành các mốc tiến độ:</p>
+        <div style={{ marginBottom: 16 }}>
+          Nhập điểm từ 0 đến 10 cho đề tài này. Hệ thống sẽ khóa và chuyển sang trạng thái Hoàn thành.
+        </div>
         <Input
           type="number"
-          step={0.1}
           min={0}
           max={10}
+          step={0.1}
           value={finalScore}
-          onChange={e => setFinalScore(parseFloat(e.target.value))}
-          prefix={<SafetyCertificateOutlined />}
+          onChange={(e) => setFinalScore(parseFloat(e.target.value))}
+          placeholder="Ví dụ: 8.5"
         />
+      </Modal>
+
+      {/* Modal Đăng đề tài lên chợ */}
+      <Modal
+        title="Đăng đề tài mới lên chợ"
+        open={isAddModalOpen}
+        onOk={() => addForm.submit()}
+        onCancel={() => setIsAddModalOpen(false)}
+        okText="Đăng đề tài"
+        cancelText="Hủy"
+      >
+        <Form form={addForm} layout="vertical" onFinish={handleAddSubmit}>
+          <Form.Item name="title" label="Tên đề tài" rules={[{ required: true }]}>
+            <Input placeholder="Ví dụ: Ứng dụng quản lý sinh viên" />
+          </Form.Item>
+          <Form.Item name="description" label="Mô tả / Yêu cầu">
+            <Input.TextArea rows={4} placeholder="Mô tả ngắn gọn về đề tài..." />
+          </Form.Item>
+          <Form.Item name="class_id" label="ID Lớp (Tùy chọn)">
+            <Input type="number" placeholder="Nhập ID lớp nếu muốn chỉ định" />
+          </Form.Item>
+        </Form>
       </Modal>
     </Card>
   );

@@ -36,3 +36,17 @@ CREATE TABLE Milestones (
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE()
 );
+
+-- 4. Bổ sung cho Phân hệ Giảng viên (Giai đoạn 2)
+ALTER TABLE Thesis ALTER COLUMN student_id INT NULL;
+
+CREATE TABLE SessionConfigs (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    class_id INT NOT NULL,
+    start_date DATETIME NOT NULL,
+    end_date DATETIME NOT NULL,
+    max_students_per_group INT DEFAULT 1,
+    status NVARCHAR(20) DEFAULT 'ACTIVE',
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+);

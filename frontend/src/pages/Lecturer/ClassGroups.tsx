@@ -14,6 +14,9 @@ import {
   Empty
 } from "antd";
 import { 
+  TeamOutlined, 
+  UserOutlined, 
+  ExportOutlined, 
   InfoCircleOutlined 
 } from "@ant-design/icons";
 import { getLecturerClasses } from "@/services/lecturer";
@@ -63,7 +66,7 @@ const ClassGroups: React.FC = () => {
   const fetchClasses = async () => {
     setLoading(true);
     try {
-      const res = await getLecturerClasses(lecturerId);
+      const res = await getLecturerClasses(lecturerId!);
       // Ánh xạ lại cho khớp interface (giả định API trả về {id, class_name, class_code})
       setClasses(res.map((c: any) => ({
         id: c.id.toString(),

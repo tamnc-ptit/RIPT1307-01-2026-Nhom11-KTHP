@@ -60,8 +60,8 @@ const LecturerDashboard: React.FC = () => {
     setLoading(true);
     try {
       const [statsRes, risksRes, thesisRes] = await Promise.all([
-        getDashboardStats(lecturerId),
-        getRiskFlags(lecturerId),
+        getDashboardStats(lecturerId!),
+        getRiskFlags(lecturerId!),
         getThesisList()
       ]);
 

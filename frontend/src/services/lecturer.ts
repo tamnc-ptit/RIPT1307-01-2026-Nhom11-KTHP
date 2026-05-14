@@ -49,6 +49,13 @@ export async function getMilestones(thesisId: string) {
     });
 }
 
+export async function createMilestone(data: any) {
+    return request("/api/lecturer/milestones", {
+        method: "POST",
+        data
+    });
+}
+
 export async function updateMilestoneFeedback(id: number, data: { comment?: string, status?: string, plagiarismIndex?: number }) {
     return request(`/api/lecturer/milestones/${id}/feedback`, {
         method: "PUT",
@@ -69,4 +76,53 @@ export async function exportExcelReport(classId: number) {
         params: { classId },
         responseType: "blob"
     });
+}
+
+// --- Sessions ---
+export async function getSessions(lecturerId: number) {
+  return request("/api/lecturer/sessions", {
+    method: "GET",
+    params: { lecturerId },
+  });
+}
+
+export async function createSession(data: any) {
+  return request("/api/lecturer/sessions", {
+    method: "POST",
+    data,
+  });
+}
+
+export async function deleteSession(id: number) {
+  return request(`/api/lecturer/sessions/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// --- Templates ---
+export async function getTemplates(classId: number) {
+  return request("/api/lecturer/templates", {
+    method: "GET",
+    params: { classId },
+  });
+}
+
+export async function createTemplate(data: any) {
+  return request("/api/lecturer/templates", {
+    method: "POST",
+    data,
+  });
+}
+
+export async function updateTemplate(id: number, data: any) {
+  return request(`/api/lecturer/templates/${id}`, {
+    method: "PUT",
+    data,
+  });
+}
+
+export async function deleteTemplate(id: number) {
+  return request(`/api/lecturer/templates/${id}`, {
+    method: "DELETE",
+  });
 }

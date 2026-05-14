@@ -15,8 +15,8 @@ exports.getAllThesis = async (req, res) => {
 exports.createThesis = async (req, res) => {
   const { title, student_id } = req.body;
 
-  if (!title || !student_id) {
-    return res.status(400).json({ message: "Thiếu dữ liệu bắt buộc" });
+  if (!title) {
+    return res.status(400).json({ message: "Thiếu tiêu đề đề tài bắt buộc" });
   }
 
   try {

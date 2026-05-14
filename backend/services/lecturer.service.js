@@ -186,3 +186,112 @@ exports.exportClassReport = async (classId) => {
   
   return workbook;
 };
+
+// --- Session Configs ---
+exports.getSessions = async (lecturerId) => {
+  const pool = await poolPromise;
+  const result = await pool.request()
+    .input("lecturerId", sql.Int, lecturerId)
+    .query(`
+      SELECT s.*, c.class_name as className 
+      FROM SessionConfigs s
+      JOIN Classes c ON s.class_id = c.id
+      WHERE c.lecturer_id = @lecturerId
+      ORDER BY s.id DESC
+    `);
+  return result.recordset;
+};
+
+exports.createSession = async (data) => {
+  const pool = await poolPromise;
+  const { class_id, start_date, end_date, max_students_per_group } = data;
+  const result = await pool.request()
+    .input("class_id", sql.Int, class_id)
+    .input("start_date", sql.DateTime, new Date(start_date))
+    .input("end_date", sql.DateTime, new Date(end_date))
+    .input("max", sql.Int, max_students_per_group)
+    .query(`
+      INSERT INTO SessionConfigs (class_id, start_date, end_date, max_students_per_group)
+      OUTPUT INSERTED.*
+      VALUES (@class_id, @start_date, @end_date, @max)
+    `);
+  return result.recordset[0];
+};
+
+exports.deleteSession = async (id) => {
+  const pool = await poolPromise;
+  await pool.request().input("id", sql.Int, id).query(`DELETE FROM SessionConfigs WHERE id = @id`);
+  return { success: true };
+};
+
+// --- Milestone Templates ---
+exports.getTemplates = async (classId) => {
+  const pool = await poolPromise;
+  const result = await pool.request()
+    .input("classId", sql.Int, classId)
+    .query(`SELECT * FROM MilestoneTemplates WHERE class_id = @classId ORDER BY id ASC`);
+  return result.recordset;
+};
+
+exports.createTemplate = async (data) => {
+  const pool = await poolPromise;
+  const { class_id, name, description, is_mandatory, requires_plagiarism_check, relative_deadline_days } = data;
+  const result = await pool.request()
+    .input("class_id", sql.Int, class_id)
+    .input("name", sql.NVarChar, name)
+    .input("description", sql.NVarChar, description || '')
+    .input("is_mandatory", sql.Bit, is_mandatory !== undefined ? is_mandatory : 1)
+    .input("requires_plagiarism_check", sql.Bit, requires_plagiarism_check !== undefined ? requires_plagiarism_check : 0)
+    .input("relative_deadline_days", sql.Int, relative_deadline_days)
+    .query(`
+      INSERT INTO MilestoneTemplates (class_id, name, description, is_mandatory, requires_plagiarism_check, relative_deadline_days)
+      OUTPUT INSERTED.*
+      VALUES (@class_id, @name, @description, @is_mandatory, @requires_plagiarism_check, @relative_deadline_days)
+    `);
+  return result.recordset[0];
+};
+
+exports.updateTemplate = async (id, data) => {
+  const pool = await poolPromise;
+  const { name, description, is_mandatory, requires_plagiarism_check, relative_deadline_days } = data;
+  const result = await pool.request()
+    .input("id", sql.Int, id)
+    .input("name", sql.NVarChar, name)
+    .input("description", sql.NVarChar, description || '')
+    .input("is_mandatory", sql.Bit, is_mandatory)
+    .input("requires_plagiarism_check", sql.Bit, requires_plagiarism_check)
+    .input("relative_deadline_days", sql.Int, relative_deadline_days)
+    .query(`
+      UPDATE MilestoneTemplates 
+      SET name = @name, description = @description, is_mandatory = @is_mandatory, 
+          requires_plagiarism_check = @requires_plagiarism_check, relative_deadline_days = @relative_deadline_days
+      OUTPUT INSERTED.*
+      WHERE id = @id
+    `);
+  return result.recordset[0];
+};
+
+exports.deleteTemplate = async (id) => {
+  const pool = await poolPromise;
+  await pool.request().input("id", sql.Int, id).query(`DELETE FROM MilestoneTemplates WHERE id = @id`);
+  return { success: true };
+};
+
+// --- Custom Milestones ---
+exports.createMilestone = async (data) => {
+  const pool = await poolPromise;
+  const { thesis_id, name, description, deadline, is_mandatory, requires_plagiarism_check } = data;
+  const result = await pool.request()
+    .input("thesis_id", sql.Int, thesis_id)
+    .input("name", sql.NVarChar, name)
+    .input("description", sql.NVarChar, description || '')
+    .input("deadline", sql.DateTime, new Date(deadline))
+    .input("is_mandatory", sql.Bit, is_mandatory !== undefined ? is_mandatory : 1)
+    .input("requires_plagiarism_check", sql.Bit, requires_plagiarism_check !== undefined ? requires_plagiarism_check : 0)
+    .query(`
+      INSERT INTO Milestones (thesis_id, name, description, deadline, is_mandatory, requires_plagiarism_check, status)
+      OUTPUT INSERTED.*
+      VALUES (@thesis_id, @name, @description, @deadline, @is_mandatory, @requires_plagiarism_check, 'todo')
+    `);
+  return result.recordset[0];
+};
