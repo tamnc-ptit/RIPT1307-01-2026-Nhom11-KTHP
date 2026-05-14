@@ -137,3 +137,52 @@ exports.rejectThesis = async (thesisId, reason) => {
     `);
   return { success: true };
 };
+
+const ExcelJS = require('exceljs');
+
+exports.finalizeThesis = async (thesisId, finalScore) => {
+  const pool = await poolPromise;
+  await pool.request()
+    .input("id", sql.Int, thesisId)
+    .input("score", sql.Decimal(4, 2), finalScore)
+    .query(`
+      UPDATE Thesis 
+      SET status = 'Completed', final_score = @score, updated_at = GETDATE() 
+      WHERE id = @id
+    `);
+  return { success: true };
+};
+
+exports.exportClassReport = async (classId) => {
+  const pool = await poolPromise;
+  const result = await pool.request()
+    .input("classId", sql.Int, classId)
+    .query(`
+      SELECT 
+        u.id as StudentID,
+        u.name as StudentName,
+        t.title as ThesisTitle,
+        t.final_score as FinalScore,
+        t.status as Status
+      FROM Thesis t
+      JOIN Users u ON t.student_id = u.id
+      WHERE t.class_id = @classId
+    `);
+    
+  const data = result.recordset;
+  
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet('Báo cáo điểm');
+  
+  worksheet.columns = [
+    { header: 'MSSV', key: 'StudentID', width: 15 },
+    { header: 'Họ tên', key: 'StudentName', width: 30 },
+    { header: 'Tên đề tài', key: 'ThesisTitle', width: 50 },
+    { header: 'Điểm tổng kết', key: 'FinalScore', width: 15 },
+    { header: 'Trạng thái', key: 'Status', width: 15 },
+  ];
+  
+  data.forEach(item => worksheet.addRow(item));
+  
+  return workbook;
+};

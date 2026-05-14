@@ -9,5 +9,7 @@ router.put("/theses/:id/approve", lecturerController.approveThesis);
 router.put("/theses/:id/reject", lecturerController.rejectThesis);
 router.get("/milestones", lecturerController.getMilestones);
 router.put("/milestones/:id/feedback", lecturerController.updateMilestoneFeedback);
+router.put("/theses/:id/finalize", lecturerController.finalizeThesis);
+router.get("/reports/export-excel", lecturerController.exportReport);
 
 module.exports = router;

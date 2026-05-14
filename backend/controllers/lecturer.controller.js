@@ -82,3 +82,38 @@ exports.updateMilestoneFeedback = async (req, res) => {
     res.status(500).json({ message: "Lỗi khi cập nhật phản hồi", error: err.message });
   }
 };
+
+exports.finalizeThesis = async (req, res) => {
+  const { id } = req.params;
+  const { finalScore } = req.body;
+  if (finalScore === undefined) return res.status(400).json({ message: "Thiếu điểm tổng kết" });
+
+  try {
+    const result = await lecturerService.finalizeThesis(id, finalScore);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi khi kết thúc đề tài", error: err.message });
+  }
+};
+
+exports.exportReport = async (req, res) => {
+  const { classId } = req.query;
+  if (!classId) return res.status(400).json({ message: "Thiếu classId" });
+
+  try {
+    const workbook = await lecturerService.exportClassReport(classId);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=BaoCaoLop_${classId}.xlsx`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi khi xuất báo cáo", error: err.message });
+  }
+};
