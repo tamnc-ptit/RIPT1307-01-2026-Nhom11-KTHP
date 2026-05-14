@@ -18,7 +18,11 @@ import {
   PlusOutlined,
   ExclamationCircleOutlined,
   FileExcelOutlined,
-  SafetyCertificateOutlined
+  SafetyCertificateOutlined,
+  EyeOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  SearchOutlined
 } from "@ant-design/icons";
 // Import các hàm từ service bạn đã cung cấp
 import { ThesisItem, getThesisList, deleteThesis } from "../../services/thesis";

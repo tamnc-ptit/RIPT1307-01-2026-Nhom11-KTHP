@@ -4,6 +4,9 @@ export interface ThesisItem {
   description: string;
   student_id: number;
   lecturer_id: number;
-  student_name?: string;
-  lecturer_name?: string;
+  class_id?: number;
+  status: string;
+  final_score?: number;
+  studentName?: string;
+  supervisorName?: string;
 }
