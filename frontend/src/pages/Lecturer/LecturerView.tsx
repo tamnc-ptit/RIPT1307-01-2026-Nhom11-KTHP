@@ -11,6 +11,8 @@ import {
   ClockCircleOutlined 
 } from "@ant-design/icons";
 import { history } from "umi";
+import { getDashboardStats, getRiskFlags } from "@/services/lecturer";
+import { getThesisList } from "@/services/thesis";
 
 const { Title, Text } = Typography;
 
@@ -26,9 +28,15 @@ interface ThesisTopic {
 
 interface SummaryStats {
   totalStudents: number;
-  pendingTopics: number;
-  activeGroups: number;
-  completedMilestones: number;
+  pendingTheses: number;
+  newSubmissions: number;
+}
+
+interface RiskFlag {
+  studentId: number;
+  studentName: string;
+  riskType: string;
+  lastUpdate?: string;
 }
 
 const LecturerDashboard: React.FC = () => {
@@ -36,6 +44,10 @@ const LecturerDashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [stats, setStats] = useState<SummaryStats | null>(null);
   const [topics, setTopics] = useState<ThesisTopic[]>([]);
+  const [risks, setRisks] = useState<RiskFlag[]>([]);
+  
+  // Lấy lecturerId từ localStorage hoặc context (Giả định là 1 cho hiện tại)
+  const lecturerId = 1; 
 
   // --- Effect (Nơi gọi API) ---
   useEffect(() => {
@@ -45,20 +57,25 @@ const LecturerDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // TODO: const res = await getLecturerStats();
-      // Giả lập dữ liệu mẫu (Mock Data)
-      setStats({
-        totalStudents: 15,
-        pendingTopics: 8,
-        activeGroups: 5,
-        completedMilestones: 12
-      });
-
-      // TODO: const topicList = await getPendingTopics();
-      setTopics([
-        { id: '1', title: 'Hệ thống quản lý bãi xe thông minh', studentGroup: 'Nhóm 04', classCode: 'INT3306_1', status: 'PENDING', submittedAt: '2026-05-10' },
-        { id: '2', title: 'Ứng dụng đặt lịch khám bệnh', studentGroup: 'Nguyễn Văn A', classCode: 'INT3306_2', status: 'APPROVED', submittedAt: '2026-05-11' },
+      const [statsRes, risksRes, thesisRes] = await Promise.all([
+        getDashboardStats(lecturerId),
+        getRiskFlags(lecturerId),
+        getThesisList()
       ]);
+
+      setStats(statsRes);
+      setRisks(risksRes);
+      
+      // Lọc các đề tài Pending hoặc mới nhất
+      setTopics(thesisRes.slice(0, 5).map((t: any) => ({
+        id: t.id.toString(),
+        title: t.title,
+        studentGroup: t.studentName || 'Chưa gán',
+        classCode: t.class_id || 'N/A',
+        status: t.status.toUpperCase(),
+        submittedAt: t.created_at
+      })));
+
     } catch (error) {
       console.error("Failed to fetch data", error);
     } finally {
@@ -145,7 +162,7 @@ const LecturerDashboard: React.FC = () => {
             <Card bordered={false} hoverable>
               <Statistic
                 title="Đề tài chờ duyệt"
-                value={stats?.pendingTopics || 0}
+                value={stats?.pendingTheses || 0}
                 prefix={<FileSearchOutlined />}
                 valueStyle={{ color: '#cf1322' }}
               />
@@ -154,18 +171,20 @@ const LecturerDashboard: React.FC = () => {
           <Col xs={24} sm={12} md={6}>
             <Card bordered={false} hoverable>
               <Statistic
-                title="Nhóm đang hoạt động"
-                value={stats?.activeGroups || 0}
+                title="Bài nộp mới"
+                value={stats?.newSubmissions || 0}
                 prefix={<CheckCircleOutlined />}
+                valueStyle={{ color: '#1890ff' }}
               />
             </Card>
           </Col>
           <Col xs={24} sm={12} md={6}>
             <Card bordered={false} hoverable>
               <Statistic
-                title="Milestones hoàn thành"
-                value={stats?.completedMilestones || 0}
+                title="Cờ rủi ro"
+                value={risks.length}
                 prefix={<ClockCircleOutlined />}
+                valueStyle={{ color: risks.length > 0 ? '#faad14' : 'inherit' }}
               />
             </Card>
           </Col>
@@ -204,10 +223,20 @@ const LecturerDashboard: React.FC = () => {
                 
                 <Divider />
                 
-                <Card size="small" type="inner" title="Thông báo hệ thống">
-                  <Text  type="secondary">
-                    Hạn cuối duyệt đề tài cho lớp INT3306_1 là ngày 15/05.
-                  </Text>
+                <Card size="small" type="inner" title="🚩 Cảnh báo rủi ro" className="risk-card">
+                  {risks.length === 0 ? (
+                    <Text type="secondary">Không có rủi ro nào được phát hiện.</Text>
+                  ) : (
+                    <ul style={{ paddingLeft: 20, margin: 0 }}>
+                      {risks.map((risk, idx) => (
+                        <li key={idx} style={{ marginBottom: 8 }}>
+                          <Text strong>{risk.studentName}</Text>: 
+                          <br />
+                          <Tag color="warning" style={{ fontSize: '11px' }}>{risk.riskType}</Tag>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </Card>
               </Space>
               </Card>
