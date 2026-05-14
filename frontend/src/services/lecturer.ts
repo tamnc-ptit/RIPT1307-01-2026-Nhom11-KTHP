@@ -21,3 +21,23 @@ export async function getPendingTheses() {
         params: { status: 'Pending' }
     });
 }
+
+export async function getLecturerClasses(lecturerId: number) {
+    return request("/api/lecturer/classes", {
+        method: "GET",
+        params: { lecturerId }
+    });
+}
+
+export async function approveThesis(id: number) {
+    return request(`/api/lecturer/theses/${id}/approve`, {
+        method: "PUT"
+    });
+}
+
+export async function rejectThesis(id: number, rejectReason: string) {
+    return request(`/api/lecturer/theses/${id}/reject`, {
+        method: "PUT",
+        data: { rejectReason }
+    });
+}

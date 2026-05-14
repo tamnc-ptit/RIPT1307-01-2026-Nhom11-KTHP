@@ -23,7 +23,8 @@ import {
   ExclamationCircleOutlined 
 } from "@ant-design/icons";
 // Import các hàm từ service bạn đã cung cấp
-import { ThesisItem, addThesis , getThesisList, updateThesis, deleteThesis } from "../../services/thesis";
+import { ThesisItem, getThesisList, deleteThesis } from "../../services/thesis";
+import { approveThesis, rejectThesis } from "../../services/lecturer";
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -33,7 +34,9 @@ const ThesisLecturer: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<ThesisItem[]>([]);
   const [searchText, setSearchText] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectingThesis, setRejectingThesis] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   // --- Lấy dữ liệu thực tế từ API ---
   const fetchTheses = async () => {
@@ -56,24 +59,45 @@ const ThesisLecturer: React.FC = () => {
   const handleAddThesis = (record:ThesisItem)=>{
     
   }
-  // --- Xử lý Duyệt đề tài (Sử dụng hàm updateThesis) ---
+  // --- Xử lý Duyệt đề tài ---
   const handleApprove = (record: ThesisItem) => {
     confirm({
       title: 'Xác nhận duyệt đề tài?',
       icon: <ExclamationCircleOutlined />,
-      content: `Đề tài: ${record.title}`,
+      content: (
+        <div>
+          <p><strong>Đề tài:</strong> {record.title}</p>
+          <p style={{ color: 'gray', fontSize: '12px' }}>* Hệ thống sẽ tự động khởi tạo lộ trình Milestone cho sinh viên.</p>
+        </div>
+      ),
       onOk: async () => {
         try {
-          // Giả sử status được lưu trong database. Nếu DB chưa có trường status, 
-          // bạn cần bổ sung vào interface và backend.
-          await updateThesis(record.id, { ...record, status: 'APPROVED' });
-          message.success("Đã duyệt đề tài thành công!");
+          await approveThesis(record.id);
+          message.success("Đã duyệt đề tài và khởi tạo lộ trình thành công!");
           fetchTheses();
         } catch (error) {
           message.error("Duyệt đề tài thất bại");
         }
       },
     });
+  };
+
+  const handleReject = (id: number) => {
+    setRejectingThesis(id);
+    setIsRejectModalOpen(true);
+  };
+
+  const submitReject = async () => {
+    if (!rejectReason) return message.warning("Vui lòng nhập lý do từ chối");
+    try {
+      await rejectThesis(rejectingThesis!, rejectReason);
+      message.success("Đã từ chối đề tài");
+      setIsRejectModalOpen(false);
+      setRejectReason("");
+      fetchTheses();
+    } catch (error) {
+      message.error("Thao tác thất bại");
+    }
   };
 
   // --- Xử lý Xóa đề tài (Sử dụng hàm deleteThesis) ---
@@ -111,9 +135,22 @@ const ThesisLecturer: React.FC = () => {
     },
     {
       title: 'Sinh viên',
-      dataIndex: 'student_name', // Sử dụng student_name từ interface
-      key: 'student_name',
-      render: (text: string) => text || <Tag>Chưa đăng ký</Tag>
+      dataIndex: 'studentName', // Sửa lại cho khớp service (t.studentName)
+      key: 'studentName',
+      render: (text: string) => text || <Tag>Chưa gán</Tag>
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => {
+        let color = 'default';
+        if (status === 'Approved') color = 'green';
+        if (status === 'Pending') color = 'gold';
+        if (status === 'Rejected') color = 'red';
+        if (status === 'Completed') color = 'blue';
+        return <Tag color={color}>{status?.toUpperCase()}</Tag>;
+      }
     },
     {
       title: 'Mô tả',
@@ -130,21 +167,33 @@ const ThesisLecturer: React.FC = () => {
             <Button shape="circle" icon={<EyeOutlined />} />
           </Tooltip>
           
-          {/* Ví dụ: chỉ hiện nút duyệt nếu student_id tồn tại (có người đăng ký) */}
-          {record.student_id && (
-            <Button 
-              type="primary" 
-              shape="circle" 
-              icon={<CheckOutlined />} 
-              onClick={() => handleApprove(record)} 
-            />
+          {record.status === 'Pending' && (
+            <>
+              <Tooltip title="Phê duyệt">
+                <Button 
+                  type="primary" 
+                  shape="circle" 
+                  icon={<CheckOutlined />} 
+                  onClick={() => handleApprove(record)} 
+                />
+              </Tooltip>
+              <Tooltip title="Từ chối">
+                <Button 
+                  danger 
+                  shape="circle" 
+                  icon={<CloseOutlined />} 
+                  onClick={() => handleReject(record.id)} 
+                />
+              </Tooltip>
+            </>
           )}
 
           <Tooltip title="Xóa đề tài">
             <Button 
+              type="text"
               danger 
               shape="circle" 
-              icon={<CloseOutlined />} 
+              icon={<ExclamationCircleOutlined />} 
               onClick={() => handleDelete(record.id)}
             />
           </Tooltip>
@@ -186,6 +235,24 @@ const ThesisLecturer: React.FC = () => {
         rowKey="id"
         pagination={{ pageSize: 8 }}
       />
+
+      {/* Modal nhập lý do từ chối */}
+      <Modal
+        title="Lý do từ chối đề tài"
+        open={isRejectModalOpen}
+        onOk={submitReject}
+        onCancel={() => setIsRejectModalOpen(false)}
+        okText="Gửi từ chối"
+        cancelText="Hủy"
+        okButtonProps={{ danger: true }}
+      >
+        <Input.TextArea 
+          rows={4} 
+          placeholder="Nhập lý do cụ thể để sinh viên chỉnh sửa..."
+          value={rejectReason}
+          onChange={e => setRejectReason(e.target.value)}
+        />
+      </Modal>
     </Card>
   );
 };
