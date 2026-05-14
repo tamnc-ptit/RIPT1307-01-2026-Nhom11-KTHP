@@ -1,12 +1,11 @@
-// controllers/thesisController.js
-const thesisService = require("../services/thesis.service");
+const { poolPromise, sql } = require("../config/db");
 
-exports.getAllThesis = async (req, res) => {
+const getAdminThesis = async (req, res) => {
   try {
     const { keyword, lecturerId } = req.query;
     const data = await thesisService.getAllThesis(keyword, lecturerId);
     res.json(data);
-    
+
   } catch (err) {
     res.status(500).json({ message: "Lỗi Server", error: err.message });
   }
@@ -69,3 +68,5 @@ exports.deleteThesis = async (req, res) => {
     res.status(500).json({ message: "Lỗi delete", error: err.message });
   }
 };
+
+module.exports = { getAdminThesis };
