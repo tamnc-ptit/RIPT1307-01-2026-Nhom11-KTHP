@@ -41,3 +41,17 @@ export async function rejectThesis(id: number, rejectReason: string) {
         data: { rejectReason }
     });
 }
+
+export async function getMilestones(thesisId: string) {
+    return request("/api/lecturer/milestones", {
+        method: "GET",
+        params: { thesisId }
+    });
+}
+
+export async function updateMilestoneFeedback(id: number, data: { comment?: string, status?: string, plagiarismIndex?: number }) {
+    return request(`/api/lecturer/milestones/${id}/feedback`, {
+        method: "PUT",
+        data
+    });
+}
