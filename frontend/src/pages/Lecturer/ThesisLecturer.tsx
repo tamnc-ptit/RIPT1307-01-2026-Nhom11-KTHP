@@ -28,6 +28,7 @@ import {
 import { getThesisList, deleteThesis } from "../../services/thesis";
 import { approveThesis, rejectThesis, finalizeThesis, exportExcelReport } from "../../services/lecturer";
 import { ThesisItem } from "@/types/LecturerTypes/ThesisTypes";
+import { useModel } from "umi";
 const { Title } = Typography;
 const { Option } = Select;
 const { confirm } = Modal;
@@ -42,11 +43,14 @@ const ThesisLecturer: React.FC = () => {
   const [rejectReason, setRejectReason] = useState("");
   const [finalScore, setFinalScore] = useState<number>(0);
 
+  const { initialState } = useModel("@@initialState");
+  const lecturerId = initialState?.currentUser?.id;
+
   // --- Lấy dữ liệu thực tế từ API ---
   const fetchTheses = async () => {
     setLoading(true);
     try {
-      const res = await getThesisList();
+      const res = await getThesisList({ lecturerId });
       // Nếu API trả về trực tiếp mảng ThesisItem[]
       setData(res || []);
     } catch (error) {
@@ -57,8 +61,10 @@ const ThesisLecturer: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchTheses();
-  }, []);
+    if (lecturerId) {
+      fetchTheses();
+    }
+  }, [lecturerId]);
 
   const handleAddThesis = (record: ThesisItem) => {
 

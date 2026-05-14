@@ -14,11 +14,10 @@ import {
   Empty
 } from "antd";
 import { 
-  TeamOutlined, 
-  UserOutlined, 
-  ExportOutlined, 
   InfoCircleOutlined 
 } from "@ant-design/icons";
+import { getLecturerClasses } from "@/services/lecturer";
+import { useModel } from "umi";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -51,47 +50,42 @@ const ClassGroups: React.FC = () => {
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
 
+  const { initialState } = useModel("@@initialState");
+  const lecturerId = initialState?.currentUser?.id;
+
   // 1. Fetch danh sách lớp của giảng viên này
   useEffect(() => {
-    // TODO: const res = await getLecturerClasses();
-    const mockClasses: ClassEntity[] = [
-      { id: 'c1', className: 'Thiết kế Web nâng cao', classCode: 'WEB2024_01', totalGroups: 10 },
-      { id: 'c2', className: 'Phát triển phần mềm', classCode: 'SE101_05', totalGroups: 8 },
-    ];
-    setClasses(mockClasses);
-  }, []);
+    if (lecturerId) {
+      fetchClasses();
+    }
+  }, [lecturerId]);
+
+  const fetchClasses = async () => {
+    setLoading(true);
+    try {
+      const res = await getLecturerClasses(lecturerId);
+      // Ánh xạ lại cho khớp interface (giả định API trả về {id, class_name, class_code})
+      setClasses(res.map((c: any) => ({
+        id: c.id.toString(),
+        className: c.class_name || c.className,
+        classCode: c.class_code || c.classCode,
+        totalGroups: 0 // Phần này có thể tính sau
+      })));
+    } catch (error) {
+      console.error("Lỗi khi tải danh sách lớp");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // 2. Fetch danh sách nhóm khi chọn lớp
   const handleClassChange = (classId: string) => {
     setSelectedClass(classId);
     setLoading(true);
     
-    // Giả lập gọi API lấy danh sách nhóm của lớp đó
-    setTimeout(() => {
-      const mockGroups: Group[] = [
-        {
-          id: 'g1',
-          groupName: 'Nhóm 01',
-          topicName: 'Hệ thống quản lý thư viện',
-          status: 'READY',
-          members: [
-            { id: 's1', name: 'Nguyễn Chí Tâm', role: 'LEADER' },
-            { id: 's2', name: 'Lê Văn B', role: 'MEMBER' },
-          ]
-        },
-        {
-          id: 'g2',
-          groupName: 'Nhóm 02',
-          topicName: null,
-          status: 'INCOMPLETE',
-          members: [
-            { id: 's3', name: 'Trần Thị C', role: 'LEADER' },
-          ]
-        }
-      ];
-      setGroups(mockGroups);
-      setLoading(false);
-    }, 500);
+    // Hiện tại tạm thời để trống hoặc gọi API thesis của lớp
+    setGroups([]);
+    setLoading(false);
   };
 
   const columns = [

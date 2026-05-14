@@ -10,7 +10,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined 
 } from "@ant-design/icons";
-import { history } from "umi";
+import { history, useModel } from "umi";
 import { getDashboardStats, getRiskFlags } from "@/services/lecturer";
 import { getThesisList } from "@/services/thesis";
 
@@ -46,13 +46,15 @@ const LecturerDashboard: React.FC = () => {
   const [topics, setTopics] = useState<ThesisTopic[]>([]);
   const [risks, setRisks] = useState<RiskFlag[]>([]);
   
-  // Lấy lecturerId từ localStorage hoặc context (Giả định là 1 cho hiện tại)
-  const lecturerId = 1; 
+  const { initialState } = useModel("@@initialState");
+  const lecturerId = initialState?.currentUser?.id;
 
   // --- Effect (Nơi gọi API) ---
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (lecturerId) {
+      fetchDashboardData();
+    }
+  }, [lecturerId]);
 
   const fetchDashboardData = async () => {
     setLoading(true);

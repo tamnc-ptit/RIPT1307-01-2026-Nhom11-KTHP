@@ -3,7 +3,8 @@ const thesisService = require("../services/thesis.service");
 
 exports.getAllThesis = async (req, res) => {
   try {
-    const data = await thesisService.getAllThesis(req.query.keyword);
+    const { keyword, lecturerId } = req.query;
+    const data = await thesisService.getAllThesis(keyword, lecturerId);
     res.json(data);
     
   } catch (err) {

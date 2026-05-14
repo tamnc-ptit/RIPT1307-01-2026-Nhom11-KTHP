@@ -36,15 +36,7 @@ interface SessionConfig {
 
 const SessionSettings: React.FC = () => {
   const [form] = Form.useForm();
-  const [sessions, setSessions] = useState<SessionConfig[]>([
-    {
-      id: '1',
-      className: 'Thiết kế Web nâng cao - L01',
-      registrationPeriod: [dayjs('2026-05-01'), dayjs('2026-05-15')],
-      maxStudentsPerGroup: 3,
-      status: 'ACTIVE'
-    }
-  ]);
+  const [sessions, setSessions] = useState<SessionConfig[]>([]);
 
   const onFinish = (values: any) => {
     const newSession: SessionConfig = {
