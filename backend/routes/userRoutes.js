@@ -23,9 +23,9 @@ router.post("/", async (req, res) => {
   const { name, email, role, password } = req.body;
 
   try {
-    const pool = await poolPromise; // Đảm bảo đã import poolPromise từ config db
+    const pool = await poolPromise; 
 
-    // 1. (Tùy chọn) Kiểm tra email đã tồn tại chưa
+
     const checkEmail = await pool
       .request()
       .input("email", sql.NVarChar, email)
@@ -35,14 +35,12 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "Email này đã được sử dụng!" });
     }
 
-    // 2. Thêm người dùng mới vào DB
-    // Lưu ý: Trong thực tế nên hash password bằng bcrypt trước khi lưu
     await pool
       .request()
       .input("name", sql.NVarChar, name)
       .input("email", sql.NVarChar, email)
       .input("role", sql.NVarChar, role)
-      .input("password", sql.NVarChar, password) // Nên hash chỗ này
+      .input("password", sql.NVarChar, password) 
       .query(`
         INSERT INTO Users (name, email, role, password)
         VALUES (@name, @email, @role, @password)
