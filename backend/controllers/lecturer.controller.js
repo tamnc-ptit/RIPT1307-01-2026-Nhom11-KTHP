@@ -58,3 +58,27 @@ exports.rejectThesis = async (req, res) => {
     res.status(500).json({ message: "Lỗi khi từ chối đề tài", error: err.message });
   }
 };
+
+const milestoneService = require("../services/milestone.service");
+
+exports.getMilestones = async (req, res) => {
+  const { thesisId } = req.query;
+  if (!thesisId) return res.status(400).json({ message: "Thiếu thesisId" });
+
+  try {
+    const milestones = await milestoneService.getMilestonesByThesis(thesisId);
+    res.json(milestones);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
+  }
+};
+
+exports.updateMilestoneFeedback = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await milestoneService.updateMilestoneFeedback(id, req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi khi cập nhật phản hồi", error: err.message });
+  }
+};
