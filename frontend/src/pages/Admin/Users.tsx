@@ -50,7 +50,7 @@ const AdminUsers: React.FC = () => {
       if (roleFilter) query.append("role", roleFilter);
 
       const res = await fetch(
-        `http://localhost:5000/api/admin/users?${query.toString()}`,
+        `http://localhost:5000/api/auth/users?${query.toString()}`,
       );
       const data: User[] = await res.json();
       setUsers(Array.isArray(data) ? data : []);
@@ -67,15 +67,17 @@ const AdminUsers: React.FC = () => {
 
   // --- Logic Xử lý CRUD ---
 
-  // 1. Cập nhật vai trò nhanh (Inline từ file 1)
   const handleRoleChange = async (id: number, newRole: UserRole) => {
     const hide = message.loading("Đang cập nhật vai trò...");
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/users/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: newRole }),
-      });
+      const res = await fetch(
+        `http://localhost:5000/api/auth/users/${id}/role`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: newRole }),
+        },
+      );
 
       if (res.ok) {
         hide();
@@ -96,7 +98,7 @@ const AdminUsers: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/users/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/auth/users/${id}`, {
         method: "DELETE",
       });
 
@@ -135,8 +137,8 @@ const AdminUsers: React.FC = () => {
     try {
       const isEditing = !!editingUser;
       const url = isEditing
-        ? `http://localhost:5000/api/admin/users/${editingUser.id}`
-        : `http://localhost:5000/api/admin/users`;
+        ? `http://localhost:5000/api/auth/users/${editingUser.id}/role`
+        : `http://localhost:5000/api/auth/register`;
 
       const method = isEditing ? "PATCH" : "POST";
 
