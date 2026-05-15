@@ -1,4 +1,4 @@
-import { User } from "./services/user";
+import { User } from "@/types/AuthTypes/Users";
 
 export default function access(
   initialState: { currentUser?: User } | undefined,

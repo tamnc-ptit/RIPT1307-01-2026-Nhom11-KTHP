@@ -21,6 +21,7 @@ app.use("/api/admin", require("./routes/admin.routes"));//
 app.use("/api/classes", require("./routes/class.routes"));
 
 
+app.use("/api/thesis",require("./routes/"))
 app.get("/", (req, res) => {
   res.send("API đang chạy...");
 });

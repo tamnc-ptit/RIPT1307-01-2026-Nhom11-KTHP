@@ -21,23 +21,12 @@ import {
   StopOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
+import {SessionItem,SessionFormValues} from "@/types/AdminTypes/SessionTypes"
 import dayjs from "dayjs";
-
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
-interface SessionItem {
-  id: number;
-  semester: string;
-  start_date: string;
-  end_date: string;
-  is_active: boolean;
-  created_at: string;
-}
-interface SessionFormValues {
-  semester: string;
-  timeRange: [dayjs.Dayjs, dayjs.Dayjs]; 
-}
+
 
 const SessionSettings: React.FC = () => {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
