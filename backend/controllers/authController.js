@@ -4,9 +4,7 @@ const { poolPromise, sql } = require("../config/db");
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_key";
 
-// ==========================================
-// 1. ĐĂNG KÝ TÀI KHOẢN
-// ==========================================
+
 exports.register = async (req, res) => {
   const { name, email, password, role } = req.body;
 
@@ -23,11 +21,9 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: "Email này đã được sử dụng" });
     }
 
-    // Mã hóa mật khẩu
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Lưu vào DB với tên cột password_hash
     await pool
       .request()
       .input("name", sql.NVarChar, name)
@@ -44,13 +40,11 @@ exports.register = async (req, res) => {
   }
 };
 
-// ==========================================
-// 2. ĐĂNG NHẬP
-// ==========================================
+
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
-  // Kiểm tra định dạng email PTIT
+
   const isStudent = email.endsWith("@student.ptit.edu.vn");
   const isLecturerOrAdmin = email.endsWith("@ptit.edu.vn") && !isStudent;
 
@@ -69,7 +63,7 @@ exports.login = async (req, res) => {
 
     const user = result.recordset[0];
 
-    // Kiểm tra user và trạng thái hoạt động
+  
     if (!user) {
       return res.status(404).json({ message: "Tài khoản không tồn tại!" });
     }
@@ -77,13 +71,13 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: "Tài khoản của bạn đã bị khóa!" });
     }
 
-    // 🔥 SO SÁNH MẬT KHẨU (Bcrypt)
+  
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ message: "Sai mật khẩu!" });
     }
 
-    // Tạo JWT Token để Frontend lưu vào localStorage
+   
     const token = jwt.sign(
       { id: user.id, role: user.role, email: user.email },
       JWT_SECRET,
@@ -95,16 +89,14 @@ exports.login = async (req, res) => {
       name: user.name,
       role: user.role,
       email: user.email,
-      token: token, // Trả về token cho frontend
+      token: token, 
     });
   } catch (err) {
     res.status(500).json({ message: "Lỗi hệ thống", error: err.message });
   }
 };
 
-// ==========================================
-// 3. QUẢN LÝ NGƯỜI DÙNG (ADMIN)
-// ==========================================
+
 exports.getAllUsers = async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -144,4 +136,67 @@ exports.updateRole = async (req, res) => {
       .status(500)
       .json({ message: "Lỗi cập nhật vai trò", error: err.message });
   }
+};
+
+exports.updateUserFull = async (req, res) => {
+    const { id } = req.params;
+    const { name, email, role } = req.body;
+
+    try {
+        const pool = await poolPromise;
+       
+        const checkUser = await pool.request()
+            .input("id", sql.Int, id)
+            .query("SELECT id FROM Users WHERE id = @id");
+
+        if (checkUser.recordset.length === 0) {
+            return res.status(404).json({ message: "Không tìm thấy người dùng này!" });
+        }
+
+      
+        await pool.request()
+            .input("id", sql.Int, id)
+            .input("name", sql.NVarChar, name)    
+            .input("email", sql.VarChar, email)
+            .input("role", sql.VarChar, role)
+            .query(`
+                UPDATE Users 
+                SET name = @name, 
+                    email = @email, 
+                    role = @role 
+                WHERE id = @id
+            `);
+
+        res.json({ message: "Cập nhật thông tin thành công!" });
+    } catch (err) {
+        console.error("Lỗi updateUserFull:", err);
+        res.status(500).json({ message: "Lỗi hệ thống khi cập nhật", error: err.message });
+    }
+};
+
+
+exports.deleteUser = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const pool = await poolPromise;
+        
+        const result = await pool.request()
+            .input("id", sql.Int, id)
+            .query("DELETE FROM Users WHERE id = @id");
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({ message: "Người dùng không tồn tại hoặc đã bị xóa trước đó." });
+        }
+
+        res.json({ message: "Xóa người dùng thành công!" });
+    } catch (err) {
+        console.error("Lỗi deleteUser:", err);
+        if (err.number === 547) {
+            return res.status(400).json({ 
+                message: "Không thể xóa người dùng này vì họ đang có dữ liệu liên quan trong hệ thống!" 
+            });
+        }
+        res.status(500).json({ message: "Lỗi hệ thống khi xóa", error: err.message });
+    }
 };
