@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Row, Col, Typography, Tag, Empty } from "antd";
 import { UserOutlined } from "@ant-design/icons";
-import {  User } from "@/services/user";
-import StudentView from "./components/StudentView";
-import LecturerView from "./components/LecturerView";
-import AdminView from "./components/AdminView";
+import {  User } from "@/types/AuthTypes/Users";
+import StudentView from "../Student/Dashboard/StudentView";
+import LecturerView from "../Lecturer/LecturerView";
+import AdminView from "../Admin/Dashboard/AdminView";
 
 const { Title } = Typography;
 

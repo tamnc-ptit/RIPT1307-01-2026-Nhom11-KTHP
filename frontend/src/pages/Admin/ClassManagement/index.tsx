@@ -18,22 +18,8 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from "@ant-design/icons";
+import {ClassItem,ClassFormValues} from "@/types/AdminTypes/ClassTypes"
 
-interface ClassItem {
-  id: number;
-  class_name: string;
-  course_name: string;
-  semester: string;
-  lecturer_name: string;
-  lecturer_id: number; // Cần thiết để pre-fill lúc Sửa
-}
-
-interface ClassFormValues {
-  class_name: string;
-  course_name: string;
-  semester: string;
-  lecturer_id: number;
-}
 
 const ClassManagement: React.FC = () => {
   const [classes, setClasses] = useState<ClassItem[]>([]);
