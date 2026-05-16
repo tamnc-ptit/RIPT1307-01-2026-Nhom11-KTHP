@@ -4,22 +4,21 @@ const { poolPromise } = require("../config/db");
 
 const getUsers = async (req, res) => {
   try {
-   
-    const { keyword, role } = req.query;
+    const { search, role } = req.query;
     const pool = await poolPromise;
 
     let queryStr = "SELECT id, name, email, role FROM Users WHERE 1=1";
     const request = pool.request();
 
-   
-    if (role) {
-      request.input("role", sql.VarChar, role);
+    // CHỈNH SỬA 1: Kiểm tra role có giá trị thực và không phải chuỗi "undefined" do FE truyền sang
+    if (role && role !== "undefined" && role.trim() !== "") {
+      request.input("role", sql.VarChar, role.trim());
       queryStr += " AND role = @role";
     }
 
-    if (keyword) {
-      request.input("keyword", sql.NVarChar, `%${keyword}%`);
-      queryStr += " AND (name LIKE @keyword OR email LIKE @keyword)";
+    if (search && search !== "undefined" && search.trim() !== "") {
+      request.input("search", sql.NVarChar, `%${search.trim()}%`);
+      queryStr += " AND (name LIKE @search OR email LIKE @search)";
     }
 
     queryStr += " ORDER BY id DESC";
@@ -27,12 +26,10 @@ const getUsers = async (req, res) => {
 
     res.json(result.recordset);
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        message: "Lỗi Server khi lấy danh sách người dùng",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Lỗi Server khi lấy danh sách người dùng",
+      error: err.message,
+    });
   }
 };
 
