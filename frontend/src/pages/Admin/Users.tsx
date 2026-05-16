@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Table,
   Tag,
@@ -32,9 +32,8 @@ const AdminUsers: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form] = Form.useForm<UserFormValues>();
   const [submitting, setSubmitting] = useState(false);
-  const [debouncedSearchText, setDebouncedSearchText] = useState<string>("");
 
-  // --- FIX STALE CLOSURE: nhận params trực tiếp thay vì đọc từ state ---
+  // --- Fetch toàn bộ data 1 lần, filter ở frontend ---
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -48,30 +47,22 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  // Debounce search
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchText(searchText);
-    }, 500);
-
-    return () => clearTimeout(handler);
-  }, [searchText]);
-
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // --- Filter trực tiếp trên client, không cần debounce hay gọi API ---
   const filteredUsers = users.filter((user) => {
-    // 1. Lọc theo ô Tìm kiếm (search bằng tên hoặc email)
     const matchesSearch = searchText
       ? user.name?.toLowerCase().includes(searchText.toLowerCase()) ||
         user.email?.toLowerCase().includes(searchText.toLowerCase())
       : true;
 
-    // 2. Lọc theo ô Vai trò (role)
     const matchesRole = roleFilter ? user.role === roleFilter : true;
 
     return matchesSearch && matchesRole;
   });
+
   const handleDelete = async (id: number) => {
     try {
       const res = await fetch(`http://localhost:5000/api/auth/users/${id}`, {
@@ -126,7 +117,7 @@ const AdminUsers: React.FC = () => {
           message.success("Cập nhật người dùng thành công");
           setIsModalVisible(false);
           form.resetFields();
-          fetchUsers(debouncedSearchText, roleFilter);
+          fetchUsers();
         } else {
           const errData = await res.json();
           message.error(errData.message || "Cập nhật thất bại");
@@ -142,7 +133,7 @@ const AdminUsers: React.FC = () => {
           message.success("Tạo mới người dùng thành công");
           setIsModalVisible(false);
           form.resetFields();
-          fetchUsers(debouncedSearchText, roleFilter);
+          fetchUsers();
         } else {
           const errData = await res.json();
           message.error(errData.message || "Tạo mới thất bại");
