@@ -18,43 +18,34 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from "@ant-design/icons";
-import {ClassItem,ClassFormValues} from "@/types/AdminTypes/ClassTypes"
-
+import { ClassItem, ClassFormValues } from "@/types/AdminTypes/ClassTypes";
+import { SessionItem } from "@/types/AdminTypes/SessionTypes";
 
 const ClassManagement: React.FC = () => {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [lecturers, setLecturers] = useState<{ id: number; name: string }[]>(
     [],
   );
-  const [semesters, setSemesters] = useState<string[]>([]); // Lưu danh sách học kỳ động
-
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingClass, setEditingClass] = useState<ClassItem | null>(null); // State lưu lớp đang sửa
+  const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
 
   const fetchData = async () => {
     try {
-      // Fetch song song Classes, Lecturers và Sessions
       const [resClasses, resLecs, resSessions] = await Promise.all([
         fetch("http://localhost:5000/api/classes"),
-        fetch("http://localhost:5000/api/admin/users?role=lecturer"),
-        fetch("http://localhost:5000/api/sessions"), // Đảm bảo backend có endpoint này
+        fetch("http://localhost:5000/api/users?role=lecturer"),
+        fetch("http://localhost:5000/api/sessions"),
       ]);
 
       const classesData = await resClasses.json();
       const lecturersData = await resLecs.json();
       const sessionsData = await resSessions.json();
-
-      setClasses(classesData);
-      setLecturers(lecturersData);
-
-      // Trích xuất các học kỳ (semester) duy nhất từ bảng Sessions
-      if (Array.isArray(sessionsData)) {
-        const uniqueSemesters = Array.from(
-          new Set(sessionsData.map((s: any) => s.semester)),
-        ) as string[];
-        setSemesters(uniqueSemesters);
-      }
+      setClasses(Array.isArray(classesData) ? classesData : []);
+      setLecturers(Array.isArray(lecturersData) ? lecturersData : []);
+      setSessions(Array.isArray(sessionsData) ? sessionsData : []);
     } catch (error) {
       message.error("Không thể tải dữ liệu từ server!");
       console.error(error);
@@ -65,7 +56,6 @@ const ClassManagement: React.FC = () => {
     fetchData();
   }, []);
 
-  // --- Mở Modal ---
   const handleOpenCreate = () => {
     setEditingClass(null);
     form.resetFields();
@@ -74,12 +64,17 @@ const ClassManagement: React.FC = () => {
 
   const handleOpenEdit = (record: ClassItem) => {
     setEditingClass(record);
-    form.setFieldsValue(record); // Pre-fill dữ liệu vào form
+    form.setFieldsValue({
+      class_name: record.class_name,
+      course_name: record.course_name,
+      session_id: record.session_id ? Number(record.session_id) : undefined,
+      lecturer_id: record.lecturer_id ? Number(record.lecturer_id) : undefined,
+    });
     setIsModalOpen(true);
   };
 
-  // --- Lưu (Tạo mới hoặc Cập nhật) ---
   const handleSave = async (values: ClassFormValues) => {
+    setSubmitting(true);
     try {
       const isEditing = !!editingClass;
       const url = isEditing
@@ -88,7 +83,7 @@ const ClassManagement: React.FC = () => {
       const method = isEditing ? "PATCH" : "POST";
 
       const res = await fetch(url, {
-        method: method,
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
@@ -99,14 +94,16 @@ const ClassManagement: React.FC = () => {
         form.resetFields();
         fetchData();
       } else {
-        throw new Error();
+        const errData = await res.json();
+        message.error(errData.message || "Lưu lớp thất bại!");
       }
     } catch (err) {
       message.error("Lỗi hệ thống khi lưu lớp!");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // --- Xóa ---
   const handleDelete = async (id: number) => {
     try {
       const res = await fetch(`http://localhost:5000/api/classes/${id}`, {
@@ -132,9 +129,9 @@ const ClassManagement: React.FC = () => {
     { title: "Tên học phần", dataIndex: "course_name", key: "course_name" },
     {
       title: "Học kỳ",
-      dataIndex: "semester",
-      key: "semester",
-      render: (s: string) => <Tag color="purple">{s}</Tag>,
+      dataIndex: "session_name",
+      key: "session_name",
+      render: (s: string) => <Tag color="purple">{s || "Chưa xác định"}</Tag>,
     },
     {
       title: "Giảng viên phụ trách",
@@ -190,14 +187,25 @@ const ClassManagement: React.FC = () => {
       }
       style={{ margin: 24 }}
     >
-      <Table dataSource={classes} columns={columns} rowKey="id" bordered />
+      <Table
+        dataSource={classes}
+        columns={columns}
+        rowKey="id"
+        bordered
+        pagination={{ pageSize: 10 }}
+        locale={{ emptyText: "Không có lớp học phần nào" }}
+      />
 
       <Modal
         title={editingClass ? "Chỉnh sửa lớp học phần" : "Tạo lớp học phần mới"}
         open={isModalOpen}
         onOk={() => form.submit()}
-        onCancel={() => setIsModalOpen(false)}
-        destroyOnClose // Đảm bảo form clear khi đóng modal
+        onCancel={() => {
+          setIsModalOpen(false);
+          form.resetFields();
+        }}
+        confirmLoading={submitting}
+        destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleSave}>
           <Form.Item
@@ -207,6 +215,7 @@ const ClassManagement: React.FC = () => {
           >
             <Input />
           </Form.Item>
+
           <Form.Item
             name="course_name"
             label="Tên môn học"
@@ -214,19 +223,22 @@ const ClassManagement: React.FC = () => {
           >
             <Input />
           </Form.Item>
+
           <Form.Item
-            name="semester"
+            name="session_id"
             label="Học kỳ"
             rules={[{ required: true, message: "Vui lòng chọn học kỳ" }]}
           >
             <Select placeholder="Chọn học kỳ">
-              {semesters.map((sem) => (
-                <Select.Option key={sem} value={sem}>
-                  {sem}
+              {sessions.map((session) => (
+                // FIX #1: dùng session.name thay vì session.session_name (đúng với schema Sessions)
+                <Select.Option key={session.id} value={Number(session.id)}>
+                  {session.name}
                 </Select.Option>
               ))}
             </Select>
           </Form.Item>
+
           <Form.Item
             name="lecturer_id"
             label="Giảng viên phụ trách"
