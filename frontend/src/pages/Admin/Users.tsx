@@ -19,8 +19,7 @@ import {
   SearchOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
-import {UserRole,User,UserFormValues} from "@/types/AdminTypes/ThesisTypes"
-
+import { UserRole, User, UserFormValues } from "@/types/AdminTypes/ThesisTypes";
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -46,7 +45,7 @@ const AdminUsers: React.FC = () => {
     try {
       const query = new URLSearchParams();
       // Logic lọc từ Backend nếu API hỗ trợ, hoặc dùng filteredData ở FE
-      if (searchText) query.append("search", searchText);
+      if (searchText) query.append("keyword", searchText);
       if (roleFilter) query.append("role", roleFilter);
 
       const res = await fetch(
@@ -65,7 +64,14 @@ const AdminUsers: React.FC = () => {
     fetchUsers();
   }, [searchText, roleFilter]);
 
-  // --- Logic Xử lý CRUD ---
+  const filteredUsers = users.filter((user) => {
+    const matchesRole = roleFilter ? user.role === roleFilter : true;
+    const matchesText = searchText
+      ? user.name.toLowerCase().includes(searchText.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchText.toLowerCase())
+      : true;
+    return matchesRole && matchesText;
+  });
 
   const handleRoleChange = async (id: number, newRole: UserRole) => {
     const hide = message.loading("Đang cập nhật vai trò...");
@@ -117,8 +123,8 @@ const AdminUsers: React.FC = () => {
     }
   };
   const showCreateModal = () => {
-    setEditingUser(null); // Đảm bảo không ở chế độ chỉnh sửa
-    form.resetFields(); // Xóa trắng form cho tài khoản mới
+    setEditingUser(null);
+    form.resetFields();
     setIsModalVisible(true);
   };
 
@@ -272,7 +278,7 @@ const AdminUsers: React.FC = () => {
 
       <Table
         columns={columns}
-        dataSource={users}
+        dataSource={filteredUsers}
         rowKey="id"
         loading={loading}
         bordered

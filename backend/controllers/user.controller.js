@@ -25,6 +25,40 @@ const getUsers = async (req, res) => {
   }
 };
 
+const createUser = async (req, res) => {
+  const { name, email, role, password } = req.body;
+
+  try {
+    const pool = await poolPromise;
+
+    const checkEmail = await pool
+      .request()
+      .input("email", sql.VarChar, email)
+      .query("SELECT id FROM Users WHERE email = @email");
+
+    if (checkEmail.recordset.length > 0) {
+      return res.status(400).json({ message: "Email này đã được sử dụng!" });
+    }
+
+    await pool
+      .request()
+      .input("name", sql.NVarChar, name)
+      .input("email", sql.VarChar, email)
+      .input("role", sql.VarChar, role)
+      .input("password", sql.VarChar, password).query(`
+        INSERT INTO Users (name, email, role, password_hash)
+        VALUES (@name, @email, @role, @password)
+      `);
+
+    res.status(201).json({ message: "Tạo tài khoản người dùng thành công!" });
+  } catch (err) {
+    console.error("Lỗi tạo user:", err);
+    res
+      .status(500)
+      .json({ message: "Lỗi Server khi tạo người dùng", error: err.message });
+  }
+};
+
 const bulkCreateUsers = async (req, res) => {
   try {
     const usersArray = req.body;
@@ -100,5 +134,34 @@ const deleteUser = async (req, res) => {
       .json({ message: "Lỗi hệ thống khi xóa", error: err.message });
   }
 };
+const getUsersByRole = async (req, res) => {
+  try {
+    const { role } = req.query; // Lấy giá trị ?role=lecturer từ frontend gửi lên
+    const pool = await poolPromise;
 
-module.exports = { getUsers, bulkCreateUsers, updateUser, deleteUser };
+    const result = await pool.request().input("role", sql.NVarChar, role)
+      .query(`
+        SELECT id, name, email, role, is_active 
+        FROM Users 
+        WHERE role = @role AND is_active = 1
+      `);
+
+    res.json(result.recordset);
+  } catch (err) {
+    res
+      .status(500)
+      .json({
+        message: "Lỗi Server khi lấy danh sách user",
+        error: err.message,
+      });
+  }
+};
+
+module.exports = {
+  getUsers,
+  createUser,
+  bulkCreateUsers,
+  updateUser,
+  deleteUser,
+  getUsersByRole
+};

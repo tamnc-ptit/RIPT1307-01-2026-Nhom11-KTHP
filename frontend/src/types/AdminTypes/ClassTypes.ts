@@ -13,3 +13,8 @@ export interface ClassFormValues {
   semester: string;
   lecturer_id: number;
 }
+
+export interface SessionItem {
+  id: number;
+  name: string;
+}

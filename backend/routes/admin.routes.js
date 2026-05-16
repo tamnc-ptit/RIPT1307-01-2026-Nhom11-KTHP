@@ -7,4 +7,5 @@ router.post("/bulk", userController.bulkCreateUsers);
 router.patch("/:id", userController.updateUser);
 router.delete("/:id", userController.deleteUser);
 
+
 module.exports = router;

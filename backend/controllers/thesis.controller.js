@@ -1,17 +1,19 @@
 const { poolPromise, sql } = require("../config/db");
+const thesisService = require("../services/thesis.service");
+
 
 const getAdminThesis = async (req, res) => {
   try {
     const { keyword, lecturerId } = req.query;
     const data = await thesisService.getAllThesis(keyword, lecturerId);
     res.json(data);
-
   } catch (err) {
     res.status(500).json({ message: "Lỗi Server", error: err.message });
   }
 };
 
-exports.createThesis = async (req, res) => {
+
+const createThesis = async (req, res) => {
   const { title, student_id } = req.body;
 
   if (!title) {
@@ -26,18 +28,20 @@ exports.createThesis = async (req, res) => {
   }
 };
 
-exports.updateThesis = async (req, res) => {
+
+const updateThesis = async (req, res) => {
   const { id } = req.params;
   const body = req.body;
 
   console.log(`>>> Backend nhận ID: ${id} (Kiểu: ${typeof id})`);
   console.log(">>> Backend nhận Body:", body);
+
   if (isNaN(id)) {
     return res.status(400).json({ message: "ID không hợp lệ" });
   }
 
   try {
-    const data = await thesisService.updateThesis(id, req.body);
+    const data = await thesisService.updateThesis(id, body);
 
     if (!data) {
       return res.status(404).json({ message: "Không tìm thấy khóa luận" });
@@ -49,7 +53,7 @@ exports.updateThesis = async (req, res) => {
   }
 };
 
-exports.deleteThesis = async (req, res) => {
+const deleteThesis = async (req, res) => {
   const { id } = req.params;
 
   if (isNaN(id)) {
@@ -69,4 +73,9 @@ exports.deleteThesis = async (req, res) => {
   }
 };
 
-module.exports = { getAdminThesis };
+module.exports = {
+  getAdminThesis,
+  createThesis,
+  updateThesis,
+  deleteThesis,
+};
