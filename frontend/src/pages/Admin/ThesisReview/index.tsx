@@ -16,62 +16,51 @@ import {
   EyeOutlined,
   DashboardOutlined,
 } from "@ant-design/icons";
-
+import {
+  ClassFilterItem,
+  LecturerFilterItem,
+  SessionFilterItem,
+  FilterParams,
+  ThesisItem,
+} from "@/types/AdminTypes/ThesisTypes";
 // --- Types ---
-interface ThesisItem {
-  id: number;
-  title: string;
-  student_name: string;
-  class_name: string;
-  class_id: number;
-  lecturer_name: string;
-  lecturer_id: number;
-  status: "Pending" | "Approved" | "Rejected";
-  created_at: string;
-  semester: string;
-}
-
-interface FilterParams {
-  status?: string;
-  classId?: number;
-  semester?: string;
-}
-
 const ThesisReview: React.FC = () => {
   const [theses, setTheses] = useState<ThesisItem[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
-  const [lecturers, setLecturers] = useState<any[]>([]);
-  const [semesters, setSemesters] = useState<string[]>([]);
+  const [classes, setClasses] = useState<ClassFilterItem[]>([]);
+  const [lecturers, setLecturers] = useState<LecturerFilterItem[]>([]);
+  // SỬA: Lưu nguyên mảng Object Học kỳ để lấy ID lọc cho chính xác
+  const [semesters, setSemesters] = useState<SessionFilterItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Filters State
+  // Filters State (Đồng bộ kiểu dữ liệu với FilterParams)
   const [filters, setFilters] = useState<FilterParams>({});
 
-  // Modal State cho tính năng "Can thiệp / Override"
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingThesis, setEditingThesis] = useState<ThesisItem | null>(null);
   const [form] = Form.useForm();
 
-  // --- Lấy dữ liệu Filter (Classes, Lecturers, Semesters) ---
+  // --- Tải dữ liệu bộ lọc ban đầu ---
   const fetchFilterData = async () => {
     try {
       const [resClasses, resLecs, resSessions] = await Promise.all([
         fetch("http://localhost:5000/api/classes"),
-        fetch("http://localhost:5000/api/admin/users?role=lecturer"),
+        fetch("http://localhost:5000/api/users?role=lecturer"),
         fetch("http://localhost:5000/api/sessions"),
       ]);
 
-      setClasses(await resClasses.json());
-      setLecturers(await resLecs.json());
-
+      const classesData = await resClasses.json();
+      const lecturersData = await resLecs.json();
       const sessionsData = await resSessions.json();
+
+      setClasses(classesData);
+      setLecturers(lecturersData);
+
       if (Array.isArray(sessionsData)) {
-        setSemesters(
-          Array.from(new Set(sessionsData.map((s: any) => s.semester))),
-        );
+        setSemesters(sessionsData as SessionFilterItem[]);
       }
     } catch (error) {
       message.error("Lỗi khi tải dữ liệu bộ lọc!");
+      console.error(error);
     }
   };
 
@@ -82,10 +71,10 @@ const ThesisReview: React.FC = () => {
       const query = new URLSearchParams();
       if (filters.status) query.append("status", filters.status);
       if (filters.classId) query.append("classId", filters.classId.toString());
-      if (filters.semester) query.append("semester", filters.semester);
+      if (filters.semester) query.append("session_id", filters.semester);
 
       const res = await fetch(
-        `http://localhost:5000/api/admin/thesis?${query.toString()}`,
+        `http://localhost:5000/api/thesis/admin?${query.toString()}`,
       );
       const data = await res.json();
       setTheses(data);
@@ -108,13 +97,16 @@ const ThesisReview: React.FC = () => {
   const handleOpenEdit = (record: ThesisItem) => {
     setEditingThesis(record);
     form.setFieldsValue({
-      class_id: record.class_id,
-      lecturer_id: record.lecturer_id,
+      class_id: record.class_id ? Number(record.class_id) : undefined,
+      lecturer_id: record.lecturer_id ? Number(record.lecturer_id) : undefined,
     });
     setIsModalOpen(true);
   };
 
-  const handleOverride = async (values: any) => {
+  const handleOverride = async (values: {
+    class_id: number;
+    lecturer_id: number;
+  }) => {
     if (!editingThesis) return;
     try {
       const res = await fetch(
@@ -149,38 +141,48 @@ const ThesisReview: React.FC = () => {
     },
     { title: "Sinh viên", dataIndex: "student_name", key: "student_name" },
     {
-      title: "Lớp",
+      title: "Lớp học phần",
       dataIndex: "class_name",
       key: "class_name",
       render: (text: string) =>
-        text || <span style={{ color: "red" }}>Chưa có lớp</span>,
+        text || <span style={{ color: "red" }}>Chưa phân lớp</span>,
     },
-    { title: "Giảng viên", dataIndex: "lecturer_name", key: "lecturer_name" },
+    {
+      title: "Giảng viên",
+      dataIndex: "lecturer_name",
+      key: "lecturer_name",
+      render: (text: string) => text || <i>Chưa gán GV</i>,
+    },
     {
       title: "Trạng thái",
       dataIndex: "status",
       key: "status",
       render: (status: string) => {
-        let color =
-          status === "Approved"
-            ? "green"
-            : status === "Rejected"
-              ? "red"
-              : "gold";
-        let text =
-          status === "Approved"
-            ? "Đã duyệt"
-            : status === "Rejected"
-              ? "Từ chối"
-              : "Đang chờ";
-        return <Tag color={color}>{text.toUpperCase()}</Tag>;
+        let color = "gold";
+        let text = "Đang chờ";
+
+        if (status === "Approved") {
+          color = "green";
+          text = "Đã duyệt";
+        } else if (status === "Rejected") {
+          color = "red";
+          text = "Từ chối";
+        }
+        return <Tag color={color}>{text}</Tag>;
       },
+    },
+    {
+      title: "Học kỳ",
+      dataIndex: "semester",
+      key: "semester",
+      render: (text: string) => <Tag color="blue">{text || "Mặc định"}</Tag>,
     },
     {
       title: "Ngày nộp",
       dataIndex: "created_at",
       key: "created_at",
-      render: (date: string) => new Date(date).toLocaleDateString("vi-VN"),
+      render: (date: string) =>
+        date ? new Date(date).toLocaleDateString("vi-VN") : "---",
     },
     {
       title: "Thao tác",
@@ -212,7 +214,7 @@ const ThesisReview: React.FC = () => {
         <Select
           placeholder="Lọc theo Trạng thái"
           allowClear
-          style={{ width: 150 }}
+          style={{ width: 180 }}
           onChange={(val) => setFilters((prev) => ({ ...prev, status: val }))}
         >
           <Select.Option value="Pending">Đang chờ (Pending)</Select.Option>
@@ -225,7 +227,7 @@ const ThesisReview: React.FC = () => {
           allowClear
           showSearch
           optionFilterProp="children"
-          style={{ width: 200 }}
+          style={{ width: 220 }}
           onChange={(val) => setFilters((prev) => ({ ...prev, classId: val }))}
         >
           {classes.map((c) => (
@@ -238,7 +240,8 @@ const ThesisReview: React.FC = () => {
         <Select
           placeholder="Lọc theo Học kỳ"
           allowClear
-          style={{ width: 150 }}
+          style={{ width: 180 }}
+          value={filters.semester}
           onChange={(val) => setFilters((prev) => ({ ...prev, semester: val }))}
         >
           {semesters.map((s) => (
@@ -265,7 +268,14 @@ const ThesisReview: React.FC = () => {
         onCancel={() => setIsModalOpen(false)}
         destroyOnClose
       >
-        <div style={{ marginBottom: 16 }}>
+        <div
+          style={{
+            marginBottom: 16,
+            padding: "8px 12px",
+            background: "#f5f5f5",
+            borderRadius: 4,
+          }}
+        >
           <strong>Đề tài: </strong> {editingThesis?.title} <br />
           <strong>Sinh viên: </strong> {editingThesis?.student_name}
         </div>
@@ -279,7 +289,7 @@ const ThesisReview: React.FC = () => {
             >
               {classes.map((c) => (
                 <Select.Option key={c.id} value={c.id}>
-                  {c.class_name} ({c.semester})
+                  {c.class_name} {c.session_name ? `(${c.session_name})` : ""}
                 </Select.Option>
               ))}
             </Select>
@@ -288,7 +298,7 @@ const ThesisReview: React.FC = () => {
           <Form.Item
             name="lecturer_id"
             label="Đổi Giảng viên phụ trách"
-            tooltip="Lưu ý: Thường giảng viên sẽ đi theo lớp. Bạn chỉ đổi GV nếu có sự cố ngoại lệ."
+            tooltip="Lưu ý: Thường giảng viên sẽ đi theo lớp cố định. Bạn chỉ thực hiện đổi GV trong trường hợp có ngoại lệ cần xử lý riêng lẻ."
           >
             <Select
               showSearch

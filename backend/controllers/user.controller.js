@@ -1,24 +1,40 @@
 const bcrypt = require("bcrypt");
-const sql = require("mssql"); 
-const { poolPromise } = require("../config/db"); 
+const sql = require("mssql");
+const { poolPromise } = require("../config/db");
 
 const getUsers = async (req, res) => {
   try {
+   
+    const { keyword, role } = req.query;
     const pool = await poolPromise;
-    const result = await pool.request().query("SELECT * FROM Users");
 
-    res.json({
-      success: true,
-      data: result.recordset,
-    });
+    let queryStr = "SELECT id, name, email, role FROM Users WHERE 1=1";
+    const request = pool.request();
+
+   
+    if (role) {
+      request.input("role", sql.VarChar, role);
+      queryStr += " AND role = @role";
+    }
+
+    if (keyword) {
+      request.input("keyword", sql.NVarChar, `%${keyword}%`);
+      queryStr += " AND (name LIKE @keyword OR email LIKE @keyword)";
+    }
+
+    queryStr += " ORDER BY id DESC";
+    const result = await request.query(queryStr);
+
+    res.json(result.recordset);
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err.message,
-    });
+    res
+      .status(500)
+      .json({
+        message: "Lỗi Server khi lấy danh sách người dùng",
+        error: err.message,
+      });
   }
 };
-
 
 const bulkCreateUsers = async (req, res) => {
   try {
@@ -86,10 +102,7 @@ const updateUser = async (req, res) => {
       return res.status(404).json({ message: "User không tồn tại" });
     }
 
-    res.json({
-      success: true,
-      message: "Cập nhật user thành công",
-    });
+    res.json({ message: "Cập nhật user thành công" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -109,10 +122,7 @@ const deleteUser = async (req, res) => {
       return res.status(404).json({ message: "User không tồn tại" });
     }
 
-    res.json({
-      success: true,
-      message: "Xóa user thành công",
-    });
+    res.json({ message: "Xóa user thành công" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
