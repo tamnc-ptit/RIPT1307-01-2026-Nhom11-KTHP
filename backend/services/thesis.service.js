@@ -1,25 +1,30 @@
 const { poolPromise, sql } = require("../config/db");
 
-exports.getAllThesis = async (keyword) => {
+exports.getAllThesis = async (keyword, lecturerId) => {
   const pool = await poolPromise;
 
   const result = await pool
     .request()
-    .input("keyword", sql.NVarChar, keyword || null).query(`
+    .input("keyword", sql.NVarChar, keyword || null)
+    .input("lecturerId", sql.Int, lecturerId || null)
+    .query(`
       SELECT 
         t.id,
         t.title,
         t.description,
         t.student_id,
         t.lecturer_id,
-        t.status,               -- THÊM MỚI
-        t.reject_reason,         -- THÊM MỚI
-        s.name AS studentName,   -- Đổi để khớp Interface Frontend
-        l.name AS supervisorName -- Đổi để khớp Interface Frontend
+        t.class_id,
+        t.status,
+        t.reject_reason,
+        t.final_score,
+        s.name AS studentName,
+        l.name AS supervisorName
       FROM Thesis t
       LEFT JOIN Users s ON t.student_id = s.id
       LEFT JOIN Users l ON t.lecturer_id = l.id
-      WHERE @keyword IS NULL OR t.title LIKE '%' + @keyword + '%'
+      WHERE (@keyword IS NULL OR t.title LIKE '%' + @keyword + '%')
+        AND (@lecturerId IS NULL OR t.lecturer_id = @lecturerId)
       ORDER BY t.id DESC
     `);
 
@@ -28,18 +33,19 @@ exports.getAllThesis = async (keyword) => {
 
 // CREATE
 exports.createThesis = async (data) => {
-  const { title, description, student_id, lecturer_id } = data;
+  const { title, description, student_id, lecturer_id, class_id } = data;
   const pool = await poolPromise;
 
   const result = await pool
     .request()
     .input("title", sql.NVarChar, title)
     .input("description", sql.NVarChar, description || null)
-    .input("student_id", sql.Int, student_id)
-    .input("lecturer_id", sql.Int, lecturer_id || null).query(`
-      INSERT INTO Thesis (title, description, student_id, lecturer_id, status)
+    .input("student_id", sql.Int, student_id || null)
+    .input("lecturer_id", sql.Int, lecturer_id || null)
+    .input("class_id", sql.Int, class_id || null).query(`
+      INSERT INTO Thesis (title, description, student_id, lecturer_id, class_id, status)
       OUTPUT INSERTED.*
-      VALUES (@title, @description, @student_id, @lecturer_id, 'Pending') -- Mặc định là Pending
+      VALUES (@title, @description, @student_id, @lecturer_id, @class_id, 'Pending')
     `);
 
   return result.recordset[0];
@@ -47,7 +53,7 @@ exports.createThesis = async (data) => {
 
 // UPDATE (Hỗ trợ cả Sửa nội dung, Duyệt, Từ chối và Gán GV)
 exports.updateThesis = async (id, data) => {
-  const { title, description, student_id, lecturer_id, status, rejectReason } =
+  const { title, description, student_id, lecturer_id, status, rejectReason, finalScore, class_id } =
     data;
   const pool = await poolPromise;
 
@@ -59,7 +65,9 @@ exports.updateThesis = async (id, data) => {
     .input("student_id", sql.Int, student_id || null)
     .input("lecturer_id", sql.Int, lecturer_id || null)
     .input("status", sql.NVarChar, status || null)
-    .input("reject_reason", sql.NVarChar, rejectReason || null).query(`
+    .input("reject_reason", sql.NVarChar, rejectReason || null)
+    .input("final_score", sql.Decimal(4, 2), finalScore || null)
+    .input("class_id", sql.Int, class_id || null).query(`
       UPDATE Thesis
       SET 
           title = ISNULL(@title, title),
@@ -67,7 +75,10 @@ exports.updateThesis = async (id, data) => {
           student_id = ISNULL(@student_id, student_id), 
           lecturer_id = ISNULL(@lecturer_id, lecturer_id),
           status = ISNULL(@status, status),
-          reject_reason = ISNULL(@reject_reason, reject_reason)
+          reject_reason = ISNULL(@reject_reason, reject_reason),
+          final_score = ISNULL(@final_score, final_score),
+          class_id = ISNULL(@class_id, class_id),
+          updated_at = GETDATE()
       OUTPUT INSERTED.*
       WHERE id = @id;
     `);
