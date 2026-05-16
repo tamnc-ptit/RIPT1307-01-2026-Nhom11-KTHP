@@ -19,23 +19,7 @@ import {
   SearchOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
-
-// --- Định nghĩa Types ---
-export type UserRole = "admin" | "lecturer" | "student";
-
-export interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: UserRole;
-}
-
-export interface UserFormValues {
-  name: string;
-  email: string;
-  role: UserRole;
-  password?: string;
-}
+import { UserRole, User, UserFormValues } from "@/types/AdminTypes/ThesisTypes";
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -49,24 +33,10 @@ const AdminUsers: React.FC = () => {
   const [form] = Form.useForm<UserFormValues>();
   const [submitting, setSubmitting] = useState(false);
 
-  const roleColors = {
-    student: "#1677ff",
-    lecturer: "#faad14",
-    admin: "#ff4d4f",
-  };
-
-  // --- Logic Fetch Data ---
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const query = new URLSearchParams();
-      // Logic lọc từ Backend nếu API hỗ trợ, hoặc dùng filteredData ở FE
-      if (searchText) query.append("search", searchText);
-      if (roleFilter) query.append("role", roleFilter);
-
-      const res = await fetch(
-        `http://localhost:5000/api/admin/users?${query.toString()}`,
-      );
+      const res = await fetch(`http://localhost:5000/api/auth/users`);
       const data: User[] = await res.json();
       setUsers(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -78,40 +48,22 @@ const AdminUsers: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, [searchText, roleFilter]);
+  }, []);
 
-  // --- Logic Xử lý CRUD ---
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch = searchText
+      ? user.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchText.toLowerCase())
+      : true;
 
-  // 1. Cập nhật vai trò nhanh (Inline từ file 1)
-  const handleRoleChange = async (id: number, newRole: UserRole) => {
-    const hide = message.loading("Đang cập nhật vai trò...");
-    try {
-      const res = await fetch(`http://localhost:5000/api/admin/users/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: newRole }),
-      });
+    const matchesRole = roleFilter ? user.role === roleFilter : true;
 
-      if (res.ok) {
-        hide();
-        message.success("Cập nhật vai trò thành công!");
-        setUsers((prev) =>
-          prev.map((user) =>
-            user.id === id ? { ...user, role: newRole } : user,
-          ),
-        );
-      } else {
-        throw new Error();
-      }
-    } catch (error) {
-      hide();
-      message.error("Cập nhật thất bại, vui lòng thử lại!");
-    }
-  };
+    return matchesSearch && matchesRole;
+  });
 
   const handleDelete = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/users/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/auth/users/${id}`, {
         method: "DELETE",
       });
 
@@ -129,9 +81,10 @@ const AdminUsers: React.FC = () => {
       message.error("Lỗi kết nối hệ thống khi xóa");
     }
   };
+
   const showCreateModal = () => {
-    setEditingUser(null); // Đảm bảo không ở chế độ chỉnh sửa
-    form.resetFields(); // Xóa trắng form cho tài khoản mới
+    setEditingUser(null);
+    form.resetFields();
     setIsModalVisible(true);
   };
 
@@ -148,29 +101,41 @@ const AdminUsers: React.FC = () => {
   const handleSave = async (values: UserFormValues) => {
     setSubmitting(true);
     try {
-      const isEditing = !!editingUser;
-      const url = isEditing
-        ? `http://localhost:5000/api/admin/users/${editingUser.id}`
-        : `http://localhost:5000/api/admin/users`;
-
-      const method = isEditing ? "PATCH" : "POST";
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-
-      if (res.ok) {
-        message.success(
-          `${isEditing ? "Cập nhật" : "Tạo mới"} người dùng thành công`,
+      if (editingUser) {
+        const res = await fetch(
+          `http://localhost:5000/api/auth/users/${editingUser.id}/role`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: values.role }),
+          },
         );
-        setIsModalVisible(false);
-        form.resetFields();
-        fetchUsers();
+
+        if (res.ok) {
+          message.success("Cập nhật người dùng thành công");
+          setIsModalVisible(false);
+          form.resetFields();
+          fetchUsers();
+        } else {
+          const errData = await res.json();
+          message.error(errData.message || "Cập nhật thất bại");
+        }
       } else {
-        const errData = await res.json();
-        message.error(errData.message || "Thao tác thất bại");
+        const res = await fetch(`http://localhost:5000/api/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        });
+
+        if (res.ok) {
+          message.success("Tạo mới người dùng thành công");
+          setIsModalVisible(false);
+          form.resetFields();
+          fetchUsers();
+        } else {
+          const errData = await res.json();
+          message.error(errData.message || "Tạo mới thất bại");
+        }
       }
     } catch (err) {
       message.error("Lỗi kết nối hệ thống");
@@ -179,7 +144,6 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  // --- Cấu hình Columns ---
   const columns: ColumnsType<User> = [
     { title: "ID", dataIndex: "id", key: "id", width: 80 },
     {
@@ -202,14 +166,13 @@ const AdminUsers: React.FC = () => {
       dataIndex: "role",
       key: "role",
       render: (role: UserRole) => {
-        // Cấu hình màu sắc và nhãn hiển thị cho từng vai trò
-        const roleConfig = {
+        const roleConfig: Record<UserRole, { color: string; label: string }> = {
           student: { color: "blue", label: "Sinh viên" },
           lecturer: { color: "orange", label: "Giảng viên" },
           admin: { color: "red", label: "Quản trị" },
         };
 
-        const config = roleConfig[role] || { color: "default", label: role };
+        const config = roleConfig[role] ?? { color: "default", label: role };
 
         return (
           <Tag color={config.color} style={{ fontWeight: 600 }}>
@@ -266,6 +229,7 @@ const AdminUsers: React.FC = () => {
           placeholder="Tìm theo tên hoặc email..."
           prefix={<SearchOutlined />}
           allowClear
+          value={searchText}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
             setSearchText(e.target.value)
           }
@@ -274,8 +238,9 @@ const AdminUsers: React.FC = () => {
         <Select
           placeholder="Lọc theo vai trò"
           allowClear
+          value={roleFilter}
           style={{ width: 150 }}
-          onChange={(val: UserRole) => setRoleFilter(val)}
+          onChange={(val: UserRole | undefined) => setRoleFilter(val)}
         >
           <Select.Option value="student">Sinh viên</Select.Option>
           <Select.Option value="lecturer">Giảng viên</Select.Option>
@@ -285,18 +250,25 @@ const AdminUsers: React.FC = () => {
 
       <Table
         columns={columns}
-        dataSource={users}
+        dataSource={filteredUsers}
         rowKey="id"
         loading={loading}
         bordered
         pagination={{ pageSize: 10 }}
+        locale={{ emptyText: "Không có người dùng nào" }}
       />
 
       <Modal
-        title="Chỉnh sửa thông tin chi tiết"
+        title={
+          editingUser ? "Chỉnh sửa thông tin người dùng" : "Thêm người dùng mới"
+        }
         open={isModalVisible}
         onOk={() => form.submit()}
-        onCancel={() => setIsModalVisible(false)}
+        onCancel={() => {
+          setIsModalVisible(false);
+          form.resetFields();
+        }}
+        confirmLoading={submitting}
         destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleSave}>
@@ -305,7 +277,7 @@ const AdminUsers: React.FC = () => {
             label="Họ tên"
             rules={[{ required: true, message: "Không được để trống tên" }]}
           >
-            <Input />
+            <Input disabled={!!editingUser} />
           </Form.Item>
           <Form.Item
             name="email"
@@ -314,7 +286,7 @@ const AdminUsers: React.FC = () => {
               { required: true, type: "email", message: "Email không hợp lệ" },
             ]}
           >
-            <Input placeholder="vi-du@school.edu.vn" />
+            <Input placeholder="vi-du@school.edu.vn" disabled={!!editingUser} />
           </Form.Item>
           {!editingUser && (
             <Form.Item
@@ -331,7 +303,7 @@ const AdminUsers: React.FC = () => {
           <Form.Item
             name="role"
             label="Vai trò hệ thống"
-            rules={[{ required: true }]}
+            rules={[{ required: true, message: "Vui lòng chọn vai trò" }]}
           >
             <Select>
               <Select.Option value="student">Sinh viên</Select.Option>

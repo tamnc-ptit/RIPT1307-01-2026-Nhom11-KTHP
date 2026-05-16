@@ -1,6 +1,15 @@
 {
   "extends": "./src/.umi/tsconfig.json",
   "compilerOptions": {
-    "ignoreDeprecations": "6.0"
+    "ignoreDeprecations": "6.0",
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@@/*": ["src/.umi/*"],
+      "@admin/*": ["src/roles/admin/*"],
+      "@gv/*": ["src/roles/lecturer/*"],
+      "@sv/*": ["src/roles/student/*"]
+    }
   }
 }

@@ -1,17 +1,12 @@
 import { request } from "umi";
+import {ThesisItem} from "@/types/LecturerTypes/ThesisTypes"
 
-export interface ThesisItem {
-  id: number;
-  title: string;
-  description: string;
-  student_id: number;
-  lecturer_id: number;
-  student_name?: string;
-  lecturer_name?: string;
-}
 
-export async function getThesisList() {
-  return request<ThesisItem[]>("/api/thesis");
+export async function getThesisList(params?: any) {
+  return request<ThesisItem[]>("/api/thesis", {
+    method: "GET",
+    params,
+  });
 }
 
 export async function addThesis(data: Partial<ThesisItem>) {

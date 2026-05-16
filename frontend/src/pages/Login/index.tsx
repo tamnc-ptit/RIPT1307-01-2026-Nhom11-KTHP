@@ -4,7 +4,7 @@ import type { CurrentUser } from "@/app";
 
 interface LoginValues {
   email?: string;
-  password?: string;
+  password?: string; // Đây là plain text password "123456"
 }
 
 interface LoginResponse extends CurrentUser {
@@ -14,26 +14,28 @@ interface LoginResponse extends CurrentUser {
 
 const LoginPage: React.FC = () => {
   const [form] = Form.useForm<LoginValues>();
-
   const { refresh, setInitialState } = useModel("@@initialState");
 
   const handleLogin = async (values: LoginValues) => {
     const { email } = values;
 
-    // 1. Kiểm tra domain email trước khi gọi API
+    // 1. Cập nhật logic kiểm tra Domain Email để khớp với Seed Data
+    // Admin trong SQL của bạn là admin@ptit.edu.vn
     const isStudent = email?.endsWith("@student.ptit.edu.vn");
-    const isLecturer = email?.endsWith("@ptit.edu.vn") && !isStudent;
-    const isAdmin = email?.endsWith("@admin.ptit.edu.vn"); // Chấp nhận mail admin
+    const isLecturerOrAdmin = email?.endsWith("@ptit.edu.vn") && !isStudent;
 
-    if (!isStudent && !isLecturer && !isAdmin) {
+    if (!isStudent && !isLecturerOrAdmin) {
       message.error("Vui lòng sử dụng Email hợp lệ của Học viện PTIT!");
       return;
     }
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      // Thêm await vào trước fetch
+      const response = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(values),
       });
 
@@ -42,30 +44,37 @@ const LoginPage: React.FC = () => {
       if (response.ok && data.id) {
         message.success("Chào mừng quay trở lại!");
 
+        // 3. Lưu thông tin đăng nhập vào LocalStorage
         localStorage.setItem("user", JSON.stringify(data));
         if (data.token) localStorage.setItem("token", data.token);
 
+        // 4. Cập nhật InitialState cho UmiJS
         await setInitialState((s) => ({
           ...s,
           currentUser: data,
         }));
 
-        // Điều hướng dựa trên role thực tế
+        // 5. Điều hướng dựa trên role thực tế trả về từ Database
         if (data.role === "admin") {
           history.push("/admin/users");
+        } else if (data.role === "lecturer") {
+          history.push("/lecturer/dashboard");
         } else {
-          // Sinh viên và Giảng viên vào trang Thesis
-          history.push("/thesis");
+          history.push("/dashboard");
         }
 
         await refresh();
       } else {
-        // Hiện thông báo lỗi từ Backend (ví dụ: Sai mật khẩu)
-        message.error(data.message || "Đăng nhập thất bại");
+        // Hiển thị lỗi "Sai mật khẩu!" hoặc "Email không tồn tại" từ Backend
+        message.error(
+          data.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại!",
+        );
       }
     } catch (error) {
       console.error("Login Error:", error);
-      message.error("Lỗi kết nối Server. Hãy kiểm tra Backend!");
+      message.error(
+        "Không thể kết nối tới Server. Hãy đảm bảo Backend (Port 5000) đang chạy!",
+      );
     }
   };
 
@@ -86,21 +95,24 @@ const LoginPage: React.FC = () => {
         <Form form={form} layout="vertical" onFinish={handleLogin}>
           <Form.Item
             label="Email"
-            name="email"
+            name="email" // Khớp với req.body.email ở Backend
             rules={[
               { required: true, message: "Vui lòng nhập email!" },
               { type: "email", message: "Email không đúng định dạng!" },
             ]}
           >
-            <Input placeholder="example@ptit.edu.vn" size="large" />
+            <Input placeholder="admin@ptit.edu.vn" size="large" />
           </Form.Item>
 
           <Form.Item
             label="Mật khẩu"
-            name="password"
+            name="password" // Khớp với req.body.password ở Backend
             rules={[{ required: true, message: "Vui lòng nhập mật khẩu!" }]}
           >
-            <Input.Password placeholder="******" size="large" />
+            <Input.Password
+              placeholder="Mật khẩu mặc định là 123456"
+              size="large"
+            />
           </Form.Item>
 
           <Button type="primary" htmlType="submit" block size="large">
