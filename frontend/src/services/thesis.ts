@@ -2,8 +2,11 @@ import { request } from "umi";
 import {ThesisItem} from "@/types/LecturerTypes/ThesisTypes"
 
 
-export async function getThesisList() {
-  return request<ThesisItem[]>("/api/thesis");
+export async function getThesisList(params?: any) {
+  return request<ThesisItem[]>("/api/thesis", {
+    method: "GET",
+    params,
+  });
 }
 
 export async function addThesis(data: Partial<ThesisItem>) {

@@ -13,7 +13,8 @@ import {
   Typography,
   Divider,
   Row,
-  Col
+  Col,
+  Select
 } from "antd";
 import { 
   CalendarOutlined, 
@@ -22,41 +23,78 @@ import {
   SaveOutlined 
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { useModel } from "umi";
+import { getLecturerClasses, getSessions, createSession, deleteSession } from "@/services/lecturer";
 
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
+const { Option } = Select;
 
-interface SessionConfig {
-  id: string;
-  className: string;
-  registrationPeriod: [dayjs.Dayjs, dayjs.Dayjs];
-  maxStudentsPerGroup: number;
+interface SessionConfigType {
+  id: number;
+  class_id: number;
+  className?: string; // Tên lớp lấy từ JOIN DB
+  start_date: string;
+  end_date: string;
+  max_students_per_group: number;
   status: 'ACTIVE' | 'CLOSED';
 }
 
 const SessionSettings: React.FC = () => {
   const [form] = Form.useForm();
-  const [sessions, setSessions] = useState<SessionConfig[]>([
-    {
-      id: '1',
-      className: 'Thiết kế Web nâng cao - L01',
-      registrationPeriod: [dayjs('2026-05-01'), dayjs('2026-05-15')],
-      maxStudentsPerGroup: 3,
-      status: 'ACTIVE'
-    }
-  ]);
+  const [sessions, setSessions] = useState<SessionConfigType[]>([]);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const onFinish = (values: any) => {
-    const newSession: SessionConfig = {
-      id: Date.now().toString(),
-      className: values.className,
-      registrationPeriod: values.range,
-      maxStudentsPerGroup: values.maxStudents,
-      status: 'ACTIVE'
-    };
-    setSessions([...sessions, newSession]);
-    message.success("Đã kích hoạt đợt đăng ký đề tài mới!");
-    form.resetFields();
+  const { initialState } = useModel("@@initialState");
+  const lecturerId = initialState?.currentUser?.id;
+
+  const fetchData = async () => {
+    if (!lecturerId) return;
+    setLoading(true);
+    try {
+      const [classesRes, sessionsRes] = await Promise.all([
+        getLecturerClasses(lecturerId),
+        getSessions(lecturerId)
+      ]);
+      setClasses(classesRes || []);
+      setSessions(sessionsRes || []);
+    } catch (error) {
+      message.error("Lỗi khi tải dữ liệu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchData();
+  }, [lecturerId]);
+
+  const onFinish = async (values: any) => {
+    try {
+      const newSession = {
+        class_id: values.classId,
+        start_date: values.range[0].toISOString(),
+        end_date: values.range[1].toISOString(),
+        max_students_per_group: values.maxStudents
+      };
+      await createSession(newSession);
+      message.success("Đã kích hoạt đợt đăng ký đề tài mới!");
+      form.resetFields();
+      fetchData(); // Tải lại danh sách
+    } catch (error) {
+      message.error("Lỗi khi tạo cấu hình");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteSession(id);
+      message.success("Đã xóa đợt đăng ký");
+      fetchData();
+    } catch (error) {
+      message.error("Lỗi khi xóa");
+    }
   };
 
   const columns = [
@@ -68,15 +106,14 @@ const SessionSettings: React.FC = () => {
     },
     {
       title: 'Thời hạn đăng ký',
-      dataIndex: 'registrationPeriod',
       key: 'range',
-      render: (range: [dayjs.Dayjs, dayjs.Dayjs]) => (
-        <span>{range[0].format('DD/MM/YYYY')} - {range[1].format('DD/MM/YYYY')}</span>
+      render: (_: any, record: SessionConfigType) => (
+        <span>{dayjs(record.start_date).format('DD/MM/YYYY')} - {dayjs(record.end_date).format('DD/MM/YYYY')}</span>
       )
     },
     {
       title: 'SV tối đa/Nhóm',
-      dataIndex: 'maxStudentsPerGroup',
+      dataIndex: 'max_students_per_group',
       key: 'maxStudents',
       align: 'center' as const
     },
@@ -93,11 +130,8 @@ const SessionSettings: React.FC = () => {
     {
       title: 'Thao tác',
       key: 'action',
-      render: (_: any, record: SessionConfig) => (
-        <Popconfirm title="Bạn có chắc muốn xóa cấu hình này?" onConfirm={() => {
-          setSessions(sessions.filter(s => s.id !== record.id));
-          message.info("Đã xóa cấu hình");
-        }}>
+      render: (_: any, record: SessionConfigType) => (
+        <Popconfirm title="Bạn có chắc muốn xóa cấu hình này?" onConfirm={() => handleDelete(record.id)}>
           <Button danger type="text" icon={<DeleteOutlined />} />
         </Popconfirm>
       )
@@ -112,11 +146,15 @@ const SessionSettings: React.FC = () => {
           <Card title={<span><PlusOutlined /> Thiết lập đợt đăng ký mới</span>}>
             <Form form={form} layout="vertical" onFinish={onFinish}>
               <Form.Item 
-                name="className" 
+                name="classId" 
                 label="Chọn lớp tín chỉ" 
-                rules={[{ required: true, message: 'Vui lòng nhập tên lớp' }]}
+                rules={[{ required: true, message: 'Vui lòng chọn lớp' }]}
               >
-                <Input placeholder="Ví dụ: Lớp lập trình Java - N01" />
+                <Select placeholder="Chọn lớp">
+                  {classes.map(c => (
+                    <Option key={c.id} value={c.id}>{c.name || c.class_name || `Lớp ${c.id}`}</Option>
+                  ))}
+                </Select>
               </Form.Item>
 
               <Form.Item 
@@ -152,6 +190,7 @@ const SessionSettings: React.FC = () => {
               columns={columns} 
               rowKey="id" 
               pagination={false} 
+              loading={loading}
             />
             <Divider />
             <div style={{ background: '#fff7e6', padding: '12px', borderRadius: '8px' }}>

@@ -57,8 +57,10 @@ const LoginPage: React.FC = () => {
         // 5. Điều hướng dựa trên role thực tế trả về từ Database
         if (data.role === "admin") {
           history.push("/admin/users");
+        } else if (data.role === "lecturer") {
+          history.push("/lecturer/dashboard");
         } else {
-          history.push("/thesis");
+          history.push("/dashboard");
         }
 
         await refresh();
