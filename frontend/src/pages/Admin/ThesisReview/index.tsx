@@ -9,13 +9,8 @@ import {
   Modal,
   Form,
   message,
-  Input,
 } from "antd";
-import {
-  EditOutlined,
-  EyeOutlined,
-  DashboardOutlined,
-} from "@ant-design/icons";
+import { EditOutlined, DashboardOutlined } from "@ant-design/icons";
 import {
   ClassFilterItem,
   LecturerFilterItem,
@@ -23,23 +18,22 @@ import {
   FilterParams,
   ThesisItem,
 } from "@/types/AdminTypes/ThesisTypes";
-// --- Types ---
+
 const ThesisReview: React.FC = () => {
   const [theses, setTheses] = useState<ThesisItem[]>([]);
   const [classes, setClasses] = useState<ClassFilterItem[]>([]);
   const [lecturers, setLecturers] = useState<LecturerFilterItem[]>([]);
-  // SỬA: Lưu nguyên mảng Object Học kỳ để lấy ID lọc cho chính xác
+  // Sessions: mảng object { id, name } theo đúng schema DB
   const [semesters, setSemesters] = useState<SessionFilterItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Filters State (Đồng bộ kiểu dữ liệu với FilterParams)
   const [filters, setFilters] = useState<FilterParams>({});
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [editingThesis, setEditingThesis] = useState<ThesisItem | null>(null);
   const [form] = Form.useForm();
 
-  // --- Tải dữ liệu bộ lọc ban đầu ---
   const fetchFilterData = async () => {
     try {
       const [resClasses, resLecs, resSessions] = await Promise.all([
@@ -52,32 +46,35 @@ const ThesisReview: React.FC = () => {
       const lecturersData = await resLecs.json();
       const sessionsData = await resSessions.json();
 
-      setClasses(classesData);
-      setLecturers(lecturersData);
-
-      if (Array.isArray(sessionsData)) {
-        setSemesters(sessionsData as SessionFilterItem[]);
-      }
+      setClasses(Array.isArray(classesData) ? classesData : []);
+      setLecturers(Array.isArray(lecturersData) ? lecturersData : []);
+      // FIX #2: sessionsData là mảng object { id, name, ... } theo schema Sessions
+      setSemesters(Array.isArray(sessionsData) ? sessionsData : []);
     } catch (error) {
       message.error("Lỗi khi tải dữ liệu bộ lọc!");
       console.error(error);
     }
   };
 
-  // --- Lấy danh sách Đề tài (Kèm Filter) ---
-  const fetchTheses = async () => {
+  const fetchTheses = async (currentFilters: FilterParams) => {
     setLoading(true);
     try {
       const query = new URLSearchParams();
-      if (filters.status) query.append("status", filters.status);
-      if (filters.classId) query.append("classId", filters.classId.toString());
-      if (filters.semester) query.append("session_id", filters.semester);
+      if (currentFilters.status) query.append("status", currentFilters.status);
+      if (currentFilters.classId)
+        query.append("classId", currentFilters.classId.toString());
+      // FIX #2: gửi session_id (number) thay vì string tên học kỳ
+      if (currentFilters.semester)
+        query.append("session_id", currentFilters.semester.toString());
 
       const res = await fetch(
         `http://localhost:5000/api/thesis/admin?${query.toString()}`,
       );
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
       const data = await res.json();
-      setTheses(data);
+      setTheses(Array.isArray(data) ? data : []);
     } catch (error) {
       message.error("Không thể tải danh sách đề tài!");
     } finally {
@@ -90,10 +87,9 @@ const ThesisReview: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchTheses();
+    fetchTheses(filters);
   }, [filters]);
 
-  // --- Xử lý Can thiệp (Override) ---
   const handleOpenEdit = (record: ThesisItem) => {
     setEditingThesis(record);
     form.setFieldsValue({
@@ -108,6 +104,7 @@ const ThesisReview: React.FC = () => {
     lecturer_id: number;
   }) => {
     if (!editingThesis) return;
+    setSubmitting(true);
     try {
       const res = await fetch(
         `http://localhost:5000/api/admin/thesis/${editingThesis.id}`,
@@ -118,19 +115,19 @@ const ThesisReview: React.FC = () => {
         },
       );
 
-      if (res.ok) {
-        message.success("Cập nhật thông tin phân công thành công!");
-        setIsModalOpen(false);
-        fetchTheses();
-      } else {
-        throw new Error();
-      }
+      if (!res.ok) throw new Error();
+
+      message.success("Cập nhật thông tin phân công thành công!");
+      setIsModalOpen(false);
+      form.resetFields();
+      fetchTheses(filters);
     } catch (err) {
       message.error("Lỗi khi cập nhật đề tài!");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // --- Cấu hình Cột ---
   const columns = [
     {
       title: "Tiêu đề đề tài",
@@ -158,17 +155,16 @@ const ThesisReview: React.FC = () => {
       dataIndex: "status",
       key: "status",
       render: (status: string) => {
-        let color = "gold";
-        let text = "Đang chờ";
-
-        if (status === "Approved") {
-          color = "green";
-          text = "Đã duyệt";
-        } else if (status === "Rejected") {
-          color = "red";
-          text = "Từ chối";
-        }
-        return <Tag color={color}>{text}</Tag>;
+        const statusConfig: Record<string, { color: string; text: string }> = {
+          approved: { color: "green", text: "Đã duyệt" },
+          rejected: { color: "red", text: "Từ chối" },
+          pending: { color: "gold", text: "Đang chờ" },
+        };
+        const config = statusConfig[status?.toLowerCase()] ?? {
+          color: "default",
+          text: status,
+        };
+        return <Tag color={config.color}>{config.text}</Tag>;
       },
     },
     {
@@ -209,7 +205,6 @@ const ThesisReview: React.FC = () => {
       }
       style={{ margin: 24 }}
     >
-      {/* --- Bộ lọc (Filters) --- */}
       <Space style={{ marginBottom: 20 }} wrap>
         <Select
           placeholder="Lọc theo Trạng thái"
@@ -217,9 +212,9 @@ const ThesisReview: React.FC = () => {
           style={{ width: 180 }}
           onChange={(val) => setFilters((prev) => ({ ...prev, status: val }))}
         >
-          <Select.Option value="Pending">Đang chờ (Pending)</Select.Option>
-          <Select.Option value="Approved">Đã duyệt (Approved)</Select.Option>
-          <Select.Option value="Rejected">Từ chối (Rejected)</Select.Option>
+          <Select.Option value="pending">Đang chờ (Pending)</Select.Option>
+          <Select.Option value="approved">Đã duyệt (Approved)</Select.Option>
+          <Select.Option value="rejected">Từ chối (Rejected)</Select.Option>
         </Select>
 
         <Select
@@ -245,8 +240,8 @@ const ThesisReview: React.FC = () => {
           onChange={(val) => setFilters((prev) => ({ ...prev, semester: val }))}
         >
           {semesters.map((s) => (
-            <Select.Option key={s} value={s}>
-              {s}
+            <Select.Option key={s.id} value={s.id}>
+              {s.name}
             </Select.Option>
           ))}
         </Select>
@@ -258,14 +253,19 @@ const ThesisReview: React.FC = () => {
         rowKey="id"
         bordered
         loading={loading}
+        pagination={{ pageSize: 10 }}
+        locale={{ emptyText: "Không có đề tài nào" }}
       />
 
-      {/* --- Modal Can thiệp Đổi Lớp / Giảng viên --- */}
       <Modal
         title="Can thiệp phân công Đề tài"
         open={isModalOpen}
         onOk={() => form.submit()}
-        onCancel={() => setIsModalOpen(false)}
+        onCancel={() => {
+          setIsModalOpen(false);
+          form.resetFields();
+        }}
+        confirmLoading={submitting}
         destroyOnClose
       >
         <div

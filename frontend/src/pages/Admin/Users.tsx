@@ -33,7 +33,6 @@ const AdminUsers: React.FC = () => {
   const [form] = Form.useForm<UserFormValues>();
   const [submitting, setSubmitting] = useState(false);
 
-  // --- Fetch toàn bộ data 1 lần, filter ở frontend ---
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -51,7 +50,6 @@ const AdminUsers: React.FC = () => {
     fetchUsers();
   }, []);
 
-  // --- Filter trực tiếp trên client, không cần debounce hay gọi API ---
   const filteredUsers = users.filter((user) => {
     const matchesSearch = searchText
       ? user.name?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -146,7 +144,6 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  // --- Cấu hình Columns ---
   const columns: ColumnsType<User> = [
     { title: "ID", dataIndex: "id", key: "id", width: 80 },
     {

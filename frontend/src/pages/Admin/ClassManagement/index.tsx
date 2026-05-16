@@ -29,9 +29,9 @@ const ClassManagement: React.FC = () => {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
 
-  // --- API Fetching ---
   const fetchData = async () => {
     try {
       const [resClasses, resLecs, resSessions] = await Promise.all([
@@ -43,10 +43,9 @@ const ClassManagement: React.FC = () => {
       const classesData = await resClasses.json();
       const lecturersData = await resLecs.json();
       const sessionsData = await resSessions.json();
-
-      setClasses(classesData);
-      setLecturers(lecturersData);
-      setSessions(sessionsData as SessionItem[]);
+      setClasses(Array.isArray(classesData) ? classesData : []);
+      setLecturers(Array.isArray(lecturersData) ? lecturersData : []);
+      setSessions(Array.isArray(sessionsData) ? sessionsData : []);
     } catch (error) {
       message.error("Không thể tải dữ liệu từ server!");
       console.error(error);
@@ -57,7 +56,6 @@ const ClassManagement: React.FC = () => {
     fetchData();
   }, []);
 
-  // --- Mở Modal ---
   const handleOpenCreate = () => {
     setEditingClass(null);
     form.resetFields();
@@ -69,15 +67,14 @@ const ClassManagement: React.FC = () => {
     form.setFieldsValue({
       class_name: record.class_name,
       course_name: record.course_name,
-      // Ép kiểu sang Number để chắc chắn khớp với value của Select.Option
       session_id: record.session_id ? Number(record.session_id) : undefined,
       lecturer_id: record.lecturer_id ? Number(record.lecturer_id) : undefined,
     });
     setIsModalOpen(true);
   };
 
-  // --- Lưu (Tạo mới hoặc Cập nhật) ---
   const handleSave = async (values: ClassFormValues) => {
+    setSubmitting(true);
     try {
       const isEditing = !!editingClass;
       const url = isEditing
@@ -86,7 +83,7 @@ const ClassManagement: React.FC = () => {
       const method = isEditing ? "PATCH" : "POST";
 
       const res = await fetch(url, {
-        method: method,
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
@@ -97,14 +94,16 @@ const ClassManagement: React.FC = () => {
         form.resetFields();
         fetchData();
       } else {
-        throw new Error();
+        const errData = await res.json();
+        message.error(errData.message || "Lưu lớp thất bại!");
       }
     } catch (err) {
       message.error("Lỗi hệ thống khi lưu lớp!");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // --- Xóa ---
   const handleDelete = async (id: number) => {
     try {
       const res = await fetch(`http://localhost:5000/api/classes/${id}`, {
@@ -125,7 +124,6 @@ const ClassManagement: React.FC = () => {
     }
   };
 
-  // --- Cấu hình bảng dữ liệu ---
   const columns = [
     { title: "Mã lớp", dataIndex: "class_name", key: "class_name" },
     { title: "Tên học phần", dataIndex: "course_name", key: "course_name" },
@@ -189,13 +187,24 @@ const ClassManagement: React.FC = () => {
       }
       style={{ margin: 24 }}
     >
-      <Table dataSource={classes} columns={columns} rowKey="id" bordered />
+      <Table
+        dataSource={classes}
+        columns={columns}
+        rowKey="id"
+        bordered
+        pagination={{ pageSize: 10 }}
+        locale={{ emptyText: "Không có lớp học phần nào" }}
+      />
 
       <Modal
         title={editingClass ? "Chỉnh sửa lớp học phần" : "Tạo lớp học phần mới"}
         open={isModalOpen}
         onOk={() => form.submit()}
-        onCancel={() => setIsModalOpen(false)}
+        onCancel={() => {
+          setIsModalOpen(false);
+          form.resetFields();
+        }}
+        confirmLoading={submitting}
         destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleSave}>
@@ -222,9 +231,9 @@ const ClassManagement: React.FC = () => {
           >
             <Select placeholder="Chọn học kỳ">
               {sessions.map((session) => (
-                // Nhớ dùng session.id cho cả key và value
+                // FIX #1: dùng session.name thay vì session.session_name (đúng với schema Sessions)
                 <Select.Option key={session.id} value={Number(session.id)}>
-                  {session.session_name}
+                  {session.name}
                 </Select.Option>
               ))}
             </Select>
