@@ -1,56 +1,22 @@
 const express = require("express");
 const router = express.Router();
-const { poolPromise, sql } = require("../config/db");
-const authController = require("../controllers/authController");
 
-router.get("/", async (req, res) => {
-  try {
-    const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .query("SELECT id, name, email, role FROM Users");
+const userController = require("../controllers/user.controller");
+const authMiddleware = require("../middleware/authMiddleware");
 
-    res.json(result.recordset);
-  } catch (err) {
-    res.status(500).send(err.message);
-  }
-});
-router.get("/users", authController.getAllUsers);
-router.patch("/:id/role", authController.updateRole);
+// Get all users
+router.get("/", authMiddleware, userController.getUsers);
 
-// Route tạo người dùng mới
-router.post("/", async (req, res) => {
-  const { name, email, role, password } = req.body;
+// Get single user
+router.get("/:id", authMiddleware, userController.getUserById);
 
-  try {
-    const pool = await poolPromise; 
+// Get current logged-in user profile
+router.get("/profile/me", authMiddleware, userController.getProfile);
 
+// Update user
+router.patch("/:id", authMiddleware, userController.updateUser);
 
-    const checkEmail = await pool
-      .request()
-      .input("email", sql.NVarChar, email)
-      .query("SELECT id FROM Users WHERE email = @email");
-
-    if (checkEmail.recordset.length > 0) {
-      return res.status(400).json({ message: "Email này đã được sử dụng!" });
-    }
-
-    await pool
-      .request()
-      .input("name", sql.NVarChar, name)
-      .input("email", sql.NVarChar, email)
-      .input("role", sql.NVarChar, role)
-      .input("password", sql.NVarChar, password) 
-      .query(`
-        INSERT INTO Users (name, email, role, password)
-        VALUES (@name, @email, @role, @password)
-      `);
-
-    res.status(201).json({ message: "Tạo tài khoản người dùng thành công!" });
-  } catch (err) {
-    console.error("Lỗi tạo user:", err);
-    res.status(500).json({ message: "Lỗi Server khi tạo người dùng", error: err.message });
-  }
-});
+// Delete user
+router.delete("/:id", authMiddleware, userController.deleteUser);
 
 module.exports = router;

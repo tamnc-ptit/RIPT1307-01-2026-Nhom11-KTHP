@@ -17,11 +17,49 @@ const getUsers = async (req, res) => {
     }
 
     const result = await request.query(query);
-    res.json(result.recordset);
+    res.status(200).json({
+      success: true,
+      data: result.recordset
+    });
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Lỗi lấy danh sách người dùng", error: err.message });
+    res.status(500).json({
+      success: false, 
+      message: "Lỗi lấy danh sách người dùng", 
+      error: err.message 
+    });
+  }
+};
+
+const getUserById = async (rq, res) => {
+  try {
+    const { id } = req.params;
+    const pool = await poolPromise;
+    const result = await pool
+      .request()
+      .input("id", sql.Int, id)
+      .query(`
+        SELECT id, name, email, role, created_at, updated_at
+        FROM Users
+        WHERE id = @id
+      `);
+      
+    if (result.recordset.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy người dùng",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: result.recordset[0],
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Lỗi lấy thông tin người dùng",
+      error: err.message,
+    });
   }
 };
 
@@ -77,9 +115,16 @@ const updateUser = async (req, res) => {
                 WHERE id = @id
             `);
 
-    res.json({ message: "Cập nhật người dùng thành công!" });
+    res.json({
+      success: true,
+      message: "Cập nhật người dùng thành công!"
+      });
   } catch (err) {
-    res.status(500).json({ message: "Lỗi cập nhật", error: err.message });
+    res.status(500).json({
+      success: false,
+      message: "Lỗi cập nhật", 
+      error: err.message
+    });
   }
 };
 
@@ -93,12 +138,48 @@ const deleteUser = async (req, res) => {
       .input("id", sql.Int, id)
       .query("DELETE FROM Users WHERE id = @id");
 
-    res.json({ message: "Xóa người dùng thành công!" });
+    res.json({
+      success: true,
+      message: "Xóa người dùng thành công!"
+    });
   } catch (err) {
     res
       .status(500)
-      .json({ message: "Lỗi hệ thống khi xóa", error: err.message });
+      .json({
+        success: false,
+        message: "Lỗi hệ thống khi xóa",
+        error: err.message
+      });
   }
 };
 
-module.exports = { getUsers, bulkCreateUsers, updateUser, deleteUser };
+// Current logged-in user profile
+const getProfile = async (req, res) => {
+  try {
+    const userId = req.user.id; // from auth middleware
+
+    const pool = await poolPromise;
+
+    const result = await pool
+      .request()
+      .input("id", sql.Int, userId)
+      .query(`
+        SELECT id, name, email, role
+        FROM Users
+        WHERE id = @id
+      `);
+
+    res.status(200).json({
+      success: true,
+      data: result.recordset[0],
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch profile",
+      error: err.message,
+    });
+  }
+};
+
+module.exports = { getUsers, getUserById, bulkCreateUsers, updateUser, deleteUser, getProfile };
