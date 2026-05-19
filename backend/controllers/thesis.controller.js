@@ -1,11 +1,16 @@
-const { poolPromise, sql } = require("../config/db");
+const thesisService = require("../services/thesis.service");
 
-const getAdminThesis = async (req, res) => {
+exports.getAdminThesis = async (req, res) => {
   try {
-    const { keyword, lecturerId } = req.query;
+    let { keyword, lecturerId } = req.query;
+    
+    // Nếu người dùng là giảng viên, bắt buộc chỉ lấy đề tài thuộc lớp họ quản lý
+    if (req.user && req.user.role === "lecturer") {
+      lecturerId = req.user.id;
+    }
+    
     const data = await thesisService.getAllThesis(keyword, lecturerId);
     res.json(data);
-
   } catch (err) {
     res.status(500).json({ message: "Lỗi Server", error: err.message });
   }
@@ -32,12 +37,13 @@ exports.updateThesis = async (req, res) => {
 
   console.log(`>>> Backend nhận ID: ${id} (Kiểu: ${typeof id})`);
   console.log(">>> Backend nhận Body:", body);
+  
   if (isNaN(id)) {
     return res.status(400).json({ message: "ID không hợp lệ" });
   }
 
   try {
-    const data = await thesisService.updateThesis(id, req.body);
+    const data = await thesisService.updateThesis(id, body);
 
     if (!data) {
       return res.status(404).json({ message: "Không tìm thấy khóa luận" });
@@ -68,5 +74,3 @@ exports.deleteThesis = async (req, res) => {
     res.status(500).json({ message: "Lỗi delete", error: err.message });
   }
 };
-
-module.exports = { getAdminThesis };

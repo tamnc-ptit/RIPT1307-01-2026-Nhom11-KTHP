@@ -56,7 +56,7 @@ export async function createMilestone(data: any) {
     });
 }
 
-export async function updateMilestoneFeedback(id: number, data: { comment?: string, status?: string, plagiarismIndex?: number }) {
+export async function updateMilestoneFeedback(id: number, data: { comment?: string, score?: number | null, status?: string, userId?: number }) {
     return request(`/api/lecturer/milestones/${id}/feedback`, {
         method: "PUT",
         data
@@ -124,5 +124,11 @@ export async function updateTemplate(id: number, data: any) {
 export async function deleteTemplate(id: number) {
   return request(`/api/lecturer/templates/${id}`, {
     method: "DELETE",
+  });
+}
+
+export async function getClassStudents(classId: number) {
+  return request(`/api/lecturer/classes/${classId}/students`, {
+    method: "GET"
   });
 }

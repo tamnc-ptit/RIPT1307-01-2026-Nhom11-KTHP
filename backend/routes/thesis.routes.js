@@ -1,20 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const thesisController = require("../controllers/thesis.controller");
+const auth = require("../middlewares/auth");
 
-router.get("/admin", thesisController.getAdminThesis);
+router.get("/", auth, thesisController.getAdminThesis);
+router.post("/", auth, thesisController.createThesis);
+router.put("/:id", auth, thesisController.updateThesis);
+router.delete("/:id", auth, thesisController.deleteThesis);
 
 module.exports = router;
-```
-
-    const express = require("express");
-    const router = express.Router();
-    const userRoutes = require("./user.routes");
-    const thesisRoutes = require("./thesis.routes");
-
-    router.use("/users", userRoutes);
-    router.use("/thesis", thesisRoutes);
-
-    module.exports = router;
-    
-    ```;

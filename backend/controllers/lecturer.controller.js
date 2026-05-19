@@ -1,7 +1,10 @@
 const lecturerService = require("../services/lecturer.service");
 
 exports.getDashboardStats = async (req, res) => {
-  const { lecturerId } = req.query; // Tạm thời lấy qua query, sau này nên lấy từ token
+  let { lecturerId } = req.query;
+  if (req.user && req.user.role === "lecturer") {
+    lecturerId = req.user.id;
+  }
   if (!lecturerId) return res.status(400).json({ message: "Thiếu lecturerId" });
 
   try {
@@ -13,7 +16,10 @@ exports.getDashboardStats = async (req, res) => {
 };
 
 exports.getRiskFlags = async (req, res) => {
-  const { lecturerId } = req.query;
+  let { lecturerId } = req.query;
+  if (req.user && req.user.role === "lecturer") {
+    lecturerId = req.user.id;
+  }
   if (!lecturerId) return res.status(400).json({ message: "Thiếu lecturerId" });
 
   try {
@@ -25,7 +31,10 @@ exports.getRiskFlags = async (req, res) => {
 };
 
 exports.getClasses = async (req, res) => {
-  const { lecturerId } = req.query;
+  let { lecturerId } = req.query;
+  if (req.user && req.user.role === "lecturer") {
+    lecturerId = req.user.id;
+  }
   if (!lecturerId) return res.status(400).json({ message: "Thiếu lecturerId" });
 
   try {
@@ -101,14 +110,21 @@ exports.exportReport = async (req, res) => {
   if (!classId) return res.status(400).json({ message: "Thiếu classId" });
 
   try {
-    const workbook = await lecturerService.exportClassReport(classId);
+    if (req.user && req.user.role === "lecturer") {
+      const classes = await lecturerService.getClasses(req.user.id);
+      const isOwner = classes.some(c => c.id == classId);
+      if (!isOwner) {
+        return res.status(403).json({ message: "Bạn không có quyền xuất báo cáo lớp học này!" });
+      }
+    }
+    const { workbook, className } = await lecturerService.exportClassReport(classId);
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     );
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=BaoCaoLop_${classId}.xlsx`
+      `attachment; filename="${encodeURIComponent(className)}.xlsx"`
     );
 
     await workbook.xlsx.write(res);
@@ -121,7 +137,10 @@ exports.exportReport = async (req, res) => {
 // --- Sessions ---
 exports.getSessions = async (req, res) => {
   try {
-    const { lecturerId } = req.query;
+    let { lecturerId } = req.query;
+    if (req.user && req.user.role === "lecturer") {
+      lecturerId = req.user.id;
+    }
     const data = await lecturerService.getSessions(lecturerId);
     res.json(data);
   } catch (err) {
@@ -152,6 +171,13 @@ exports.deleteSession = async (req, res) => {
 exports.getTemplates = async (req, res) => {
   try {
     const { classId } = req.query;
+    if (classId && req.user && req.user.role === "lecturer") {
+      const classes = await lecturerService.getClasses(req.user.id);
+      const isOwner = classes.some(c => c.id == classId);
+      if (!isOwner) {
+        return res.status(403).json({ message: "Bạn không có quyền xem quy trình mẫu của lớp này!" });
+      }
+    }
     const data = await lecturerService.getTemplates(classId);
     res.json(data);
   } catch (err) {
@@ -195,5 +221,22 @@ exports.createMilestone = async (req, res) => {
     res.status(201).json(data);
   } catch (err) {
     res.status(500).json({ message: "Lỗi tạo Milestone", error: err.message });
+  }
+};
+
+exports.getClassStudents = async (req, res) => {
+  const { classId } = req.params;
+  try {
+    if (req.user && req.user.role === "lecturer") {
+      const classes = await lecturerService.getClasses(req.user.id);
+      const isOwner = classes.some(c => c.id == classId);
+      if (!isOwner) {
+        return res.status(403).json({ message: "Bạn không có quyền xem danh sách sinh viên lớp này!" });
+      }
+    }
+    const data = await lecturerService.getClassStudents(classId);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
   }
 };

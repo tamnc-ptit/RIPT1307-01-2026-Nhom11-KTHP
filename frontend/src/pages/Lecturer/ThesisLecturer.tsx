@@ -6,7 +6,6 @@ import {
   Button,
   Input,
   Card,
-  Select,
   Modal,
   message,
   Typography,
@@ -23,17 +22,15 @@ import {
   EyeOutlined,
   CheckOutlined,
   CloseOutlined,
-  SearchOutlined
+  SearchOutlined,
+  ClockCircleOutlined
 } from "@ant-design/icons";
-// Import các hàm từ service bạn đã cung cấp
 import { approveThesis, rejectThesis, finalizeThesis, exportExcelReport } from "../../services/lecturer";
 import { getThesisList, deleteThesis } from "../../services/thesis";
 import { ThesisItem } from "@/types/LecturerTypes/ThesisTypes";
-import { useModel } from "umi";
-
+import { useModel, history } from "umi";
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 const { confirm } = Modal;
 
 const ThesisLecturer: React.FC = () => {
@@ -51,15 +48,13 @@ const ThesisLecturer: React.FC = () => {
   const { initialState } = useModel("@@initialState");
   const lecturerId = initialState?.currentUser?.id;
 
-  // --- Lấy dữ liệu thực tế từ API ---
   const fetchTheses = async () => {
     setLoading(true);
     try {
       const res = await getThesisList({ lecturerId });
-      // Nếu API trả về trực tiếp mảng ThesisItem[]
       setData(res || []);
     } catch (error) {
-      message.error("Không thể tải danh sách đề tài từ máy chủ");
+      message.error("Không thể tải danh sách đề tài");
     } finally {
       setLoading(false);
     }
@@ -78,7 +73,7 @@ const ThesisLecturer: React.FC = () => {
         ...values,
         lecturer_id: lecturerId,
       });
-      message.success("Đã đăng đề tài lên chợ!");
+      message.success("Đã đăng đề tài đề xuất mới!");
       setIsAddModalOpen(false);
       addForm.resetFields();
       fetchTheses();
@@ -86,21 +81,21 @@ const ThesisLecturer: React.FC = () => {
       message.error("Lỗi đăng đề tài");
     }
   };
-  // --- Xử lý Duyệt đề tài ---
+
   const handleApprove = (record: ThesisItem) => {
     confirm({
       title: 'Xác nhận duyệt đề tài?',
-      icon: <ExclamationCircleOutlined />,
+      icon: <ExclamationCircleOutlined style={{ color: '#52c41a' }} />,
       content: (
         <div>
           <p><strong>Đề tài:</strong> {record.title}</p>
-          <p style={{ color: 'gray', fontSize: '12px' }}>* Hệ thống sẽ tự động khởi tạo lộ trình Milestone cho sinh viên.</p>
+          <p style={{ color: 'gray', fontSize: '12px' }}>* Hệ thống sẽ tự động sao chép quy trình mẫu của lớp vào tiến độ đề tài.</p>
         </div>
       ),
       onOk: async () => {
         try {
           await approveThesis(record.id);
-          message.success("Đã duyệt đề tài và khởi tạo lộ trình thành công!");
+          message.success("Đã duyệt đề tài thành công!");
           fetchTheses();
         } catch (error) {
           message.error("Duyệt đề tài thất bại");
@@ -144,8 +139,10 @@ const ThesisLecturer: React.FC = () => {
   };
 
   const handleExport = async () => {
-    // Giả sử classId lấy từ item đầu tiên hoặc filter
-    const classId = data[0]?.class_id || 1;
+    const classId = data.find(t => t.class_id)?.class_id;
+    if (!classId) {
+      return message.warning("Không tìm thấy lớp học nào để xuất báo cáo");
+    }
     try {
       const blob = await exportExcelReport(classId);
       const url = window.URL.createObjectURL(new Blob([blob]));
@@ -160,7 +157,6 @@ const ThesisLecturer: React.FC = () => {
     }
   };
 
-  // --- Xử lý Xóa đề tài (Sử dụng hàm deleteThesis) ---
   const handleDelete = (id: number) => {
     confirm({
       title: 'Bạn có chắc chắn muốn xóa đề tài này?',
@@ -181,69 +177,80 @@ const ThesisLecturer: React.FC = () => {
 
   const columns = [
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 70,
-    },
-    {
       title: 'Tên đề tài',
-      dataIndex: 'title', // Sửa từ topicName thành title theo interface mới
+      dataIndex: 'title',
       key: 'title',
-      width: '30%',
-      render: (text: string) => <strong>{text}</strong>
+      width: '35%',
+      render: (text: string) => <Text strong style={{ color: '#2c3e50' }}>{text}</Text>
     },
     {
       title: 'Sinh viên',
-      dataIndex: 'studentName', // Sửa lại cho khớp service (t.studentName)
+      dataIndex: 'studentName',
       key: 'studentName',
-      render: (text: string) => text || <Tag>Chưa gán</Tag>
+      render: (text: string) => text ? <Tag color="geekblue">{text}</Tag> : <Tag color="orange">Đề xuất (Chợ)</Tag>
+    },
+    {
+      title: 'Lớp',
+      dataIndex: 'class_id',
+      key: 'class_id',
+      render: (classId: number) => classId ? `Lớp ${classId}` : '-'
     },
     {
       title: 'Điểm',
       dataIndex: 'final_score',
       key: 'final_score',
-      render: (score: number) => score !== null ? <Tag color="blue">{score}</Tag> : '-'
+      render: (score: number) => score !== null ? <Tag color="cyan" style={{ fontWeight: 'bold' }}>{score}</Tag> : '-'
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      render: (status: string) => {
+      render: (status: string, record: any) => {
         let color = 'default';
+        let label = status?.toUpperCase() || '-';
         if (status === 'Approved') color = 'green';
-        if (status === 'Pending') color = 'gold';
+        if (status === 'Pending') {
+          if (!record.studentName) {
+            color = 'orange';
+            label = 'ĐANG ĐỢI ĐĂNG KÝ';
+          } else {
+            color = 'gold';
+            label = 'CHỜ PHÊ DUYỆT';
+          }
+        }
         if (status === 'Rejected') color = 'red';
         if (status === 'Completed') color = 'blue';
-        return <Tag color={color}>{status?.toUpperCase()}</Tag>;
+        return <Tag color={color} style={{ fontWeight: 'bold' }}>{label}</Tag>;
       }
-    },
-    {
-      title: 'Mô tả',
-      dataIndex: 'description',
-      key: 'description',
-      ellipsis: true, // Cắt bớt nếu quá dài
     },
     {
       title: 'Thao tác',
       key: 'action',
       render: (_: any, record: ThesisItem) => (
         <Space size="middle">
-          <Tooltip title="Xem chi tiết">
-            <Button shape="circle" icon={<EyeOutlined />} />
-          </Tooltip>
+          {record.status === 'Approved' && (
+            <Tooltip title="Xem tiến độ & chấm điểm mốc">
+              <Button
+                type="primary"
+                shape="circle"
+                icon={<ClockCircleOutlined />}
+                onClick={() => history.push(`/lecturer/milestones?thesisId=${record.id}`)}
+              />
+            </Tooltip>
+          )}
 
-          {record.status === 'Pending' && (
+          {record.status === 'Pending' && record.studentName && (
             <>
-              <Tooltip title="Phê duyệt">
+              <Tooltip title="Phê duyệt đề tài">
                 <Button
                   type="primary"
                   shape="circle"
+                  style={{ background: '#52c41a', borderColor: '#52c41a' }}
                   icon={<CheckOutlined />}
                   onClick={() => handleApprove(record)}
                 />
               </Tooltip>
-              <Tooltip title="Từ chối">
+              <Tooltip title="Từ chối đề tài">
                 <Button
                   danger
                   shape="circle"
@@ -255,18 +262,18 @@ const ThesisLecturer: React.FC = () => {
           )}
 
           {record.status === 'Approved' && (
-            <Tooltip title="Nhập điểm & Kết thúc">
+            <Tooltip title="Nhập điểm & Kết thúc đề tài">
               <Button
                 type="primary"
                 shape="circle"
-                style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                style={{ background: '#13c2c2', borderColor: '#13c2c2' }}
                 icon={<SafetyCertificateOutlined />}
                 onClick={() => handleFinalize(record.id)}
               />
             </Tooltip>
           )}
 
-          <Tooltip title="Xóa đề tài">
+          <Tooltip title="Xóa đề tài / Hủy đề xuất">
             <Button
               type="text"
               danger
@@ -281,107 +288,134 @@ const ThesisLecturer: React.FC = () => {
   ];
 
   return (
-    <Card bordered={false}>
-      <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
-        <Col>
-          <Title level={3} style={{ margin: 0 }}>Quản lý Đề tài Hướng dẫn</Title>
-        </Col>
-        <Col>
-          <Space>
-            <Button icon={<FileExcelOutlined />} onClick={handleExport}>
-              Xuất báo cáo
-            </Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsAddModalOpen(true)}>
-              Đăng đề tài lên chợ
-            </Button>
-          </Space>
-        </Col>
-      </Row>
+    <div style={{ padding: '24px', background: '#f5f7fa', minHeight: '100vh' }}>
+      <Card 
+        bordered={false} 
+        style={{ borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}
+        title={
+          <Row justify="space-between" align="middle" style={{ width: '100%' }}>
+            <Col>
+              <Title level={3} style={{ margin: 0, color: '#1e3c72' }}>📋 Quản lý Đề tài Hướng dẫn</Title>
+            </Col>
+            <Col>
+              <Space>
+                <Button 
+                  icon={<FileExcelOutlined />} 
+                  onClick={handleExport}
+                  style={{ borderRadius: '8px' }}
+                >
+                  Xuất báo cáo lớp
+                </Button>
+                <Button 
+                  type="primary" 
+                  icon={<PlusOutlined />} 
+                  onClick={() => setIsAddModalOpen(true)}
+                  style={{ borderRadius: '8px', background: '#1e3c72', borderColor: '#1e3c72' }}
+                >
+                  Đăng đề tài đề xuất
+                </Button>
+              </Space>
+            </Col>
+          </Row>
+        }
+      >
+        <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+          <Col xs={24} sm={12} md={8}>
+            <Input
+              placeholder="Tìm kiếm theo tiêu đề đề tài..."
+              prefix={<SearchOutlined />}
+              allowClear
+              style={{ borderRadius: '8px' }}
+              onChange={e => setSearchText(e.target.value)}
+            />
+          </Col>
+        </Row>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={12} md={8}>
-          <Input
-            placeholder="Tìm kiếm theo tiêu đề đề tài..."
-            prefix={<SearchOutlined />}
-            allowClear
-            onChange={e => setSearchText(e.target.value)}
+        <Table
+          columns={columns}
+          dataSource={data.filter(item =>
+            item.title.toLowerCase().includes(searchText.toLowerCase())
+          )}
+          loading={loading}
+          rowKey="id"
+          pagination={{ pageSize: 8 }}
+          style={{ borderRadius: '8px', overflow: 'hidden' }}
+        />
+
+        {/* Modal nhập lý do từ chối */}
+        <Modal
+          title="Từ chối Đăng ký Đề tài"
+          open={isRejectModalOpen}
+          onOk={submitReject}
+          onCancel={() => setIsRejectModalOpen(false)}
+          okText="Gửi từ chối"
+          cancelText="Hủy"
+          okButtonProps={{ danger: true, style: { borderRadius: '6px' } }}
+          cancelButtonProps={{ style: { borderRadius: '6px' } }}
+        >
+          <div style={{ marginBottom: 12 }}>
+            <Text type="secondary">Nhập lý do chi tiết để sinh viên biết cách điều chỉnh:</Text>
+          </div>
+          <Input.TextArea
+            rows={4}
+            placeholder="VD: Mô tả đề tài chưa rõ ràng, cần chi tiết thêm..."
+            value={rejectReason}
+            onChange={e => setRejectReason(e.target.value)}
+            style={{ borderRadius: '6px' }}
           />
-        </Col>
-      </Row>
+        </Modal>
 
-      <Table
-        columns={columns}
-        dataSource={data.filter(item =>
-          item.title.toLowerCase().includes(searchText.toLowerCase())
-        )}
-        loading={loading}
-        rowKey="id"
-        pagination={{ pageSize: 8 }}
-      />
+        {/* Modal nhập điểm tổng kết */}
+        <Modal
+          title="Hoàn thành & Chấm điểm Đồ án"
+          open={isFinalizeModalOpen}
+          onOk={submitFinalize}
+          onCancel={() => setIsFinalizeModalOpen(false)}
+          okText="Lưu & Kết thúc"
+          cancelText="Hủy"
+          okButtonProps={{ style: { borderRadius: '6px', background: '#1e3c72', borderColor: '#1e3c72' } }}
+          cancelButtonProps={{ style: { borderRadius: '6px' } }}
+        >
+          <div style={{ marginBottom: 16 }}>
+            <Text type="secondary">Nhập điểm tổng kết (thang điểm 10) cho đề tài này. Hệ thống sẽ lưu điểm và đóng đề tài.</Text>
+          </div>
+          <Input
+            type="number"
+            min={0}
+            max={10}
+            step={0.1}
+            value={finalScore}
+            onChange={(e) => setFinalScore(parseFloat(e.target.value))}
+            placeholder="Ví dụ: 8.5"
+            style={{ borderRadius: '6px' }}
+          />
+        </Modal>
 
-      {/* Modal nhập lý do từ chối */}
-      <Modal
-        title="Lý do từ chối đề tài"
-        open={isRejectModalOpen}
-        onOk={submitReject}
-        onCancel={() => setIsRejectModalOpen(false)}
-        okText="Gửi từ chối"
-        cancelText="Hủy"
-        okButtonProps={{ danger: true }}
-      >
-        <Input.TextArea
-          rows={4}
-          placeholder="Nhập lý do cụ thể để sinh viên chỉnh sửa..."
-          value={rejectReason}
-          onChange={e => setRejectReason(e.target.value)}
-        />
-      </Modal>
-
-      {/* Modal nhập điểm tổng kết */}
-      <Modal
-        title="Nhập điểm tổng kết"
-        open={isFinalizeModalOpen}
-        onOk={submitFinalize}
-        onCancel={() => setIsFinalizeModalOpen(false)}
-        okText="Lưu điểm"
-        cancelText="Hủy"
-      >
-        <div style={{ marginBottom: 16 }}>
-          Nhập điểm từ 0 đến 10 cho đề tài này. Hệ thống sẽ khóa và chuyển sang trạng thái Hoàn thành.
-        </div>
-        <Input
-          type="number"
-          min={0}
-          max={10}
-          step={0.1}
-          value={finalScore}
-          onChange={(e) => setFinalScore(parseFloat(e.target.value))}
-          placeholder="Ví dụ: 8.5"
-        />
-      </Modal>
-
-      {/* Modal Đăng đề tài lên chợ */}
-      <Modal
-        title="Đăng đề tài mới lên chợ"
-        open={isAddModalOpen}
-        onOk={() => addForm.submit()}
-        onCancel={() => setIsAddModalOpen(false)}
-        okText="Đăng đề tài"
-        cancelText="Hủy"
-      >
-        <Form form={addForm} layout="vertical" onFinish={handleAddSubmit}>
-          <Form.Item name="title" label="Tên đề tài" rules={[{ required: true }]}>
-            <Input placeholder="Ví dụ: Ứng dụng quản lý sinh viên" />
-          </Form.Item>
-          <Form.Item name="description" label="Mô tả / Yêu cầu">
-            <Input.TextArea rows={4} placeholder="Mô tả ngắn gọn về đề tài..." />
-          </Form.Item>
-          <Form.Item name="class_id" label="ID Lớp (Tùy chọn)">
-            <Input type="number" placeholder="Nhập ID lớp nếu muốn chỉ định" />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </Card>
+        {/* Modal Đăng đề xuất mới */}
+        <Modal
+          title="Đăng đề tài đề xuất mới"
+          open={isAddModalOpen}
+          onOk={() => addForm.submit()}
+          onCancel={() => setIsAddModalOpen(false)}
+          okText="Đăng đề tài"
+          cancelText="Hủy"
+          okButtonProps={{ style: { borderRadius: '6px', background: '#1e3c72', borderColor: '#1e3c72' } }}
+          cancelButtonProps={{ style: { borderRadius: '6px' } }}
+        >
+          <Form form={addForm} layout="vertical" onFinish={handleAddSubmit}>
+            <Form.Item name="title" label="Tên đề tài" rules={[{ required: true, message: 'Vui lòng nhập tên đề tài!' }]}>
+              <Input placeholder="Ví dụ: Hệ thống quản lý thực tập tốt nghiệp" style={{ borderRadius: '6px' }} />
+            </Form.Item>
+            <Form.Item name="description" label="Mô tả yêu cầu">
+              <Input.TextArea rows={4} placeholder="Mô tả tóm tắt nội dung và yêu cầu..." style={{ borderRadius: '6px' }} />
+            </Form.Item>
+            <Form.Item name="class_id" label="Gán vào Lớp tín chỉ (Tùy chọn)">
+              <Input type="number" placeholder="Nhập ID lớp học nếu có" style={{ borderRadius: '6px' }} />
+            </Form.Item>
+          </Form>
+        </Modal>
+      </Card>
+    </div>
   );
 };
 
