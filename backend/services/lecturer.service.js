@@ -745,13 +745,18 @@ exports.createNotification = async (data) => {
     `);
 };
 
-// ==================== LECTURER THESIS LIST (Fully isolated - only edit this file) ====================
+// ============================================================
+// LECTURER THESIS LIST - FULLY ISOLATED
+// Chỉ edit file này khi cần thêm logic cho giảng viên.
+// Không được đưa logic này vào thesis.controller.js (file chung).
+// ============================================================
 exports.getLecturerTheses = async (params) => {
   const { lecturerId, keyword, status, class_id, session_id, page = 1, pageSize = 10 } = params;
   const pool = await poolPromise;
 
   const offset = (page - 1) * pageSize;
 
+  // Luôn lọc theo lecturer_id để đảm bảo phân quyền
   let whereClause = `t.lecturer_id = @lecturerId`;
   const request = pool.request()
     .input("lecturerId", sql.Int, lecturerId)
@@ -766,7 +771,7 @@ exports.getLecturerTheses = async (params) => {
     whereClause += ` AND t.title LIKE '%' + @keyword + '%'`;
   }
 
-  // Status filter mapped to lecturer + admin status
+  // Xử lý trạng thái phức tạp (kết hợp lecturer_status + admin_status + final_score)
   if (status) {
     whereClause += ` AND (
       (@status = 'Pending' AND t.lecturer_status = 'pending') OR

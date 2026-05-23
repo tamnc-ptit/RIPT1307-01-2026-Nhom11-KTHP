@@ -13,8 +13,7 @@ import {
   CalendarOutlined
 } from "@ant-design/icons";
 import { history, useModel } from "umi";
-import { getDashboardStats, getRiskFlags, approveThesis } from "@/services/lecturer";
-import { getThesisList } from "@/services/thesis";
+import { getDashboardStats, getRiskFlags, approveThesis, getLecturerTheses } from "@/services/lecturer";
 
 const { Title, Text } = Typography;
 
@@ -60,7 +59,7 @@ const LecturerDashboard: React.FC = () => {
       const [statsRes, risksRes, thesisRes] = await Promise.all([
         getDashboardStats(lecturerId!),
         getRiskFlags(lecturerId!),
-        getThesisList({ lecturerId: lecturerId! })
+        getLecturerTheses({ lecturerId: lecturerId! })
       ]);
 
       setStats({
@@ -75,7 +74,7 @@ const LecturerDashboard: React.FC = () => {
         riskType: r.flagType
       })));
       
-      setTopics(thesisRes.slice(0, 5).map((t: any) => ({
+      setTopics((thesisRes.items || []).slice(0, 5).map((t: any) => ({
         id: t.id.toString(),
         title: t.title,
         studentGroup: t.studentName || 'Chưa có sinh viên',
