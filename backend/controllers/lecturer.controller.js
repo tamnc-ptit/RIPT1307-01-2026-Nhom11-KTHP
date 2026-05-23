@@ -528,7 +528,7 @@ exports.getClassStudents = async (req, res) => {
 };
 
 // Dedicated endpoint for lecturer's thesis list with advanced filters
-exports.getMyTheses = async (req, res) => {
+exports.getLecturerTheses = async (req, res) => {
   try {
     if (!req.user || req.user.role !== "lecturer") {
       return res.status(403).json({ message: "Chỉ giảng viên mới được truy cập" });
@@ -537,7 +537,7 @@ exports.getMyTheses = async (req, res) => {
     const lecturerId = req.user.id;
     const { keyword, status, class_id, session_id, page = 1, pageSize = 10 } = req.query;
 
-    const data = await lecturerService.getMyTheses({
+    const data = await lecturerService.getLecturerTheses({
       lecturerId,
       keyword,
       status,

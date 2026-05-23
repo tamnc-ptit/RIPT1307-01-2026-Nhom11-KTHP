@@ -26,7 +26,7 @@ import {
   EditOutlined,
   PlusOutlined
 } from "@ant-design/icons";
-import { getMilestones, updateMilestoneFeedback, createMilestone, getMyTheses } from "@/services/lecturer";
+import { getMilestones, updateMilestoneFeedback, createMilestone, getLecturerTheses } from "@/services/lecturer";
 import { useLocation, history } from "umi";
 import dayjs from "dayjs";
 
@@ -73,7 +73,7 @@ const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchMyTheses = async () => {
     try {
-      const res = await getMyTheses({ lecturerId });
+      const res = await getLecturerTheses({ lecturerId });
       // Only show theses that are approved or have progress
       const filtered = (res.items || res || []).filter((t: any) => 
         t.lecturer_status === 'approved' || t.status === 'Approved'

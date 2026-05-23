@@ -745,8 +745,8 @@ exports.createNotification = async (data) => {
     `);
 };
 
-// ==================== IMPROVED LECTURER THESIS LIST ====================
-exports.getMyTheses = async (params) => {
+// ==================== LECTURER THESIS LIST (Fully isolated - only edit this file) ====================
+exports.getLecturerTheses = async (params) => {
   const { lecturerId, keyword, status, class_id, session_id, page = 1, pageSize = 10 } = params;
   const pool = await poolPromise;
 
@@ -765,6 +765,8 @@ exports.getMyTheses = async (params) => {
   if (keyword) {
     whereClause += ` AND t.title LIKE '%' + @keyword + '%'`;
   }
+
+  // Status filter mapped to lecturer + admin status
   if (status) {
     whereClause += ` AND (
       (@status = 'Pending' AND t.lecturer_status = 'pending') OR
@@ -773,6 +775,7 @@ exports.getMyTheses = async (params) => {
       (@status = 'Rejected' AND (t.lecturer_status = 'rejected' OR t.admin_status = 'rejected'))
     )`;
   }
+
   if (class_id) {
     whereClause += ` AND t.class_id = @classId`;
   }

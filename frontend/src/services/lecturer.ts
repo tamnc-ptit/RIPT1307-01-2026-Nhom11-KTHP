@@ -196,7 +196,7 @@ export async function getThesisDetail(thesisId: string | number) {
 }
 
 // Improved lecturer thesis list with filters & pagination
-export async function getMyTheses(params: any = {}) {
+export async function getLecturerTheses(params: any = {}) {
   return request("/api/lecturer/theses", {
     method: "GET",
     params,

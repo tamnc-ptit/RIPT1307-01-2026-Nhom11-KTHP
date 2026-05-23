@@ -26,7 +26,7 @@ import {
   SearchOutlined,
   ClockCircleOutlined
 } from "@ant-design/icons";
-import { approveThesis, rejectThesis, finalizeThesis, exportExcelReport, getMyTheses } from "../../services/lecturer";
+import { approveThesis, rejectThesis, finalizeThesis, exportExcelReport, getLecturerTheses } from "../../services/lecturer";
 import { deleteThesis } from "../../services/thesis";
 import { ThesisItem } from "@/types/LecturerTypes/ThesisTypes";
 import { useModel, history } from "umi";
@@ -55,7 +55,7 @@ const ThesisLecturer: React.FC = () => {
   const fetchTheses = async (customFilters = filters) => {
     setLoading(true);
     try {
-      const res = await getMyTheses({
+      const res = await getLecturerTheses({
         ...customFilters,
         lecturerId, // still pass for safety, though backend uses token
       });
