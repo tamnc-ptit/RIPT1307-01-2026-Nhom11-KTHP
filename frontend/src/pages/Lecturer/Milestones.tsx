@@ -15,7 +15,8 @@ import {
   DatePicker,
   Form,
   Space,
-  Tooltip
+  Tooltip,
+  Select
 } from "antd";
 import { 
   ClockCircleOutlined, 
@@ -41,8 +42,10 @@ interface RealMilestone {
   status: 'pending' | 'completed' | 'overdue';
   submitted_at: string | null;
   evidence_url: string | null;
+  file_name?: string;
   score: number | null;
   lecturer_comment: string | null;
+  comments_json?: string; // JSON array of all comments
 }
 
 const Milestones: React.FC = () => {
@@ -51,6 +54,7 @@ const Milestones: React.FC = () => {
   const [selectedMilestone, setSelectedMilestone] = useState<RealMilestone | null>(null);
   const [feedback, setFeedback] = useState("");
   const [gradeScore, setGradeScore] = useState<number | null>(null);
+  const [gradeStatus, setGradeStatus] = useState<'completed' | 'overdue'>('completed');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addForm] = Form.useForm();
@@ -85,6 +89,7 @@ const Milestones: React.FC = () => {
     setSelectedMilestone(m);
     setFeedback(m.lecturer_comment || "");
     setGradeScore(m.score);
+    setGradeStatus(m.status === 'overdue' ? 'overdue' : 'completed');
     setIsModalOpen(true);
   };
 
@@ -94,7 +99,7 @@ const Milestones: React.FC = () => {
       await updateMilestoneFeedback(selectedMilestone.id, {
         comment: feedback,
         score: gradeScore,
-        status: 'done', // Marks milestone status = 'completed'
+        status: gradeStatus, // 'completed' or 'overdue'
         userId: lecturerId
       });
       message.success("Đã chấm điểm và lưu nhận xét");
@@ -244,44 +249,95 @@ const Milestones: React.FC = () => {
         cancelText="Hủy"
         okButtonProps={{ style: { borderRadius: '6px', background: '#1e3c72', borderColor: '#1e3c72' } }}
         cancelButtonProps={{ style: { borderRadius: '6px' } }}
+        width={600}
       >
+        {/* File minh chứng */}
         <div style={{ marginBottom: 16 }}>
-          <Text strong>Tệp tin minh chứng: </Text>
+          <Text strong>Tệp tin sinh viên nộp: </Text>
+          <br />
           <Button 
             type="link" 
             icon={<FileTextOutlined />}
-            onClick={() => window.open(selectedMilestone?.evidence_url || '')}
+            onClick={() => window.open(selectedMilestone?.evidence_url || '', '_blank')}
             disabled={!selectedMilestone?.evidence_url}
+            style={{ paddingLeft: 0 }}
           >
-            {selectedMilestone?.evidence_url ? "Tải xuống / Xem báo cáo" : "Không có tệp tin"}
+            {selectedMilestone?.file_name || (selectedMilestone?.evidence_url ? "Tải xuống / Xem file" : "Không có tệp tin")}
           </Button>
         </div>
-        
-        <div style={{ marginBottom: 16 }}>
-          <Text strong>Điểm số mốc (Thang điểm 10): </Text>
-          <div style={{ marginTop: 8 }}>
+
+        {/* Điểm + Trạng thái */}
+        <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+          <div style={{ flex: 1 }}>
+            <Text strong>Điểm số mốc (Thang 10): </Text>
             <InputNumber
               min={0}
               max={10}
               step={0.1}
-              style={{ width: '100%', borderRadius: '6px' }}
+              style={{ width: '100%', marginTop: 4, borderRadius: '6px' }}
               value={gradeScore !== null ? gradeScore : undefined}
               onChange={val => setGradeScore(val)}
               placeholder="VD: 8.5"
             />
           </div>
+          <div style={{ flex: 1 }}>
+            <Text strong>Trạng thái mốc sau chấm: </Text>
+            <Select
+              value={gradeStatus}
+              onChange={setGradeStatus}
+              style={{ width: '100%', marginTop: 4 }}
+            >
+              <Select.Option value="completed">Hoàn thành (Completed)</Select.Option>
+              <Select.Option value="overdue">Trễ hạn (Overdue)</Select.Option>
+            </Select>
+          </div>
         </div>
 
-        <div>
-          <Text strong>Nhận xét / Ý kiến phản hồi của Giảng viên: </Text>
+        {/* Nhận xét mới */}
+        <div style={{ marginBottom: 16 }}>
+          <Text strong>Nhận xét / Phản hồi của Giảng viên: </Text>
           <TextArea 
-            rows={4} 
-            placeholder="Nhập ý kiến nhận xét và hướng dẫn chỉnh sửa..." 
-            style={{ marginTop: 8, borderRadius: '6px' }}
+            rows={3} 
+            placeholder="Nhập ý kiến nhận xét và hướng dẫn chỉnh sửa..."
+            style={{ marginTop: 4, borderRadius: '6px' }}
             value={feedback}
             onChange={e => setFeedback(e.target.value)}
           />
         </div>
+
+        {/* Lịch sử nhận xét cũ */}
+        {selectedMilestone?.comments_json && (
+          <div style={{ marginTop: 12 }}>
+            <Text strong style={{ color: '#1e3c72' }}>📜 Lịch sử nhận xét trước đó:</Text>
+            <div style={{ 
+              maxHeight: 140, 
+              overflowY: 'auto', 
+              background: '#fafafa', 
+              padding: 8, 
+              borderRadius: 6, 
+              marginTop: 6,
+              border: '1px solid #f0f0f0'
+            }}>
+              {(() => {
+                try {
+                  const comments = JSON.parse(selectedMilestone.comments_json);
+                  if (!comments || comments.length === 0) return <Text type="secondary">Chưa có nhận xét nào.</Text>;
+                  return comments.map((c: any, idx: number) => (
+                    <div key={idx} style={{ marginBottom: 8, fontSize: 13 }}>
+                      <Text strong style={{ color: '#2c3e50' }}>{c.commenter_name || 'Giảng viên'}</Text>
+                      <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                        {c.created_at ? new Date(c.created_at).toLocaleString('vi-VN') : ''}
+                      </Text>
+                      <div style={{ color: '#333', marginTop: 2 }}>{c.content}</div>
+                    </div>
+                  ));
+                } catch {
+                  return <Text type="secondary">Không thể hiển thị lịch sử nhận xét.</Text>;
+                }
+              })()}
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Modal Thêm Mốc Tiến Độ */}

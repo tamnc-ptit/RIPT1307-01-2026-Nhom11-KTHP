@@ -15,8 +15,20 @@ exports.getMilestonesByThesis = async (thesisId) => {
         m.status,
         s.submitted_at,
         s.file_url AS evidence_url,
+        s.file_name,
         s.score,
-        (SELECT TOP 1 c.content FROM Comments c WHERE c.submission_id = s.id ORDER BY c.created_at DESC) AS lecturer_comment
+        (SELECT TOP 1 c.content FROM Comments c WHERE c.submission_id = s.id ORDER BY c.created_at DESC) AS lecturer_comment,
+        (
+          SELECT 
+            c.content,
+            c.created_at,
+            u.name AS commenter_name
+          FROM Comments c
+          LEFT JOIN Users u ON c.user_id = u.id
+          WHERE c.submission_id = s.id
+          ORDER BY c.created_at DESC
+          FOR JSON PATH
+        ) AS comments_json
       FROM Milestones m
       LEFT JOIN Submissions s ON s.milestone_id = m.id AND s.thesis_id = m.thesis_id
       WHERE m.thesis_id = @thesisId
@@ -64,8 +76,10 @@ exports.updateMilestoneFeedback = async (id, data) => {
     await reqSub.query(subQuery);
   }
 
-  // 4. Cập nhật trạng thái của Milestone
-  const finalStatus = status === 'done' || status === 'completed' ? 'completed' : 'pending';
+  // 4. Cập nhật trạng thái của Milestone (hỗ trợ overdue)
+  let finalStatus = 'pending';
+  if (status === 'done' || status === 'completed') finalStatus = 'completed';
+  if (status === 'overdue') finalStatus = 'overdue';
   const result = await pool
     .request()
     .input("id", sql.Int, id)

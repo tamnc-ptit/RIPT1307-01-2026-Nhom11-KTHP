@@ -12,7 +12,8 @@ import {
   Row,
   Tooltip,
   Col,
-  Form
+  Form,
+  Select
 } from "antd";
 import {
   PlusOutlined,
@@ -25,8 +26,8 @@ import {
   SearchOutlined,
   ClockCircleOutlined
 } from "@ant-design/icons";
-import { approveThesis, rejectThesis, finalizeThesis, exportExcelReport } from "../../services/lecturer";
-import { getThesisList, deleteThesis } from "../../services/thesis";
+import { approveThesis, rejectThesis, finalizeThesis, exportExcelReport, getMyTheses } from "../../services/lecturer";
+import { deleteThesis } from "../../services/thesis";
 import { ThesisItem } from "@/types/LecturerTypes/ThesisTypes";
 import { useModel, history } from "umi";
 
@@ -44,15 +45,21 @@ const ThesisLecturer: React.FC = () => {
   const [rejectReason, setRejectReason] = useState("");
   const [finalScore, setFinalScore] = useState<number>(0);
   const [addForm] = Form.useForm();
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
   const { initialState } = useModel("@@initialState");
   const lecturerId = initialState?.currentUser?.id;
 
-  const fetchTheses = async () => {
+  const [filters, setFilters] = useState({ keyword: "", status: "", class_id: "" });
+
+  const fetchTheses = async (customFilters = filters) => {
     setLoading(true);
     try {
-      const res = await getThesisList({ lecturerId });
-      setData(res || []);
+      const res = await getMyTheses({
+        ...customFilters,
+        lecturerId, // still pass for safety, though backend uses token
+      });
+      setData(res.items || res || []); // support both old and new response shape
     } catch (error) {
       message.error("Không thể tải danh sách đề tài");
     } finally {
@@ -175,6 +182,38 @@ const ThesisLecturer: React.FC = () => {
     });
   };
 
+  // Bulk actions (feature 4)
+  const handleBulkApprove = async () => {
+    if (selectedRowKeys.length === 0) return message.warning("Chọn ít nhất 1 đề tài");
+    try {
+      const res = await import("../../services/lecturer").then(m => m.bulkApproveTheses ? m.bulkApproveTheses(selectedRowKeys) : Promise.reject("No bulk"));
+      message.success("Đã duyệt hàng loạt");
+      setSelectedRowKeys([]);
+      fetchTheses();
+    } catch (e) {
+      message.error("Lỗi bulk approve");
+    }
+  };
+
+  const handleBulkReject = () => {
+    if (selectedRowKeys.length === 0) return message.warning("Chọn ít nhất 1 đề tài");
+    setIsRejectModalOpen(true); // reuse reject modal, but for bulk
+  };
+
+  const submitBulkReject = async () => {
+    if (!rejectReason) return message.warning("Nhập lý do");
+    try {
+      const res = await import("../../services/lecturer").then(m => m.bulkRejectTheses ? m.bulkRejectTheses({ thesisIds: selectedRowKeys, rejectReason }) : Promise.reject());
+      message.success("Đã từ chối hàng loạt");
+      setIsRejectModalOpen(false);
+      setRejectReason("");
+      setSelectedRowKeys([]);
+      fetchTheses();
+    } catch (e) {
+      message.error("Lỗi bulk reject");
+    }
+  };
+
   const columns = [
     {
       title: 'Tên đề tài',
@@ -229,14 +268,24 @@ const ThesisLecturer: React.FC = () => {
       render: (_: any, record: ThesisItem) => (
         <Space size="middle">
           {record.status === 'Approved' && (
-            <Tooltip title="Xem tiến độ & chấm điểm mốc">
-              <Button
-                type="primary"
-                shape="circle"
-                icon={<ClockCircleOutlined />}
-                onClick={() => history.push(`/lecturer/milestones?thesisId=${record.id}`)}
-              />
-            </Tooltip>
+            <>
+              <Tooltip title="Xem chi tiết đề tài">
+                <Button
+                  type="default"
+                  shape="circle"
+                  icon={<EyeOutlined />}
+                  onClick={() => history.push(`/lecturer/thesis/${record.id}`)}
+                />
+              </Tooltip>
+              <Tooltip title="Xem tiến độ & chấm điểm mốc">
+                <Button
+                  type="primary"
+                  shape="circle"
+                  icon={<ClockCircleOutlined />}
+                  onClick={() => history.push(`/lecturer/milestones?thesisId=${record.id}`)}
+                />
+              </Tooltip>
+            </>
           )}
 
           {record.status === 'Pending' && record.studentName && (
@@ -306,6 +355,12 @@ const ThesisLecturer: React.FC = () => {
                 >
                   Xuất báo cáo lớp
                 </Button>
+                {selectedRowKeys.length > 0 && (
+                  <>
+                    <Button onClick={handleBulkApprove} style={{ borderRadius: '8px' }}>Duyệt hàng loạt</Button>
+                    <Button danger onClick={handleBulkReject} style={{ borderRadius: '8px' }}>Từ chối hàng loạt</Button>
+                  </>
+                )}
                 <Button 
                   type="primary" 
                   icon={<PlusOutlined />} 
@@ -326,12 +381,38 @@ const ThesisLecturer: React.FC = () => {
               prefix={<SearchOutlined />}
               allowClear
               style={{ borderRadius: '8px' }}
-              onChange={e => setSearchText(e.target.value)}
+              onChange={e => {
+                const newFilters = { ...filters, keyword: e.target.value };
+                setFilters(newFilters);
+                fetchTheses(newFilters);
+              }}
             />
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Select
+              placeholder="Lọc theo trạng thái"
+              allowClear
+              style={{ width: '100%', borderRadius: '8px' }}
+              onChange={(val) => {
+                const newFilters = { ...filters, status: val || "" };
+                setFilters(newFilters);
+                fetchTheses(newFilters);
+              }}
+            >
+              <Select.Option value="Pending">Chờ duyệt</Select.Option>
+              <Select.Option value="Approved">Đã duyệt</Select.Option>
+              <Select.Option value="Completed">Hoàn thành</Select.Option>
+              <Select.Option value="Rejected">Bị từ chối</Select.Option>
+            </Select>
           </Col>
         </Row>
 
         <Table
+          rowSelection={{
+            selectedRowKeys,
+            onChange: setSelectedRowKeys,
+            preserveSelectedRowKeys: true,
+          }}
           columns={columns}
           dataSource={data.filter(item =>
             item.title.toLowerCase().includes(searchText.toLowerCase())

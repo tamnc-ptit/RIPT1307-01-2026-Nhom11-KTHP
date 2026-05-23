@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { 
   Card, Row, Col, Typography, Button, Table, 
-  Tag, Space, Statistic, Divider, message, Empty 
+  Tag, Space, Statistic, Divider, message, Empty, Progress 
 } from "antd";
 import { 
   TeamOutlined, 
@@ -66,7 +66,8 @@ const LecturerDashboard: React.FC = () => {
       setStats({
         totalStudents: statsRes.totalStudents || 0,
         pendingTheses: statsRes.pendingApprovals || 0,
-        newSubmissions: statsRes.newReports || 0
+        newSubmissions: statsRes.newReports || 0,
+        completedThesis: statsRes.completedThesis || 0
       });
 
       setRisks(risksRes.map((r: any) => ({
@@ -219,10 +220,21 @@ const LecturerDashboard: React.FC = () => {
           <Col xs={24} sm={12} md={6}>
             <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} hoverable>
               <Statistic
-                title="Sinh viên cần hỗ trợ"
-                value={risks.length}
-                prefix={<ClockCircleOutlined style={{ color: '#f5222d', marginRight: '8px' }} />}
-                valueStyle={{ color: risks.length > 0 ? '#f5222d' : '#2c3e50', fontWeight: 'bold' }}
+                title="Tiến độ TB lớp"
+                value={stats?.averageProgress || 0}
+                suffix="%"
+                prefix={<CheckCircleOutlined style={{ color: '#52c41a', marginRight: '8px' }} />}
+                valueStyle={{ color: '#52c41a', fontWeight: 'bold' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} hoverable>
+              <Statistic
+                title="Đề tài đã hoàn thành"
+                value={stats?.completedThesis || 0}
+                prefix={<CheckCircleOutlined style={{ color: '#52c41a', marginRight: '8px' }} />}
+                valueStyle={{ color: '#52c41a', fontWeight: 'bold' }}
               />
             </Card>
           </Col>

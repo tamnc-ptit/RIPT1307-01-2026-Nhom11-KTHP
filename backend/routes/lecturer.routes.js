@@ -26,6 +26,22 @@ router.delete("/sessions/:id", lecturerController.deleteSession);
 router.get("/templates", lecturerController.getTemplates);
 router.post("/templates", lecturerController.createTemplate);
 router.put("/templates/:id", lecturerController.updateTemplate);
-router.delete("/templates/:id", lecturerController.deleteTemplate);
+  router.delete("/templates/:id", lecturerController.deleteTemplate);
 
-module.exports = router;
+  // Lecturer Proposals (My Proposals)
+  router.get("/proposals", lecturerController.getMyProposals);
+  router.post("/proposals", lecturerController.createProposal);
+  router.put("/proposals/:id", lecturerController.updateProposal);
+  router.delete("/proposals/:id", lecturerController.deleteProposal);
+
+  // Thesis Detail
+  router.get("/theses/:id/detail", lecturerController.getThesisDetail);
+
+  // Dedicated lecturer thesis list with filters (for better UX)
+  router.get("/theses", lecturerController.getMyTheses);
+
+  // Bulk actions for lecturer
+  router.post("/theses/bulk-approve", lecturerController.bulkApproveTheses);
+  router.post("/theses/bulk-reject", lecturerController.bulkRejectTheses);
+  
+  module.exports = router;

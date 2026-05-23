@@ -156,3 +156,66 @@ export async function getClassStudents(classId: number) {
     headers: getAuthHeader(),
   });
 }
+
+// --- My Proposals (TopicSuggestions) ---
+export async function getMyProposals() {
+  return request("/api/lecturer/proposals", {
+    method: "GET",
+    headers: getAuthHeader(),
+  });
+}
+
+export async function createProposal(data: any) {
+  return request("/api/lecturer/proposals", {
+    method: "POST",
+    data,
+    headers: getAuthHeader(),
+  });
+}
+
+export async function updateProposal(id: number, data: any) {
+  return request(`/api/lecturer/proposals/${id}`, {
+    method: "PUT",
+    data,
+    headers: getAuthHeader(),
+  });
+}
+
+export async function deleteProposal(id: number) {
+  return request(`/api/lecturer/proposals/${id}`, {
+    method: "DELETE",
+    headers: getAuthHeader(),
+  });
+}
+
+export async function getThesisDetail(thesisId: string | number) {
+  return request(`/api/lecturer/theses/${thesisId}/detail`, {
+    method: "GET",
+    headers: getAuthHeader(),
+  });
+}
+
+// Improved lecturer thesis list with filters & pagination
+export async function getMyTheses(params: any = {}) {
+  return request("/api/lecturer/theses", {
+    method: "GET",
+    params,
+    headers: getAuthHeader(),
+  });
+}
+
+export async function bulkApproveTheses(thesisIds: number[]) {
+  return request("/api/lecturer/theses/bulk-approve", {
+    method: "POST",
+    data: { thesisIds },
+    headers: getAuthHeader(),
+  });
+}
+
+export async function bulkRejectTheses(payload: { thesisIds: number[]; rejectReason: string }) {
+  return request("/api/lecturer/theses/bulk-reject", {
+    method: "POST",
+    data: payload,
+    headers: getAuthHeader(),
+  });
+}
