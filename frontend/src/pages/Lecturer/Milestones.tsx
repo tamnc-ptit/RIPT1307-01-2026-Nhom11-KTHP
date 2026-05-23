@@ -26,8 +26,8 @@ import {
   EditOutlined,
   PlusOutlined
 } from "@ant-design/icons";
-import { getMilestones, updateMilestoneFeedback, createMilestone } from "@/services/lecturer";
-import { useLocation } from "umi";
+import { getMilestones, updateMilestoneFeedback, createMilestone, getMyTheses } from "@/services/lecturer";
+import { useLocation, history } from "umi";
 import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
@@ -52,31 +52,55 @@ const Milestones: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [milestones, setMilestones] = useState<RealMilestone[]>([]);
   const [selectedMilestone, setSelectedMilestone] = useState<RealMilestone | null>(null);
-  const [feedback, setFeedback] = useState("");
-  const [gradeScore, setGradeScore] = useState<number | null>(null);
-  const [gradeStatus, setGradeStatus] = useState<'completed' | 'overdue'>('completed');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+const [feedback, setFeedback] = useState("");
+const [gradeScore, setGradeScore] = useState<number | null>(null);
+const [gradeStatus, setGradeStatus] = useState<'completed' | 'overdue'>('completed');
+const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addForm] = Form.useForm();
+
+  const [myTheses, setMyTheses] = useState<any[]>([]);
   
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const thesisId = queryParams.get("thesisId") || "";
+  const initialThesisId = queryParams.get("thesisId") || "";
+
+  const [selectedThesisId, setSelectedThesisId] = useState<string>(initialThesisId);
 
   const { useModel } = require("umi");
   const { initialState } = useModel("@@initialState");
   const lecturerId = initialState?.currentUser?.id;
 
+  const fetchMyTheses = async () => {
+    try {
+      const res = await getMyTheses({ lecturerId });
+      // Only show theses that are approved or have progress
+      const filtered = (res.items || res || []).filter((t: any) => 
+        t.lecturer_status === 'approved' || t.status === 'Approved'
+      );
+      setMyTheses(filtered);
+    } catch (error) {
+      message.error("Không thể tải danh sách đề tài");
+    }
+  };
+
   useEffect(() => {
-    if (thesisId) {
+    if (selectedThesisId) {
       fetchMilestones();
     }
-  }, [thesisId]);
+  }, [selectedThesisId]);
+
+  useEffect(() => {
+    if (lecturerId) {
+      fetchMyTheses();
+    }
+  }, [lecturerId]);
 
   const fetchMilestones = async () => {
+    if (!selectedThesisId) return;
     setLoading(true);
     try {
-      const res = await getMilestones(thesisId);
+      const res = await getMilestones(selectedThesisId);
       setMilestones(res || []);
     } catch (error) {
       message.error("Lỗi khi tải tiến độ");
@@ -114,7 +138,7 @@ const Milestones: React.FC = () => {
     try {
       await createMilestone({
         ...values,
-        thesis_id: thesisId,
+        thesis_id: selectedThesisId,
         created_by: lecturerId,
         deadline: values.deadline ? values.deadline.toISOString() : null
       });
@@ -125,6 +149,12 @@ const Milestones: React.FC = () => {
     } catch (error) {
       message.error("Lỗi khi thêm mốc tiến độ");
     }
+  };
+
+  const handleThesisChange = (newThesisId: string) => {
+    setSelectedThesisId(newThesisId);
+    // Update URL so that refreshing the page keeps the selection
+    history.replace(`/lecturer/milestones?thesisId=${newThesisId}`);
   };
 
   const columns = [
@@ -192,6 +222,27 @@ const Milestones: React.FC = () => {
 
   return (
     <div style={{ padding: '24px', background: '#f5f7fa', minHeight: '100vh' }}>
+      {/* Thesis Selector - allows direct access to the page */}
+      {myTheses.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <span style={{ marginRight: 12, fontWeight: 500 }}>Chọn đề tài:</span>
+          <Select
+            value={selectedThesisId || undefined}
+            onChange={handleThesisChange}
+            placeholder="Chọn đề tài để xem tiến độ"
+            style={{ width: 400 }}
+            showSearch
+            optionFilterProp="children"
+          >
+            {myTheses.map((t: any) => (
+              <Select.Option key={t.id} value={t.id.toString()}>
+                {t.title} {t.studentName ? `(${t.studentName})` : ''}
+              </Select.Option>
+            ))}
+          </Select>
+        </div>
+      )}
+
       <Card 
         title={<span style={{ color: '#1e3c72', fontWeight: 'bold' }}>🏆 Lộ trình thực hiện Đề tài</span>} 
         style={{ marginBottom: 24, borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
@@ -218,9 +269,15 @@ const Milestones: React.FC = () => {
                   </span>
                 </Col>
                 <Col>
-                  <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsAddModalOpen(true)} style={{ borderRadius: '8px', background: '#1e3c72', borderColor: '#1e3c72' }}>
-                    Thêm Mốc Tiến Độ Riêng
-                  </Button>
+                <Button 
+                  type="primary" 
+                  icon={<PlusOutlined />} 
+                  onClick={() => setIsAddModalOpen(true)} 
+                  style={{ borderRadius: '8px', background: '#1e3c72', borderColor: '#1e3c72' }}
+                  disabled={!selectedThesisId}
+                >
+                  Thêm Mốc Tiến Độ Riêng
+                </Button>
                 </Col>
               </Row>
             }
