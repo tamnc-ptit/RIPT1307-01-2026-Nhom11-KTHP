@@ -1,63 +1,53 @@
 const { poolPromise, sql } = require("../config/db");
 
-// ==========================================
-// 1. LẤY DANH SÁCH ĐỀ TÀI (ĐÃ SỬA LỖI AMBIGUOUS & DÙNG BẢNG THESIS)
-// ==========================================
-exports.getAllThesis = async (keyword, lecturerId) => {
+exports.getAllThesis = async (filterParams) => {
+  const { keyword, lecturerId, adminStatus, lecturerStatus, classId, sessionId } = filterParams;
   const pool = await poolPromise;
 
   const result = await pool
     .request()
     .input("keyword", sql.NVarChar, keyword || null)
-    .input("lecturerId", sql.Int, lecturerId || null).query(`
+    .input("lecturerId", sql.Int, lecturerId || null)
+    .input("adminStatus", sql.NVarChar, adminStatus || null)
+    .input("lecturerStatus", sql.NVarChar, lecturerStatus || null)
+    .input("classId", sql.Int, classId || null)
+    .input("sessionId", sql.Int, sessionId || null)
+    .query(`
       SELECT 
-        t.id,                        -- Chỉ định rõ t.id (id của bảng Thesis)
+        t.id,                        
         t.title,
         t.description,
         t.student_id,
         t.lecturer_id,
         t.class_id,
+        t.session_id,                
         t.status,
+        t.lecturer_status,           
+        t.admin_status,              
         t.reject_reason,
         t.final_score,
-        s.name AS student_name,      -- Sử dụng s.name (name của bảng Users sinh viên)
-        l.name AS lecturer_name,     -- Sử dụng l.name (name của bảng Users giảng viên)
-        c.class_name                 -- Lấy tên lớp từ bảng Classes
-      FROM Thesis t                  -- ĐỂ NGUYÊN TÊN BẢNG SỐ ÍT CỦA BẠN
+        t.created_at,                
+        s.name AS student_name,      
+        l.name AS lecturer_name,     
+        c.class_name,                
+        se.name AS session_name      
+      FROM Thesis t                  
       LEFT JOIN Users s ON t.student_id = s.id
       LEFT JOIN Classes c ON t.class_id = c.id
       LEFT JOIN Users l ON t.lecturer_id = l.id
+      LEFT JOIN Sessions se ON t.session_id = se.id 
       WHERE (@keyword IS NULL OR t.title LIKE '%' + @keyword + '%')
         AND (@lecturerId IS NULL OR t.lecturer_id = @lecturerId)
+        -- 🚀 THÊM CÁC ĐIỀU KIỆN LỌC DƯỚI ĐÂY VÀO SQL:
+        AND (@adminStatus IS NULL OR t.admin_status = @adminStatus)
+        AND (@lecturerStatus IS NULL OR t.lecturer_status = @lecturerStatus)
+        AND (@classId IS NULL OR t.class_id = @classId)
+        AND (@sessionId IS NULL OR t.session_id = @sessionId)
       ORDER BY t.id DESC
     `);
 
   return result.recordset;
 };
-
-// ==========================================
-// 2. TẠO MỚI ĐỀ TÀI
-// ==========================================
-exports.createThesis = async (data) => {
-  const { title, description, student_id, lecturer_id, class_id } = data;
-  const pool = await poolPromise;
-
-  const result = await pool
-    .request()
-    .input("title", sql.NVarChar, title)
-    .input("description", sql.NVarChar, description || null)
-    .input("student_id", sql.Int, student_id || null)
-    .input("lecturer_id", sql.Int, lecturer_id || null)
-    .input("class_id", sql.Int, class_id || null).query(`
-      INSERT INTO Thesis (title, description, student_id, lecturer_id, class_id, status)
-      OUTPUT INSERTED.*
-      VALUES (@title, @description, @student_id, @lecturer_id, @class_id, 'pending')
-    `);
-
-  return result.recordset[0];
-};
-
-
 exports.updateThesis = async (id, data) => {
   const {
     title,
@@ -100,9 +90,6 @@ exports.updateThesis = async (id, data) => {
   return result.recordset[0];
 };
 
-// ==========================================
-// 4. XÓA ĐỀ TÀI
-// ==========================================
 exports.deleteThesis = async (id) => {
   const pool = await poolPromise;
   const result = await pool
@@ -113,9 +100,7 @@ exports.deleteThesis = async (id) => {
   return result.rowsAffected[0];
 };
 
-// ==========================================
-// 5. CÁC HÀM PHỤ TRỢ (ĐỒNG BỘ BẢNG THESIS SỐ ÍT)
-// ==========================================
+
 exports.getSupervisors = async () => {
   const pool = await poolPromise;
   const result = await pool.request().query(`

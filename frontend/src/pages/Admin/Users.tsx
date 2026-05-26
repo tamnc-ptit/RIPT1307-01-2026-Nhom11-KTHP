@@ -8,6 +8,7 @@ import {
   Form,
   Input,
   Select,
+  Switch,
   message,
   Popconfirm,
   Card,
@@ -19,7 +20,14 @@ import {
   SearchOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
-import { UserRole, User, UserFormValues } from "@/types/AdminTypes/ThesisTypes";
+import {
+  User,
+  CreateUserValues,
+  EditUserValues,
+  UserRole,
+} from "../../types/AdminTypes/UserTypes";
+
+const API = "http://localhost:5000";
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -27,30 +35,17 @@ const AdminUsers: React.FC = () => {
   const [searchText, setSearchText] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<UserRole | undefined>(undefined);
 
-  // Modal States
   const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [form] = Form.useForm<UserFormValues>();
+  const [createForm] = Form.useForm<CreateUserValues>();
+  const [editForm] = Form.useForm<EditUserValues>();
   const [submitting, setSubmitting] = useState(false);
 
-  const roleColors = {
-    student: "#1677ff",
-    lecturer: "#faad14",
-    admin: "#ff4d4f",
-  };
-
-  // --- Logic Fetch Data ---
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const query = new URLSearchParams();
-      // Logic lọc từ Backend nếu API hỗ trợ, hoặc dùng filteredData ở FE
-      if (searchText) query.append("keyword", searchText);
-      if (roleFilter) query.append("role", roleFilter);
-
-      const res = await fetch(
-        `http://localhost:5000/api/auth/users?${query.toString()}`,
-      );
+      const res = await fetch(`${API}/api/admin/users`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: User[] = await res.json();
       setUsers(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -62,57 +57,27 @@ const AdminUsers: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, [searchText, roleFilter]);
+  }, []);
 
   const filteredUsers = users.filter((user) => {
-    const matchesRole = roleFilter ? user.role === roleFilter : true;
-    const matchesText = searchText
-      ? user.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchText.toLowerCase())
+    const matchesSearch = searchText
+      ? user.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+        user.email?.toLowerCase().includes(searchText.toLowerCase())
       : true;
-    return matchesRole && matchesText;
+    const matchesRole = roleFilter ? user.role === roleFilter : true;
+    return matchesSearch && matchesRole;
   });
-
-  const handleRoleChange = async (id: number, newRole: UserRole) => {
-    const hide = message.loading("Đang cập nhật vai trò...");
-    try {
-      const res = await fetch(
-        `http://localhost:5000/api/auth/users/${id}/role`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: newRole }),
-        },
-      );
-
-      if (res.ok) {
-        hide();
-        message.success("Cập nhật vai trò thành công!");
-        setUsers((prev) =>
-          prev.map((user) =>
-            user.id === id ? { ...user, role: newRole } : user,
-          ),
-        );
-      } else {
-        throw new Error();
-      }
-    } catch (error) {
-      hide();
-      message.error("Cập nhật thất bại, vui lòng thử lại!");
-    }
-  };
 
   const handleDelete = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/users/${id}`, {
+      const res = await fetch(`${API}/api/admin/users/${id}`, {
         method: "DELETE",
       });
-
       if (res.ok) {
         message.success("Xóa người dùng thành công");
         fetchUsers();
       } else {
-        const errorData = await res.json();
+        const errorData = await res.json().catch(() => ({}));
         message.error(
           errorData.message ||
             "Không thể xóa do người dùng có dữ liệu liên quan!",
@@ -122,48 +87,38 @@ const AdminUsers: React.FC = () => {
       message.error("Lỗi kết nối hệ thống khi xóa");
     }
   };
+
   const showCreateModal = () => {
     setEditingUser(null);
-    form.resetFields();
+    createForm.resetFields();
     setIsModalVisible(true);
   };
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
-    form.setFieldsValue({
-      name: user.name,
-      email: user.email,
+    editForm.setFieldsValue({
       role: user.role,
+      is_active: user.is_active,
     });
     setIsModalVisible(true);
   };
 
-  const handleSave = async (values: UserFormValues) => {
+  const handleCreate = async (values: CreateUserValues) => {
     setSubmitting(true);
     try {
-      const isEditing = !!editingUser;
-      const url = isEditing
-        ? `http://localhost:5000/api/auth/users/${editingUser.id}/role`
-        : `http://localhost:5000/api/auth/register`;
-
-      const method = isEditing ? "PATCH" : "POST";
-
-      const res = await fetch(url, {
-        method: method,
+      const res = await fetch(`${API}/api/auth/register`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
-
       if (res.ok) {
-        message.success(
-          `${isEditing ? "Cập nhật" : "Tạo mới"} người dùng thành công`,
-        );
+        message.success("Tạo mới người dùng thành công");
         setIsModalVisible(false);
-        form.resetFields();
+        createForm.resetFields();
         fetchUsers();
       } else {
-        const errData = await res.json();
-        message.error(errData.message || "Thao tác thất bại");
+        const errData = await res.json().catch(() => ({}));
+        message.error(errData.message || "Tạo mới thất bại");
       }
     } catch (err) {
       message.error("Lỗi kết nối hệ thống");
@@ -172,9 +127,42 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  // --- Cấu hình Columns ---
+  const handleUpdate = async (values: EditUserValues) => {
+    if (!editingUser) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API}/api/admin/users/${editingUser.id}/role`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: values.role,
+          is_active: values.is_active,
+        }),
+      });
+      if (res.ok) {
+        message.success("Cập nhật người dùng thành công");
+        setIsModalVisible(false);
+        editForm.resetFields();
+        fetchUsers();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        message.error(errData.message || "Cập nhật thất bại");
+      }
+    } catch (err) {
+      message.error("Lỗi kết nối hệ thống");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const roleConfig: Record<UserRole, { color: string; label: string }> = {
+    student: { color: "blue", label: "Sinh viên" },
+    lecturer: { color: "orange", label: "Giảng viên" },
+    admin: { color: "red", label: "Quản trị" },
+  };
+
   const columns: ColumnsType<User> = [
-    { title: "ID", dataIndex: "id", key: "id", width: 80 },
+    { title: "ID", dataIndex: "id", key: "id", width: 60 },
     {
       title: "Họ tên",
       dataIndex: "name",
@@ -195,21 +183,24 @@ const AdminUsers: React.FC = () => {
       dataIndex: "role",
       key: "role",
       render: (role: UserRole) => {
-        // Cấu hình màu sắc và nhãn hiển thị cho từng vai trò
-        const roleConfig = {
-          student: { color: "blue", label: "Sinh viên" },
-          lecturer: { color: "orange", label: "Giảng viên" },
-          admin: { color: "red", label: "Quản trị" },
-        };
-
-        const config = roleConfig[role] || { color: "default", label: role };
-
+        const cfg = roleConfig[role] ?? { color: "default", label: role };
         return (
-          <Tag color={config.color} style={{ fontWeight: 600 }}>
-            {config.label.toUpperCase()}
+          <Tag color={cfg.color} style={{ fontWeight: 600 }}>
+            {cfg.label.toUpperCase()}
           </Tag>
         );
       },
+    },
+    {
+      title: "Trạng thái",
+      dataIndex: "is_active",
+      key: "is_active",
+      align: "center",
+      render: (active: boolean) => (
+        <Tag color={active ? "green" : "red"}>
+          {active ? "Hoạt động" : "Bị khoá"}
+        </Tag>
+      ),
     },
     {
       title: "Thao tác",
@@ -226,6 +217,7 @@ const AdminUsers: React.FC = () => {
           </Button>
           <Popconfirm
             title="Bạn có chắc chắn muốn xóa người dùng này?"
+            description="Hành động này không thể hoàn tác. Dữ liệu liên quan sẽ bị ảnh hưởng."
             onConfirm={() => handleDelete(record.id)}
             okText="Xóa"
             cancelText="Hủy"
@@ -259,16 +251,16 @@ const AdminUsers: React.FC = () => {
           placeholder="Tìm theo tên hoặc email..."
           prefix={<SearchOutlined />}
           allowClear
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setSearchText(e.target.value)
-          }
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
           style={{ width: 300 }}
         />
         <Select
           placeholder="Lọc theo vai trò"
           allowClear
-          style={{ width: 150 }}
-          onChange={(val: UserRole) => setRoleFilter(val)}
+          value={roleFilter}
+          style={{ width: 160 }}
+          onChange={(val) => setRoleFilter(val)}
         >
           <Select.Option value="student">Sinh viên</Select.Option>
           <Select.Option value="lecturer">Giảng viên</Select.Option>
@@ -283,54 +275,125 @@ const AdminUsers: React.FC = () => {
         loading={loading}
         bordered
         pagination={{ pageSize: 10 }}
+        locale={{ emptyText: "Không có người dùng nào" }}
       />
 
+      {/* ===== MODAL TẠO MỚI ===== */}
       <Modal
-        title="Chỉnh sửa thông tin chi tiết"
-        open={isModalVisible}
-        onOk={() => form.submit()}
-        onCancel={() => setIsModalVisible(false)}
+        title="Thêm người dùng mới"
+        open={isModalVisible && !editingUser}
+        onOk={() => createForm.submit()}
+        onCancel={() => {
+          setIsModalVisible(false);
+          createForm.resetFields();
+        }}
+        confirmLoading={submitting}
         destroyOnClose
       >
-        <Form form={form} layout="vertical" onFinish={handleSave}>
+        <Form form={createForm} layout="vertical" onFinish={handleCreate}>
           <Form.Item
             name="name"
             label="Họ tên"
-            rules={[{ required: true, message: "Không được để trống tên" }]}
+            rules={[
+              { required: true, message: "Không được để trống tên" },
+              { max: 100, message: "Tối đa 100 ký tự" },
+            ]}
           >
             <Input />
           </Form.Item>
+
           <Form.Item
             name="email"
             label="Email học viện"
             rules={[
-              { required: true, type: "email", message: "Email không hợp lệ" },
+              { required: true, message: "Vui lòng nhập email" },
+              { type: "email", message: "Email không hợp lệ" },
+              { max: 100, message: "Tối đa 100 ký tự" },
             ]}
           >
-            <Input placeholder="vi-du@school.edu.vn" />
+            <Input placeholder="vi-du@ptit.edu.vn" />
           </Form.Item>
-          {!editingUser && (
-            <Form.Item
-              name="password"
-              label="Mật khẩu tạm thời"
-              rules={[
-                { required: true, message: "Vui lòng đặt mật khẩu mặc định" },
-                { min: 6, message: "Mật khẩu ít nhất 6 ký tự" },
-              ]}
-            >
-              <Input.Password placeholder="Nhập mật khẩu ít nhất 6 ký tự" />
-            </Form.Item>
-          )}
+
+          <Form.Item
+            name="password"
+            label="Mật khẩu tạm thời"
+            rules={[
+              { required: true, message: "Vui lòng đặt mật khẩu mặc định" },
+              { min: 6, message: "Mật khẩu ít nhất 6 ký tự" },
+            ]}
+          >
+            <Input.Password placeholder="Nhập mật khẩu ít nhất 6 ký tự" />
+          </Form.Item>
+
           <Form.Item
             name="role"
             label="Vai trò hệ thống"
-            rules={[{ required: true }]}
+            rules={[{ required: true, message: "Vui lòng chọn vai trò" }]}
           >
             <Select>
               <Select.Option value="student">Sinh viên</Select.Option>
               <Select.Option value="lecturer">Giảng viên</Select.Option>
               <Select.Option value="admin">Quản trị</Select.Option>
             </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={`Chỉnh sửa: ${editingUser?.name ?? ""}`}
+        open={isModalVisible && !!editingUser}
+        onOk={() => editForm.submit()}
+        onCancel={() => {
+          setIsModalVisible(false);
+          setEditingUser(null);
+          editForm.resetFields();
+        }}
+        confirmLoading={submitting}
+        destroyOnClose
+      >
+        {/* Thông tin chỉ đọc — hiển thị ngoài Form, không validate */}
+        <div
+          style={{
+            padding: "8px 12px",
+            background: "#f5f5f5",
+            borderRadius: 4,
+            marginBottom: 16,
+          }}
+        >
+          <div>
+            <strong>Họ tên:</strong> {editingUser?.name}
+          </div>
+          <div>
+            <strong>Email:</strong> {editingUser?.email}
+          </div>
+        </div>
+
+        <Form form={editForm} layout="vertical" onFinish={handleUpdate}>
+          <Form.Item
+            name="role"
+            label="Vai trò hệ thống"
+            rules={[{ required: true, message: "Vui lòng chọn vai trò" }]}
+          >
+            <Select>
+              <Select.Option value="student">Sinh viên</Select.Option>
+              <Select.Option value="lecturer">Giảng viên</Select.Option>
+              <Select.Option value="admin">Quản trị</Select.Option>
+            </Select>
+          </Form.Item>
+
+          {/*
+           * is_active — cột bit NOT NULL trong schema Users
+           * Cho phép admin khoá/mở khoá tài khoản
+           */}
+          <Form.Item
+            name="is_active"
+            label="Trạng thái tài khoản"
+            valuePropName="checked"
+          >
+            <Switch
+              checkedChildren="Đang hoạt động"
+              unCheckedChildren="Bị khoá"
+            />
           </Form.Item>
         </Form>
       </Modal>

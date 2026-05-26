@@ -1,10 +1,12 @@
 const { poolPromise, sql } = require("../config/db");
 
+// 🌟 ĐÃ CẬP NHẬT: Thêm cột is_active vào danh sách SELECT
 const getUsers = async (req, res) => {
   try {
     const { role, search } = req.query;
     const pool = await poolPromise;
-    let query = "SELECT id, name, email, role FROM Users WHERE 1=1";
+    // Thêm cột is_active vào đây để Frontend không bị lỗi cột Trạng thái
+    let query = "SELECT id, name, email, role, is_active FROM Users WHERE 1=1";
     const request = pool.request();
 
     if (role) {
@@ -17,7 +19,7 @@ const getUsers = async (req, res) => {
     }
 
     const result = await request.query(query);
-    res.json(result.recordset);
+    res.json(result.recordset); // Trả về mảng thuần túy - Khớp 100% với Frontend
   } catch (err) {
     res
       .status(500)
@@ -46,8 +48,8 @@ const createUser = async (req, res) => {
       .input("email", sql.VarChar, email)
       .input("role", sql.VarChar, role)
       .input("password", sql.VarChar, password).query(`
-        INSERT INTO Users (name, email, role, password_hash)
-        VALUES (@name, @email, @role, @password)
+        INSERT INTO Users (name, email, role, password_hash, is_active)
+        VALUES (@name, @email, @role, @password, 1)
       `);
 
     res.status(201).json({ message: "Tạo tài khoản người dùng thành công!" });
@@ -75,8 +77,8 @@ const bulkCreateUsers = async (req, res) => {
           .input("role", sql.VarChar, user.role)
           .input("password", sql.VarChar, user.password).query(`
                         IF NOT EXISTS (SELECT 1 FROM Users WHERE email = @email)
-                        INSERT INTO Users (name, email, role, password_hash) 
-                        VALUES (@name, @email, @role, @password)
+                        INSERT INTO Users (name, email, role, password_hash, is_active) 
+                        VALUES (@name, @email, @role, @password, 1)
                     `);
       }
       await transaction.commit();
@@ -94,20 +96,21 @@ const bulkCreateUsers = async (req, res) => {
   }
 };
 
+// 🌟 ĐÃ CẬP NHẬT: Hàm update để phục vụ hành động sửa đổi phân quyền + trạng thái (is_active) từ Admin
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, role } = req.body;
+    const { role, is_active } = req.body; // Hứng đúng các trường mà handleUpdate ở Frontend gửi lên
     const pool = await poolPromise;
 
     await pool
       .request()
       .input("id", sql.Int, id)
-      .input("name", sql.NVarChar, name)
-      .input("email", sql.VarChar, email)
-      .input("role", sql.VarChar, role).query(`
+      .input("role", sql.VarChar, role)
+      .input("is_active", sql.Bit, is_active ? 1 : 0) // Đồng bộ kiểu dữ liệu boolean sang Bit trong SQL Server
+      .query(`
                 UPDATE Users 
-                SET name = @name, email = @email, role = @role, updated_at = GETDATE()
+                SET role = @role, is_active = @is_active, updated_at = GETDATE()
                 WHERE id = @id
             `);
 
@@ -134,9 +137,10 @@ const deleteUser = async (req, res) => {
       .json({ message: "Lỗi hệ thống khi xóa", error: err.message });
   }
 };
+
 const getUsersByRole = async (req, res) => {
   try {
-    const { role } = req.query; // Lấy giá trị ?role=lecturer từ frontend gửi lên
+    const { role } = req.query;
     const pool = await poolPromise;
 
     const result = await pool.request().input("role", sql.NVarChar, role)
@@ -148,12 +152,10 @@ const getUsersByRole = async (req, res) => {
 
     res.json(result.recordset);
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        message: "Lỗi Server khi lấy danh sách user",
-        error: err.message,
-      });
+    res.status(500).json({
+      message: "Lỗi Server khi lấy danh sách user",
+      error: err.message,
+    });
   }
 };
 
@@ -163,5 +165,5 @@ module.exports = {
   bulkCreateUsers,
   updateUser,
   deleteUser,
-  getUsersByRole
+  getUsersByRole,
 };
