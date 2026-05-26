@@ -1,4 +1,3 @@
-
 export interface ThesisItem {
   id: number;
   title: string;

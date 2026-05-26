@@ -1,75 +1,162 @@
+const { poolPromise, sql } = require("../config/db");
 const thesisService = require("../services/thesis.service");
+
 
 const getAdminThesis = async (req, res) => {
   try {
-    const records = await thesisService.getAdminThesisService(req.query);
-
-    res.json(records);
-  } catch (error) {
-    res.status(500).json({
-      message: "Lỗi kết nối cơ sở dữ liệu qua tầng Service",
-      error: error.message,
+    const { keyword, lecturerId, admin_status, lecturer_status, classId, session_id } = req.query;
+    
+    const data = await thesisService.getAllThesis({
+      keyword,
+      lecturerId,
+      adminStatus: admin_status,
+      lecturerStatus: lecturer_status,
+      classId,
+      sessionId: session_id
     });
+    
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
   }
 };
-const updateThesisAssignment = async (req, res) => {
+
+
+const createThesis = async (req, res) => {
+  const { title, student_id } = req.body;
+
+  if (!title) {
+    return res.status(400).json({ message: "Thiếu tiêu đề đề tài bắt buộc" });
+  }
+
   try {
-    const { id } = req.params; 
+    const data = await thesisService.createThesis(req.body);
+    res.status(201).json(data);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
 
-    
-    const { class_id, classId, lecturer_id, lecturerId } = req.body;
 
-    const finalClassId = class_id !== undefined ? class_id : classId;
-    const finalLecturerId =
-      lecturer_id !== undefined ? lecturer_id : lecturerId;
+const updateThesis = async (req, res) => {
+  const { id } = req.params;
+  const body = req.body;
 
-    
-    const rowsAffected = await thesisService.updateThesisAssignmentService(id, {
-      class_id: finalClassId,
-      lecturer_id: finalLecturerId,
-    });
+  console.log(`>>> Backend nhận ID: ${id} (Kiểu: ${typeof id})`);
+  console.log(">>> Backend nhận Body:", body);
 
-    if (rowsAffected > 0) {
-      return res.json({ message: "Cập nhật phân công đề tài thành công!" });
-    } else {
-      return res
-        .status(404)
-        .json({
-          message: "Không tìm thấy đề tài hoặc dữ liệu không thay đổi.",
-        });
+  if (isNaN(id)) {
+    return res.status(400).json({ message: "ID không hợp lệ" });
+  }
+
+  try {
+    const data = await thesisService.updateThesis(id, body);
+
+    if (!data) {
+      return res.status(404).json({ message: "Không tìm thấy khóa luận" });
     }
-  } catch (error) {
-    return res.status(500).json({
-      message: "Lỗi hệ thống khi cập nhật phân công",
-      error: error.message,
-    });
+
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi update", error: err.message });
+  }
+};
+
+const deleteThesis = async (req, res) => {
+  const { id } = req.params;
+
+  if (isNaN(id)) {
+    return res.status(400).json({ message: "ID không hợp lệ" });
+  }
+
+  try {
+    const affected = await thesisService.deleteThesis(id);
+
+    if (affected === 0) {
+      return res.status(404).json({ message: "Không tìm thấy để xóa" });
+    }
+
+    res.json({ message: "Xóa thành công" });
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi delete", error: err.message });
   }
 };
 const updateThesisReviewStatus = async (req, res) => {
+  const { id } = req.params;
+
+  // SỬA: Hứng đúng các trường admin_status, reject_reason từ Frontend gửi lên
+  const { admin_status, reject_reason } = req.body;
+
+  if (isNaN(id)) {
+    return res.status(400).json({ message: "ID không hợp lệ" });
+  }
+
   try {
-    const { id } = req.params;
-    const { admin_status } = req.body; 
+    console.log(
+      `>>> Admin duyệt ID Đề tài: ${id}, Trạng thái: ${admin_status}`,
+    );
 
-    if (!admin_status) {
-      return res.status(400).json({ message: "Thiếu trạng thái admin_status để cập nhật" });
+    const pool = await poolPromise;
+
+    const result = await pool
+      .request()
+      .input("id", sql.Int, id)
+      .input("admin_status", sql.NVarChar, admin_status || null)
+      .input("reject_reason", sql.NVarChar, reject_reason || null).query(`
+        -- Khai báo bảng tạm chứa cấu trúc kết quả bảng Thesis
+        DECLARE @TmpReview TABLE (
+          id INT,
+          session_id INT,
+          class_id INT,
+          student_id INT,
+          lecturer_id INT,
+          suggestion_id INT,
+          title NVARCHAR(255),
+          description NVARCHAR(MAX),
+          lecturer_status NVARCHAR(20),
+          admin_status NVARCHAR(20),
+          lecturer_note NVARCHAR(MAX),
+          reject_reason NVARCHAR(MAX),
+          approved_at DATETIME,
+          created_at DATETIME,
+          updated_at DATETIME,
+          final_score FLOAT,
+          status NVARCHAR(50)
+        );
+
+        -- Cập nhật trạng thái duyệt từ Admin, tự động gán approved_at nếu duyệt thành công
+        UPDATE Thesis
+        SET 
+            admin_status = ISNULL(@admin_status, admin_status),
+            reject_reason = ISNULL(@reject_reason, reject_reason),
+            approved_at = CASE WHEN @admin_status = 'approved' THEN GETDATE() ELSE approved_at END,
+            updated_at = GETDATE()
+        OUTPUT INSERTED.* INTO @TmpReview
+        WHERE id = @id;
+
+        SELECT * FROM @TmpReview;
+      `);
+
+    const data = result.recordset[0];
+
+    if (!data) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy đề tài để duyệt" });
     }
 
-    const rowsAffected = await thesisService.updateThesisReviewStatusService(id, { admin_status });
-
-    if (rowsAffected > 0) {
-      return res.json({ message: "Cập nhật trạng thái duyệt đề tài thành công!" });
-    } else {
-      return res.status(404).json({ message: "Không tìm thấy đề tài yêu cầu." });
-    }
-  } catch (error) {
-    return res.status(500).json({ 
-      message: "Lỗi hệ thống khi duyệt đề tài", 
-      error: error.message 
-    });
+    res.json({ message: "Cập nhật trạng thái duyệt thành công!", data });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Lỗi cập nhật trạng thái duyệt", error: err.message });
   }
 };
+
 module.exports = {
   getAdminThesis,
-  updateThesisAssignment,
+  createThesis,
+  updateThesis,
+  deleteThesis,
   updateThesisReviewStatus,
 };

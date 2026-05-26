@@ -24,20 +24,15 @@ import {
   EyeOutlined,
   ExclamationCircleOutlined,
 } from "@ant-design/icons";
-// Thêm dòng này lên đầu file ThesisReview của bạn
-import { 
-  ThesisItem, 
-  ClassFilterItem, 
-  LecturerFilterItem, 
-  SessionFilterItem, 
-  FilterParams 
+import {
+  ThesisItem,
+  ClassFilterItem,
+  LecturerFilterItem,
+  SessionFilterItem,
+  FilterParams,
 } from "../../../types/AdminTypes/ThesisTypes";
 
-const API = "http://localhost:5000";
-
-
-
-
+const API = "http://localhost:8000";
 
 const ADMIN_STATUS_CFG: Record<string, { color: string; text: string }> = {
   approved: { color: "green", text: "Admin duyệt" },
@@ -67,8 +62,6 @@ const renderLecturerStatus = (status: string) => {
   return <Tag color={c.color}>{c.text}</Tag>;
 };
 
-
-
 const ThesisReview: React.FC = () => {
   const [theses, setTheses] = useState<ThesisItem[]>([]);
   const [classes, setClasses] = useState<ClassFilterItem[]>([]);
@@ -90,20 +83,35 @@ const ThesisReview: React.FC = () => {
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
   const [overrideForm] = Form.useForm();
 
-
-  const fetchFilterData = async () => {
+const fetchFilterData = async () => {
     try {
-      const [r1, r2, r3] = await Promise.all([
-        fetch(`${API}/api/admin/classes`), 
-        fetch(`${API}/api/admin/users?role=lecturer`), 
-        fetch(`${API}/api/admin/sessions`),
-      ]);
-      const [c, l, s] = await Promise.all([r1.json(), r2.json(), r3.json()]);
-      setClasses(Array.isArray(c) ? c : []);
-      setLecturers(Array.isArray(l) ? l : []);
-      setSessions(Array.isArray(s) ? s : []);
-    } catch {
-      message.error("Lỗi khi tải dữ liệu bộ lọc!");
+      const res = await fetch(`${API}/api/admin/classes`);
+      if (res.ok) {
+        const c = await res.json();
+        setClasses(Array.isArray(c) ? c : []);
+      }
+    } catch (err) {
+      console.error("Lỗi tải bộ lọc lớp:", err);
+    }
+
+    try {
+      const res = await fetch(`${API}/api/admin/users?role=lecturer`);
+      if (res.ok) {
+        const l = await res.json();
+        setLecturers(Array.isArray(l) ? l : []);
+      }
+    } catch (err) {
+      console.error("Lỗi tải bộ lọc giảng viên:", err);
+    }
+
+    try {
+      const res = await fetch(`${API}/api/admin/sessions`);
+      if (res.ok) {
+        const s = await res.json();
+        setSessions(Array.isArray(s) ? s : []);
+      }
+    } catch (err) {
+      console.error("Lỗi tải bộ lọc học kỳ:", err);
     }
   };
 
@@ -147,7 +155,6 @@ const ThesisReview: React.FC = () => {
     setReviewAction(null);
     rejectForm.resetFields();
   };
-
 
   const submitReview = async (rejectReason?: string) => {
     if (!reviewTarget || !reviewAction) return;
@@ -262,7 +269,6 @@ const ThesisReview: React.FC = () => {
       setOverrideSubmitting(false);
     }
   };
-
 
   const columns = [
     {

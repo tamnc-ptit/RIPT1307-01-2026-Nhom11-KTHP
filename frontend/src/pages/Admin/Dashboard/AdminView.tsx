@@ -28,13 +28,13 @@ const AdminView: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-       
- const [resUsers, resClasses, resSessions, resTheses] = await Promise.all([
-   fetch(`${API}/api/admin/users`), 
-   fetch(`${API}/api/admin/classes`), 
-   fetch(`${API}/api/admin/sessions`), 
-   fetch(`${API}/api/admin/thesis`), 
- ]);
+        const [resUsers, resClasses, resSessions, resTheses] =
+          await Promise.all([
+            fetch(`${API}/api/admin/users`),
+            fetch(`${API}/api/admin/classes`),
+            fetch(`${API}/api/admin/sessions`),
+            fetch(`${API}/api/admin/thesis`),
+          ]);
 
         const users = await resUsers.json();
         const classes = await resClasses.json();

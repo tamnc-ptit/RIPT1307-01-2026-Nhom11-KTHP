@@ -22,14 +22,15 @@ import {
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
-import { SessionItem, SessionFormValues } from "../../../types/AdminTypes/SessionTypes";
+import {
+  SessionItem,
+  SessionFormValues,
+} from "../../../types/AdminTypes/SessionTypes";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
-const API = "http://localhost:5000";
-
-
+const API = "http://localhost:8000";
 
 const SessionSettings: React.FC = () => {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
@@ -60,13 +61,14 @@ const SessionSettings: React.FC = () => {
 
   const handleCloseSession = async (id: number) => {
     try {
-      const res = await fetch(`${API}/api/admin/sessions/${id}/close`, {
+      const res = await fetch(`${API}/api/admin/sessions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: 0 }),
       });
 
       if (res.ok) {
-        notification.success({ message: "Đã đóng đợt đồ án thủ công." });
+        notification.success({ message: "Đã đóng đợt đồ án thành công." });
         fetchSessions();
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -80,14 +82,11 @@ const SessionSettings: React.FC = () => {
   };
 
   const handleCreate = async (values: SessionFormValues) => {
-    /**
-     * Gửi đúng field `name` theo schema Sessions
-     * start_date / end_date format YYYY-MM-DD HH:mm:ss
-     */
     const payload = {
       name: values.name.trim(),
       start_date: values.timeRange[0].format("YYYY-MM-DD HH:mm:ss"),
       end_date: values.timeRange[1].format("YYYY-MM-DD HH:mm:ss"),
+      is_active: 1, 
     };
 
     try {
@@ -100,13 +99,12 @@ const SessionSettings: React.FC = () => {
       if (res.ok) {
         notification.success({
           message: "Thành công",
-          description: `Đã tạo đợt "${payload.name}" thành công.`,
+          description: `Đã kích hoạt đợt "${payload.name}" thành công.`,
         });
         setIsModalOpen(false);
         form.resetFields();
         fetchSessions();
       } else {
-        // Xử lý lỗi trả về từ server (ví dụ: trùng tên do UQ_Sessions_Name)
         const errData = await res.json().catch(() => ({}));
         notification.error({
           message: "Tạo đợt thất bại",
@@ -146,21 +144,27 @@ const SessionSettings: React.FC = () => {
       dataIndex: "is_active",
       key: "is_active",
       align: "center",
-      render: (active: boolean) => (
-        <Tag
-          color={active ? "green" : "default"}
-          icon={active ? <ClockCircleOutlined /> : null}
-        >
-          {active ? "ĐANG MỞ" : "ĐÃ ĐÓNG"}
-        </Tag>
-      ),
+
+      render: (active: any) => {
+        const isCurrentActive = active === true || active === 1;
+        return (
+          <Tag
+            color={isCurrentActive ? "green" : "default"}
+            icon={isCurrentActive ? <ClockCircleOutlined /> : null}
+          >
+            {isCurrentActive ? "ĐANG MỞ" : "ĐÃ ĐÓNG"}
+          </Tag>
+        );
+      },
     },
     {
       title: "Thao tác",
       key: "action",
       align: "center",
-      render: (_, record) =>
-        record.is_active ? (
+      render: (_, record) => {
+        const isCurrentActive =
+          record.is_active === true || record.is_active === 1;
+        return isCurrentActive ? (
           <Popconfirm
             title="Bạn có chắc muốn đóng đợt đồ án này sớm hơn dự kiến?"
             onConfirm={() => handleCloseSession(record.id)}
@@ -176,7 +180,8 @@ const SessionSettings: React.FC = () => {
           <Text type="secondary" style={{ fontSize: 12 }}>
             —
           </Text>
-        ),
+        );
+      },
     },
   ];
 
@@ -236,10 +241,6 @@ const SessionSettings: React.FC = () => {
         destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleCreate}>
-          {/*
-           * Field `name` — khớp với cột `name` trong bảng Sessions (DB)
-           * Có ràng buộc UQ_Sessions_Name nên tên phải duy nhất
-           */}
           <Form.Item
             name="name"
             label="Tên đợt / Học kỳ"

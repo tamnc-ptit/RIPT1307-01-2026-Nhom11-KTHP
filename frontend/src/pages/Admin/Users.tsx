@@ -25,12 +25,9 @@ import {
   CreateUserValues,
   EditUserValues,
   UserRole,
-} from "../../types/AdminTypes/UserTypes"; 
+} from "../../types/AdminTypes/UserTypes";
 
 const API = "http://localhost:5000";
-
-
-
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -47,8 +44,7 @@ const AdminUsers: React.FC = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-
-      const res = await fetch(`${API}/api/auth/users`);
+      const res = await fetch(`${API}/api/admin/users`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: User[] = await res.json();
       setUsers(Array.isArray(data) ? data : []);
@@ -74,7 +70,7 @@ const AdminUsers: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      const res = await fetch(`${API}/api/auth/users/${id}`, {
+      const res = await fetch(`${API}/api/admin/users/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
@@ -135,8 +131,7 @@ const AdminUsers: React.FC = () => {
     if (!editingUser) return;
     setSubmitting(true);
     try {
-
-      const res = await fetch(`${API}/api/auth/users/${editingUser.id}/role`, {
+      const res = await fetch(`${API}/api/admin/users/${editingUser.id}/role`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

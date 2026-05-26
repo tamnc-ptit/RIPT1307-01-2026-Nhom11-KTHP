@@ -26,9 +26,7 @@ import {
   ClassFormValues,
 } from "../../../types/AdminTypes/ClassTypes";
 
-const API = "http://localhost:5000";
-
-
+const API = "http://localhost:8000";
 
 const ClassManagement: React.FC = () => {
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -39,29 +37,39 @@ const ClassManagement: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm<ClassFormValues>();
 
-  const fetchData = async () => {
-    try {
-      const [resClasses, resLecs, resSessions] = await Promise.all([
-        fetch(`${API}/api/admin/classes`),
-        fetch(`${API}/api/admin/users?role=lecturer`),
-        fetch(`${API}/api/admin/sessions`),
-      ]);
-
-      const [classesData, lecturersData, sessionsData] = await Promise.all([
-        resClasses.json(),
-        resLecs.json(),
-        resSessions.json(),
-      ]);
-
+const fetchData = async () => {
+  // 1. Lấy dữ liệu lớp (Độc lập hoàn toàn)
+  try {
+    const res = await fetch(`${API}/api/admin/classes`);
+    if (res.ok) {
+      const classesData = await res.json();
       setClasses(Array.isArray(classesData) ? classesData : []);
-      setLecturers(Array.isArray(lecturersData) ? lecturersData : []);
-      setSessions(Array.isArray(sessionsData) ? sessionsData : []);
-    } catch (error) {
-      message.error("Không thể tải dữ liệu từ server!");
-      console.error(error);
     }
-  };
+  } catch (err) {
+    console.error("Lỗi tải lớp:", err);
+  }
 
+  // 2. Lấy dữ liệu học kỳ (Độc lập)
+  try {
+    const res = await fetch(`${API}/api/admin/sessions`);
+    if (res.ok) {
+      const sessionsData = await res.json();
+      setSessions(Array.isArray(sessionsData) ? sessionsData : []);
+    }
+  } catch (err) {
+    console.error("Lỗi tải học kỳ:", err);
+  }
+
+  try {
+    const res = await fetch(`${API}/api/admin/users?role=lecturer`);
+    if (res.ok) {
+      const lecturersData = await res.json();
+      setLecturers(Array.isArray(lecturersData) ? lecturersData : []);
+    }
+  } catch (err) {
+    console.error("Lỗi tải giảng viên:", err);
+  }
+};
   useEffect(() => {
     fetchData();
   }, []);
@@ -158,9 +166,18 @@ const ClassManagement: React.FC = () => {
     },
     {
       title: "Học kỳ",
-      dataIndex: "session_name",
-      key: "session_name",
-      render: (s: string) => <Tag color="purple">{s || "Chưa xác định"}</Tag>,
+      dataIndex: "session_id",
+      key: "session_id",
+      render: (id: number) => {
+        const matchedSession = sessions.find(
+          (s) => Number(s.id) === Number(id),
+        );
+        return (
+          <Tag color="purple">
+            {matchedSession ? matchedSession.name : `Mã kỳ: ${id}`}
+          </Tag>
+        );
+      },
     },
     {
       title: "Giảng viên",
