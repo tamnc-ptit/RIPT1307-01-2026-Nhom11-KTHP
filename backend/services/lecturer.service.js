@@ -43,10 +43,10 @@ exports.getClasses = async (lecturerId) => {
 
 exports.getDashboardStats = async (lecturerId) => {
   const pool = await poolPromise;
+  
 
-  // 1. Số sinh viên đang hướng dẫn (distinct student, thesis đã được GV duyệt)
-  const guidedRes = await pool
-    .request()
+  
+  const result = await pool.request()
     .input("lecturerId", sql.Int, lecturerId)
     .query(`
       SELECT COUNT(DISTINCT student_id) as count 
@@ -106,9 +106,9 @@ exports.getDashboardStats = async (lecturerId) => {
 exports.getRiskFlags = async (lecturerId) => {
   const pool = await poolPromise;
   
-  // 1. Không có hoạt động trong 30 ngày (thesis.updated_at quá cũ)
-  const inactiveRes = await pool
-    .request()
+
+  
+  const risks = await pool.request()
     .input("lecturerId", sql.Int, lecturerId)
     .query(`
       SELECT 
@@ -411,8 +411,6 @@ exports.deleteSession = async (id) => {
     throw err;
   }
 };
-
-// --- QUY TRÌNH MẪU (MILESTONE TEMPLATES) ---
 
 exports.getTemplates = async (classId) => {
   const pool = await poolPromise;

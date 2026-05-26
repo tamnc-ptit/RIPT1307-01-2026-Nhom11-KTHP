@@ -10,7 +10,6 @@ const getUsers = async (req, res) => {
     let queryStr = "SELECT id, name, email, role FROM Users WHERE 1=1";
     const request = pool.request();
 
-    // CHỈNH SỬA 1: Kiểm tra role có giá trị thực và không phải chuỗi "undefined" do FE truyền sang
     if (role && role !== "undefined" && role.trim() !== "") {
       request.input("role", sql.VarChar, role.trim());
       queryStr += " AND role = @role";

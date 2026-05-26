@@ -2,11 +2,8 @@ const lecturerService = require("../services/lecturer.service");
 const { poolPromise, sql } = require("../config/db");
 
 exports.getDashboardStats = async (req, res) => {
-  // Permission: Chỉ cho phép lecturer xem dashboard của chính mình
-  if (!req.user || req.user.role !== "lecturer") {
-    return res.status(403).json({ message: "Chỉ giảng viên mới được truy cập" });
-  }
-  const lecturerId = req.user.id;   // Luôn dùng id từ token, bỏ qua query param
+  const { lecturerId } = req.query; 
+  if (!lecturerId) return res.status(400).json({ message: "Thiếu lecturerId" });
 
   try {
     const stats = await lecturerService.getDashboardStats(lecturerId);
