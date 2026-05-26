@@ -73,6 +73,12 @@ export default [
         icon:"SisternodeOutlined",
       },
       {
+        path :"/lecturer/proposals",
+        name : "Đề tài đề xuất của tôi",
+        component : "./Lecturer/MyProposals",
+        icon:"BulbOutlined",
+      },
+      {
         path :"/lecturer/milestones",
         name: "Chấm điểm & Tiến độ",
         component: "./Lecturer/Milestones",
@@ -82,6 +88,12 @@ export default [
         path:"/lecturer/session",
         name:"Học kỳ",
         component :"./Lecturer/SessionSettings"
+      },
+      {
+        path: "/lecturer/thesis/:id",
+        name: "Chi tiết Đề tài",
+        component: "./Lecturer/ThesisDetail",
+        hideInMenu: true
       }
     ]
   },
