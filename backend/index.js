@@ -7,6 +7,7 @@ dotenv.config();
 const app = express();
 
 
+
 app.use(cors());
 app.use(express.json());
 app.use((req, res, next) => {
@@ -25,6 +26,7 @@ app.use("/api/milestones", require("./routes/milestone.routes"));
 app.use("/api/submissions", require("./routes/submission.routes"));
 app.use("/api/lecturer", require("./routes/lecturer.routes"));
 
+app.use("/api/admin/thesis", require("./routes/thesis.routes"));
 app.get("/", (req, res) => {
   res.send("API đang chạy...");
 });

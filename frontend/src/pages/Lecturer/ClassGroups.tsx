@@ -7,184 +7,251 @@ import {
   Row, 
   Col, 
   Typography, 
-  Badge, 
   Button, 
   Space,
   Tooltip,
-  Empty
+  Empty,
+  message
 } from "antd";
 import { 
   TeamOutlined, 
   UserOutlined, 
   ExportOutlined, 
-  InfoCircleOutlined 
+  ClockCircleOutlined 
 } from "@ant-design/icons";
-import { getLecturerClasses } from "@/services/lecturer";
-import { useModel } from "umi";
+import { getLecturerClasses, getClassStudents, exportExcelReport } from "@/services/lecturer";
+import { useModel, history } from "umi";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-// --- Interfaces ---
-interface Student {
-  id: string;
-  name: string;
-  role: 'LEADER' | 'MEMBER';
-}
-
-interface Group {
-  id: string;
-  groupName: string;
-  members: Student[];
+interface ClassStudentRow {
+  studentId: number;
+  studentName: string;
+  thesisId: number | null;
   topicName: string | null;
-  status: 'INCOMPLETE' | 'READY'; // Đủ thành viên hay chưa
+  lecturer_status: string | null;
+  admin_status: string | null;
+  finalScore: number | null;
 }
 
 interface ClassEntity {
-  id: string;
+  id: number;
   className: string;
   classCode: string;
-  totalGroups: number;
 }
 
 const ClassGroups: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [classes, setClasses] = useState<ClassEntity[]>([]);
-  const [selectedClass, setSelectedClass] = useState<string | null>(null);
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [selectedClass, setSelectedClass] = useState<number | null>(null);
+  const [students, setStudents] = useState<ClassStudentRow[]>([]);
 
   const { initialState } = useModel("@@initialState");
   const lecturerId = initialState?.currentUser?.id;
 
-  // 1. Fetch danh sách lớp của giảng viên này
   useEffect(() => {
     if (lecturerId) {
       fetchClasses();
     }
   }, [lecturerId]);
 
+  useEffect(() => {
+    if (selectedClass) {
+      fetchStudents(selectedClass);
+    } else {
+      setStudents([]);
+    }
+  }, [selectedClass]);
+
   const fetchClasses = async () => {
     setLoading(true);
     try {
       const res = await getLecturerClasses(lecturerId!);
-      // Ánh xạ lại cho khớp interface (giả định API trả về {id, class_name, class_code})
-      setClasses(res.map((c: any) => ({
-        id: c.id.toString(),
-        className: c.class_name || c.className,
-        classCode: c.class_code || c.classCode,
-        totalGroups: 0 // Phần này có thể tính sau
-      })));
+      const mapped = res.map((c: any) => ({
+        id: c.id,
+        className: c.class_name,
+        classCode: c.class_code || `CLS${c.id}`
+      }));
+      setClasses(mapped);
+      if (mapped.length > 0) {
+        setSelectedClass(mapped[0].id);
+      }
     } catch (error) {
-      console.error("Lỗi khi tải danh sách lớp");
+      message.error("Lỗi khi tải danh sách lớp");
     } finally {
       setLoading(false);
     }
   };
 
-  // 2. Fetch danh sách nhóm khi chọn lớp
-  const handleClassChange = (classId: string) => {
-    setSelectedClass(classId);
+  const fetchStudents = async (classId: number) => {
     setLoading(true);
-    
-    // Hiện tại tạm thời để trống hoặc gọi API thesis của lớp
-    setGroups([]);
-    setLoading(false);
+    try {
+      const res = await getClassStudents(classId);
+      setStudents(res || []);
+    } catch (error) {
+      message.error("Lỗi khi tải danh sách sinh viên");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!selectedClass) return message.warning("Vui lòng chọn lớp học!");
+    try {
+      const blob = await exportExcelReport(selectedClass);
+      const url = window.URL.createObjectURL(new Blob([blob]));
+      const link = document.createElement('a');
+      link.href = url;
+      const targetClass = classes.find(c => c.id === selectedClass);
+      const className = targetClass ? targetClass.className : selectedClass;
+      link.setAttribute('download', `BaoCao_${className}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      message.error("Lỗi khi xuất báo cáo");
+    }
   };
 
   const columns = [
     {
-      title: 'Tên Nhóm',
-      dataIndex: 'groupName',
-      key: 'groupName',
-      render: (text: string) => <Text strong>{text}</Text>,
+      title: 'Mã SV',
+      dataIndex: 'studentId',
+      key: 'studentId',
+      width: 100,
+      render: (val: number) => <Text code>{val}</Text>
     },
     {
-      title: 'Thành viên',
-      dataIndex: 'members',
-      key: 'members',
-      render: (members: Student[]) => (
-        <Space direction="vertical" size="small">
-          {members.map(m => (
-            <div key={m.id}>
-              <UserOutlined /> {m.name} {m.role === 'LEADER' && <Tag color="gold">Trưởng nhóm</Tag>}
-            </div>
-          ))}
-        </Space>
+      title: 'Họ và tên',
+      dataIndex: 'studentName',
+      key: 'studentName',
+      render: (text: string) => (
+        <span>
+          <UserOutlined style={{ marginRight: 8, color: '#1e3c72' }} />
+          <Text strong>{text}</Text>
+        </span>
       ),
     },
     {
       title: 'Đề tài đăng ký',
       dataIndex: 'topicName',
       key: 'topicName',
+      width: '30%',
       render: (topic: string | null) => 
-        topic ? <Text type="success">{topic}</Text> : <Text type="secondary" italic>Chưa đăng ký</Text>,
+        topic ? <Text strong style={{ color: '#2c3e50' }}>{topic}</Text> : <Text type="secondary" italic>Chưa đăng ký đề tài</Text>,
     },
     {
-      title: 'Trạng thái nhóm',
-      dataIndex: 'status',
+      title: 'Duyệt (GV / Admin)',
       key: 'status',
-      render: (status: string) => (
-        <Badge 
-          status={status === 'READY' ? 'success' : 'warning'} 
-          text={status === 'READY' ? 'Đủ thành viên' : 'Đang tìm thành viên'} 
-        />
-      ),
+      render: (_: any, record: ClassStudentRow) => {
+        if (!record.topicName) return '-';
+        
+        let lecColor = 'default';
+        if (record.lecturer_status === 'approved') lecColor = 'green';
+        if (record.lecturer_status === 'pending') lecColor = 'gold';
+        if (record.lecturer_status === 'rejected') lecColor = 'red';
+
+        let adminColor = 'default';
+        if (record.admin_status === 'approved') adminColor = 'green';
+        if (record.admin_status === 'pending') adminColor = 'gold';
+        if (record.admin_status === 'rejected') adminColor = 'red';
+
+        return (
+          <Space>
+            <Tag color={lecColor}>GV: {record.lecturer_status?.toUpperCase()}</Tag>
+            <Tag color={adminColor}>Admin: {record.admin_status?.toUpperCase()}</Tag>
+          </Space>
+        );
+      }
+    },
+    {
+      title: 'Điểm đồ án',
+      dataIndex: 'finalScore',
+      key: 'finalScore',
+      align: 'center' as const,
+      render: (score: number | null) => 
+        score !== null ? <Tag color="blue" style={{ fontWeight: 'bold' }}>{score}</Tag> : '-',
     },
     {
       title: 'Thao tác',
       key: 'action',
-      render: () => (
-        <Button type="link" icon={<InfoCircleOutlined />}>Chi tiết</Button>
+      align: 'center' as const,
+      render: (_: any, record: ClassStudentRow) => (
+        <Button 
+          type="link" 
+          icon={<ClockCircleOutlined />}
+          disabled={!record.thesisId}
+          onClick={() => history.push(`/lecturer/milestones?thesisId=${record.thesisId}`)}
+        >
+          Theo dõi tiến độ
+        </Button>
       ),
     },
   ];
 
   return (
-    <Card>
-      <Row gutter={[16, 16]} align="middle" style={{ marginBottom: 24 }}>
-        <Col span={12}>
-          <Title level={3} style={{ margin: 0 }}>👥 Lớp & Nhóm hướng dẫn</Title>
-        </Col>
-        <Col span={12} style={{ textAlign: 'right' }}>
-          <Button icon={<ExportOutlined />}>Xuất danh sách (Excel)</Button>
-        </Col>
-      </Row>
+    <div style={{ padding: '24px', background: '#f5f7fa', minHeight: '100vh' }}>
+      <Card
+        bordered={false}
+        style={{ borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}
+        title={
+          <Row justify="space-between" align="middle" style={{ width: '100%' }}>
+            <Col>
+              <Title level={3} style={{ margin: 0, color: '#1e3c72' }}>👥 Lớp & Sinh viên hướng dẫn</Title>
+            </Col>
+            <Col>
+              <Button 
+                type="primary" 
+                icon={<ExportOutlined />} 
+                onClick={handleExport}
+                disabled={!selectedClass}
+                style={{ borderRadius: '8px', background: '#1e3c72', borderColor: '#1e3c72' }}
+              >
+                Xuất danh sách (Excel)
+              </Button>
+            </Col>
+          </Row>
+        }
+      >
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+          <Col xs={24} sm={12} md={8}>
+            <Text strong style={{ color: '#595959' }}>Chọn lớp tín chỉ học kỳ: </Text>
+            <Select
+              placeholder="Chọn một lớp tín chỉ..."
+              style={{ width: '100%', marginTop: 8, borderRadius: '8px' }}
+              value={selectedClass}
+              onChange={setSelectedClass}
+            >
+              {classes.map(c => (
+                <Option key={c.id} value={c.id}>
+                  {c.className} ({c.classCode})
+                </Option>
+              ))}
+            </Select>
+          </Col>
+        </Row>
 
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col span={8}>
-          <Text strong>Chọn lớp tín chỉ: </Text>
-          <Select
-            placeholder="Chọn một lớp bạn đang dạy"
-            style={{ width: '100%', marginTop: 8 }}
-            onChange={handleClassChange}
-          >
-            {classes.map(c => (
-              <Option key={c.id} value={c.id}>
-                {c.className} ({c.classCode})
-              </Option>
-            ))}
-          </Select>
-        </Col>
-      </Row>
-
-      {selectedClass ? (
-        <Table
-          columns={columns}
-          dataSource={groups}
-          loading={loading}
-          rowKey="id"
-          bordered
-          title={() => (
-            <Space>
-              <TeamOutlined />
-              <Text strong>Danh sách nhóm trong lớp</Text>
-            </Space>
-          )}
-        />
-      ) : (
-        <Empty description="Vui lòng chọn một lớp để xem danh sách nhóm" />
-      )}
-    </Card>
+        {selectedClass ? (
+          <Table
+            columns={columns}
+            dataSource={students}
+            loading={loading}
+            rowKey="studentId"
+            pagination={{ pageSize: 10 }}
+            style={{ borderRadius: '8px', overflow: 'hidden' }}
+            title={() => (
+              <Space>
+                <TeamOutlined style={{ color: '#1e3c72' }} />
+                <Text strong style={{ color: '#1e3c72' }}>Danh sách sinh viên trong lớp</Text>
+              </Space>
+            )}
+          />
+        ) : (
+          <Empty description="Vui lòng chọn một lớp để xem danh sách sinh viên" />
+        )}
+      </Card>
+    </div>
   );
 };
 
