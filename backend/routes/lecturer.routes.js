@@ -4,6 +4,8 @@ const lecturerController = require("../controllers/lecturer.controller");
 const dashboardController = require("../controllers/dashboard.controller")
 const classController = require("../controllers/class.controller")
 const lecturerThesisController = require("../controllers/lecturerThesis.controller");
+const proposalController = require("../controllers/proposal.controller");
+const templateController = require("../controllers/template.controller");
 const auth = require("../middlewares/auth");
 
 router.use(auth); // Áp dụng auth middleware cho toàn bộ các route dưới đây
@@ -26,16 +28,16 @@ router.post("/sessions", lecturerController.createSession);
 router.delete("/sessions/:id", lecturerController.deleteSession);
 
 // Templates
-router.get("/templates", lecturerController.getTemplates);
-router.post("/templates", lecturerController.createTemplate);
-  router.put("/templates/:id", lecturerController.updateTemplate);
-  router.delete("/templates/:id", lecturerController.deleteTemplate);
+router.get("/templates", templateController.getTemplates);
+router.post("/templates", templateController.createTemplate);
+  router.put("/templates/:id", templateController.updateTemplate);
+  router.delete("/templates/:id", templateController.deleteTemplate);
 
-  // Lecturer Proposals (My Proposals)
-  router.get("/proposals", lecturerController.getMyProposals);
-  router.post("/proposals", lecturerController.createProposal);
-  router.put("/proposals/:id", lecturerController.updateProposal);
-  router.delete("/proposals/:id", lecturerController.deleteProposal);
+  // Proposals (My Proposals) - managed by Lecturer, module is common
+  router.get("/proposals", proposalController.getMyProposals);
+  router.post("/proposals", proposalController.createProposal);
+  router.put("/proposals/:id", proposalController.updateProposal);
+  router.delete("/proposals/:id", proposalController.deleteProposal);
 
   // Thesis Detail
   router.get("/theses/:id/detail", lecturerThesisController.getThesisDetail);
