@@ -1,5 +1,7 @@
 const { poolPromise, sql } = require("../config/db");
+const classService = require("../services/class.service");
 
+// API chung (Admin / General)
 const getClasses = async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -15,6 +17,43 @@ const getClasses = async (req, res) => {
   }
 };
 
+// Dành riêng cho Lecturer
+const getLecturerClasses = async (req, res) => {
+  try {
+    let lecturerId = req.query.lecturerId;
+    if (req.user && req.user.role === "lecturer") {
+      lecturerId = req.user.id;
+    }
+    if (!lecturerId) {
+      return res.status(400).json({ message: "Thiếu lecturerId" });
+    }
+
+    const data = await classService.getLecturerClasses(lecturerId);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
+  }
+};
+
+const getLecturerClassStudents = async (req, res) => {
+  const { classId } = req.params;
+
+  try {
+    if (req.user && req.user.role === "lecturer") {
+      const classes = await classService.getLecturerClasses(req.user.id);
+      const isOwner = classes.some(c => c.id == classId);
+      if (!isOwner) {
+        return res.status(403).json({ message: "Bạn không có quyền xem danh sách sinh viên lớp này!" });
+      }
+    }
+
+    const data = await classService.getLecturerClassStudents(classId);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
+  }
+};
+
 const createClass = async (req, res) => {
   const { class_name, course_name, session_id, lecturer_id, max_students } =
     req.body;
@@ -24,7 +63,7 @@ const createClass = async (req, res) => {
       .request()
       .input("class_name", sql.NVarChar, class_name)
       .input("course_name", sql.NVarChar, course_name)
-      .input("session_id", sql.Int, session_id) // Dùng session_id thay vì semester
+      .input("session_id", sql.Int, session_id)
       .input("lecturer_id", sql.Int, lecturer_id)
       .input("max_students", sql.Int, max_students || 30).query(`
                 INSERT INTO Classes (class_name, course_name, session_id, lecturer_id, max_students)
@@ -35,6 +74,7 @@ const createClass = async (req, res) => {
     res.status(500).json({ message: "Lỗi khi tạo lớp", error: err.message });
   }
 };
+
 const updateClass = async (req, res) => {
   try {
     const { id } = req.params;
@@ -65,14 +105,14 @@ const updateClass = async (req, res) => {
 
     res.json({ message: "Cập nhật lớp tín chỉ thành công!" });
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Lỗi khi cập nhật lớp", error: err.message });
+    res.status(500).json({ message: "Lỗi khi cập nhật lớp", error: err.message });
   }
 };
 
 module.exports = {
   getClasses,
+  getLecturerClasses,
+  getLecturerClassStudents,
   createClass,
   updateClass,
 };

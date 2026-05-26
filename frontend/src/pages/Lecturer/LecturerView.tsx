@@ -13,7 +13,7 @@ import {
   CalendarOutlined
 } from "@ant-design/icons";
 import { history, useModel } from "umi";
-import { getDashboardStats, getRiskFlags, approveThesis, getLecturerTheses } from "@/services/lecturer";
+import { getLecturerDashboard, getRiskFlags, approveThesis, getLecturerTheses } from "@/services/lecturer";
 
 const { Title, Text } = Typography;
 
@@ -57,7 +57,7 @@ const LecturerDashboard: React.FC = () => {
     setLoading(true);
     try {
       const [statsRes, risksRes, thesisRes] = await Promise.all([
-        getDashboardStats(lecturerId!),
+        getLecturerDashboard(lecturerId!),
         getRiskFlags(lecturerId!),
         getLecturerTheses({ lecturerId: lecturerId! })
       ]);

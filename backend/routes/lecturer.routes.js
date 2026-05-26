@@ -1,20 +1,23 @@
 const express = require("express");
 const router = express.Router();
 const lecturerController = require("../controllers/lecturer.controller");
+const dashboardController = require("../controllers/dashboard.controller")
+const classController = require("../controllers/class.controller")
+const lecturerThesisController = require("../controllers/lecturerThesis.controller");
 const auth = require("../middlewares/auth");
 
 router.use(auth); // Áp dụng auth middleware cho toàn bộ các route dưới đây
 
-router.get("/dashboard/stats", lecturerController.getDashboardStats);
-router.get("/dashboard/risks", lecturerController.getRiskFlags);
-router.get("/classes", lecturerController.getClasses);
-router.get("/classes/:classId/students", lecturerController.getClassStudents);
-router.put("/theses/:id/approve", lecturerController.approveThesis);
-router.put("/theses/:id/reject", lecturerController.rejectThesis);
+router.get("/dashboard/stats", dashboardController.getLecturerDashboard);
+router.get("/dashboard/risks", dashboardController.getRiskFlags);
+router.get("/classes", classController.getLecturerClasses);
+router.get("/classes/:classId/students", classController.getLecturerClassStudents);
+  router.put("/theses/:id/approve", lecturerThesisController.approveThesis);
+  router.put("/theses/:id/reject", lecturerThesisController.rejectThesis);
 router.get("/milestones", lecturerController.getMilestones);
-router.post("/milestones", lecturerController.createMilestone);
+  router.post("/milestones", lecturerThesisController.createMilestone);
 router.put("/milestones/:id/feedback", lecturerController.updateMilestoneFeedback);
-router.put("/theses/:id/finalize", lecturerController.finalizeThesis);
+  router.put("/theses/:id/finalize", lecturerThesisController.finalizeThesis);
 router.get("/reports/export-excel", lecturerController.exportReport);
 
 // Sessions
@@ -35,13 +38,13 @@ router.post("/templates", lecturerController.createTemplate);
   router.delete("/proposals/:id", lecturerController.deleteProposal);
 
   // Thesis Detail
-  router.get("/theses/:id/detail", lecturerController.getThesisDetail);
+  router.get("/theses/:id/detail", lecturerThesisController.getThesisDetail);
 
   // Dedicated lecturer thesis list with filters (for better UX)
-  router.get("/theses", lecturerController.getLecturerTheses);
+  router.get("/theses", lecturerThesisController.getLecturerTheses);
 
   // Bulk actions for lecturer
-  router.post("/theses/bulk-approve", lecturerController.bulkApproveTheses);
-  router.post("/theses/bulk-reject", lecturerController.bulkRejectTheses);
+  router.post("/theses/bulk-approve", lecturerThesisController.bulkApproveTheses);
+  router.post("/theses/bulk-reject", lecturerThesisController.bulkRejectTheses);
 
   module.exports = router;

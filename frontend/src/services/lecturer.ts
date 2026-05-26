@@ -5,7 +5,7 @@ const getAuthHeader = (): Record<string, string> => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-export async function getDashboardStats(lecturerId: number) {
+export async function getLecturerDashboard(lecturerId: number) {
   return request("/api/lecturer/dashboard/stats", {
     method: "GET",
     params: { lecturerId },
