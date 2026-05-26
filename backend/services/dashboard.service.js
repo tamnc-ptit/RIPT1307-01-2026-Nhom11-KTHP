@@ -4,7 +4,6 @@ const ExcelJS = require("exceljs");
 exports.getLecturerDashboard = async (lecturerId) => {
   const pool = await poolPromise;
 
-  // 1. Số sinh viên đang hướng dẫn (distinct student, thesis đã được GV duyệt)
   const guidedRes = await pool
     .request()
     .input("lecturerId", sql.Int, lecturerId)
@@ -16,7 +15,6 @@ exports.getLecturerDashboard = async (lecturerId) => {
     `);
   const totalStudents = guidedRes.recordset[0].count;
 
-  // 2. Số đề tài đang chờ GV duyệt
   const pendingRes = await pool
     .request()
     .input("lecturerId", sql.Int, lecturerId)
@@ -28,7 +26,6 @@ exports.getLecturerDashboard = async (lecturerId) => {
     `);
   const pendingApprovals = pendingRes.recordset[0].count;
 
-  // 3. Số báo cáo mới nộp (chưa chấm) - status = 'submitted'
   const newSubmissionsRes = await pool
     .request()
     .input("lecturerId", sql.Int, lecturerId)
@@ -42,7 +39,6 @@ exports.getLecturerDashboard = async (lecturerId) => {
     `);
   const newReports = newSubmissionsRes.recordset[0].count;
 
-  // 4. Số đề tài đã hoàn thành (có final_score hoặc status = 'completed')
   const completedRes = await pool
     .request()
     .input("lecturerId", sql.Int, lecturerId)
@@ -66,7 +62,6 @@ exports.getLecturerDashboard = async (lecturerId) => {
 exports.getRiskFlags = async (lecturerId) => {
   const pool = await poolPromise;
   
-  // 1. Không có hoạt động trong 30 ngày (thesis.updated_at quá cũ)
   const inactiveRes = await pool
     .request()
     .input("lecturerId", sql.Int, lecturerId)
@@ -84,7 +79,6 @@ exports.getRiskFlags = async (lecturerId) => {
         AND t.updated_at < DATEADD(day, -30, GETDATE())
     `);
 
-  // 2. Milestone đang trễ hạn (pending + deadline đã qua)
   const lateRes = await pool
     .request()
     .input("lecturerId", sql.Int, lecturerId)
@@ -104,14 +98,12 @@ exports.getRiskFlags = async (lecturerId) => {
         AND m.deadline < GETDATE()
     `);
 
-  // Gộp và loại trùng (nếu 1 sinh viên có cả 2 loại rủi ro)
   const allRisks = [...inactiveRes.recordset, ...lateRes.recordset];
   const uniqueRisks = allRisks.reduce((acc, risk) => {
     const existing = acc.find(r => r.thesisId === risk.thesisId);
     if (!existing) {
       acc.push(risk);
     } else if (risk.flagType.includes('Trễ hạn')) {
-      // Ưu tiên cảnh báo trễ hạn hơn
       existing.flagType = risk.flagType;
     }
     return acc;
