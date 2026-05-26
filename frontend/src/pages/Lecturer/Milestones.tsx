@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Card, 
   Steps, 
@@ -12,120 +12,153 @@ import {
   Rate, 
   Modal, 
   Input, 
-  message 
+  message,
+  DatePicker,
+  Form
 } from "antd";
 import { 
   ClockCircleOutlined, 
   CheckCircleOutlined, 
   SyncOutlined, 
   FileTextOutlined,
-  EditOutlined
+  EditOutlined,
+  WarningOutlined,
+  PlusOutlined
 } from "@ant-design/icons";
+import { getMilestones, updateMilestoneFeedback, createMilestone } from "@/services/lecturer";
+import { useLocation } from "umi";
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 // --- Interfaces ---
-interface Milestone {
-  id: string;
+interface RealMilestone {
+  id: number;
+  thesis_id: number;
   name: string;
+  description: string;
   deadline: string;
-  status: 'wait' | 'process' | 'finish' | 'error';
-}
-
-interface GroupProgress {
-  key: string;
-  groupName: string;
-  topicName: string;
-  currentMilestone: string;
-  submissionDate: string;
-  fileUrl: string;
-  grade: number | null;
-  comment: string;
+  status: 'todo' | 'submitted' | 'done';
+  submitted_at: string;
+  evidence_url: string;
+  lecturer_comment: string;
+  plagiarism_index: number;
+  requires_plagiarism_check: boolean;
 }
 
 const Milestones: React.FC = () => {
+  const [loading, setLoading] = useState(false);
+  const [milestones, setMilestones] = useState<RealMilestone[]>([]);
+  const [selectedMilestone, setSelectedMilestone] = useState<RealMilestone | null>(null);
+  const [feedback, setFeedback] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<GroupProgress | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addForm] = Form.useForm();
+  
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const thesisId = queryParams.get("thesisId") || "";
 
-  // 1. Danh sách các cột mốc chung của lớp (Mock data)
-  const milestoneSteps: Milestone[] = [
-    { id: '1', name: 'Đăng ký đề tài', deadline: '10/05/2026', status: 'finish' },
-    { id: '2', name: 'Báo cáo lần 1', deadline: '25/05/2026', status: 'process' },
-    { id: '3', name: 'Bản thảo cuối', deadline: '15/06/2026', status: 'wait' },
-    { id: '4', name: 'Bảo vệ đồ án', deadline: '30/06/2026', status: 'wait' },
-  ];
-
-  // 2. Danh sách nộp bài của các nhóm cho Milestone hiện tại
-  const progressData: GroupProgress[] = [
-    {
-      key: '1',
-      groupName: 'Nhóm 01',
-      topicName: 'Quản lý Chợ đề tài tín chỉ',
-      currentMilestone: 'Báo cáo lần 1',
-      submissionDate: '2026-05-12 09:00',
-      fileUrl: 'baocao_nhom1.pdf',
-      grade: 4,
-      comment: 'Tốt, cần làm rõ hơn sơ đồ ERD.'
-    },
-    {
-      key: '2',
-      groupName: 'Nhóm 02',
-      topicName: 'Ứng dụng Blockchain trong quản lý điểm',
-      currentMilestone: 'Báo cáo lần 1',
-      submissionDate: 'Chưa nộp',
-      fileUrl: '',
-      grade: null,
-      comment: ''
+  useEffect(() => {
+    if (thesisId) {
+      fetchMilestones();
     }
-  ];
+  }, [thesisId]);
 
-  const handleGrade = (group: GroupProgress) => {
-    setSelectedGroup(group);
+  const fetchMilestones = async () => {
+    setLoading(true);
+    try {
+      const res = await getMilestones(thesisId);
+      setMilestones(res || []);
+    } catch (error) {
+      message.error("Lỗi khi tải tiến độ");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGrade = (m: RealMilestone) => {
+    setSelectedMilestone(m);
+    setFeedback(m.lecturer_comment || "");
     setIsModalOpen(true);
+  };
+
+  const submitFeedback = async () => {
+    if (!selectedMilestone) return;
+    try {
+      await updateMilestoneFeedback(selectedMilestone.id, {
+        comment: feedback,
+        status: 'done' // Đánh dấu là đã hoàn thành sau khi có nhận xét
+      });
+      message.success("Đã lưu nhận xét");
+      setIsModalOpen(false);
+      fetchMilestones();
+    } catch (error) {
+      message.error("Lỗi khi lưu nhận xét");
+    }
+  };
+
+  const handleAddSubmit = async (values: any) => {
+    try {
+      await createMilestone({
+        ...values,
+        thesis_id: thesisId,
+      });
+      message.success("Đã thêm mốc tiến độ!");
+      setIsAddModalOpen(false);
+      addForm.resetFields();
+      fetchMilestones();
+    } catch (error) {
+      message.error("Lỗi khi thêm mốc tiến độ");
+    }
   };
 
   const columns = [
     {
-      title: 'Nhóm',
-      dataIndex: 'groupName',
-      key: 'groupName',
+      title: 'Tên mốc',
+      dataIndex: 'name',
+      key: 'name',
       render: (text: string) => <Text strong>{text}</Text>
     },
     {
-      title: 'Đề tài',
-      dataIndex: 'topicName',
-      key: 'topicName',
-      ellipsis: true,
+      title: 'Hạn nộp',
+      dataIndex: 'deadline',
+      key: 'deadline',
+      render: (date: string) => new Date(date).toLocaleDateString()
     },
     {
       title: 'Ngày nộp',
-      dataIndex: 'submissionDate',
-      key: 'submissionDate',
-      render: (date: string) => (
-        <span style={{ color: date === 'Chưa nộp' ? 'red' : 'inherit' }}>
-          {date === 'Chưa nộp' ? <ClockCircleOutlined /> : <CheckCircleOutlined />} {date}
+      dataIndex: 'submitted_at',
+      key: 'submitted_at',
+      render: (date: string, record: RealMilestone) => (
+        <span style={{ color: !date ? 'red' : 'inherit' }}>
+          {!date ? <ClockCircleOutlined /> : <CheckCircleOutlined />} 
+          {date ? new Date(date).toLocaleString() : ' Chưa nộp'}
         </span>
       )
     },
     {
-      title: 'Đánh giá',
-      dataIndex: 'grade',
-      key: 'grade',
-      render: (grade: number | null) => grade ? <Rate disabled defaultValue={grade} /> : 'Chưa chấm'
+      title: 'Đạo văn',
+      dataIndex: 'plagiarism_index',
+      key: 'plagiarism_index',
+      render: (val: number) => val !== null ? (
+        <Tag color={val > 22 ? 'error' : 'success'} icon={val > 22 ? <WarningOutlined /> : null}>
+          {val}%
+        </Tag>
+      ) : '-'
     },
     {
       title: 'Thao tác',
       key: 'action',
-      render: (_: any, record: GroupProgress) => (
+      render: (_: any, record: RealMilestone) => (
         <Button 
           type="primary" 
           ghost 
           icon={<EditOutlined />}
-          disabled={record.submissionDate === 'Chưa nộp'}
+          disabled={!record.submitted_at}
           onClick={() => handleGrade(record)}
         >
-          Chấm điểm
+          Nhận xét
         </Button>
       )
     }
@@ -133,13 +166,13 @@ const Milestones: React.FC = () => {
 
   return (
     <div style={{ padding: '24px' }}>
-      <Card title="🏆 Lộ trình thực hiện Đồ án" style={{ marginBottom: 24 }}>
+      <Card title="🏆 Lộ trình thực hiện Đề tài" style={{ marginBottom: 24 }}>
         <Steps
-          current={1}
-          items={milestoneSteps.map(m => ({
+          current={milestones.findIndex(m => m.status === 'todo')}
+          items={milestones.map(m => ({
             title: m.name,
-            description: `Deadline: ${m.deadline}`,
-            status: m.status
+            description: `Deadline: ${new Date(m.deadline).toLocaleDateString()}`,
+            status: m.status === 'done' ? 'finish' : m.status === 'submitted' ? 'process' : 'wait'
           }))}
         />
       </Card>
@@ -148,15 +181,22 @@ const Milestones: React.FC = () => {
         <Col span={24}>
           <Card 
             title={
-              <span>
-                <SyncOutlined spin style={{ marginRight: 8, color: '#1890ff' }} />
-                Tiến độ nộp bài: Báo cáo lần 1
-              </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>
+                  <SyncOutlined spin={loading} style={{ marginRight: 8, color: '#1890ff' }} />
+                  Danh sách các mốc tiến độ
+                </span>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsAddModalOpen(true)}>
+                  Thêm Mốc Tiến Độ
+                </Button>
+              </div>
             }
           >
             <Table 
               columns={columns} 
-              dataSource={progressData} 
+              dataSource={milestones} 
+              loading={loading}
+              rowKey="id"
               pagination={false}
             />
           </Card>
@@ -165,39 +205,66 @@ const Milestones: React.FC = () => {
 
       {/* Modal Chấm điểm & Nhận xét */}
       <Modal
-        title={`Chấm điểm: ${selectedGroup?.groupName}`}
+        title={`Nhận xét tiến độ: ${selectedMilestone?.name}`}
         open={isModalOpen}
-        onOk={() => {
-          message.success("Đã lưu đánh giá");
-          setIsModalOpen(false);
-        }}
+        onOk={submitFeedback}
         onCancel={() => setIsModalOpen(false)}
-        okText="Lưu kết quả"
+        okText="Lưu nhận xét"
         cancelText="Hủy"
       >
         <div style={{ marginBottom: 16 }}>
-          <Text strong>Tệp tin đính kèm: </Text>
-          <Button type="link" icon={<FileTextOutlined />}>
-            {selectedGroup?.fileUrl || "Download file"}
+          <Text strong>Tệp tin minh chứng: </Text>
+          <Button 
+            type="link" 
+            icon={<FileTextOutlined />}
+            onClick={() => window.open(selectedMilestone?.evidence_url)}
+            disabled={!selectedMilestone?.evidence_url}
+          >
+            {selectedMilestone?.evidence_url ? "Xem báo cáo" : "Không có tệp tin"}
           </Button>
         </div>
         
-        <div style={{ marginBottom: 16 }}>
-          <Text strong>Mức độ hoàn thành: </Text>
-          <div style={{ marginTop: 8 }}>
-            <Rate />
-          </div>
-        </div>
+        {selectedMilestone?.requires_plagiarism_check && (
+           <div style={{ marginBottom: 16 }}>
+              <Text strong>Tỷ lệ trùng lặp: </Text>
+              <Tag color={selectedMilestone.plagiarism_index > 22 ? 'red' : 'green'}>
+                {selectedMilestone.plagiarism_index}%
+              </Tag>
+           </div>
+        )}
 
         <div>
           <Text strong>Nhận xét của Giảng viên: </Text>
           <TextArea 
             rows={4} 
-            placeholder="Nhập ý kiến phản hồi cho nhóm..." 
+            placeholder="Nhập ý kiến phản hồi hướng dẫn cho sinh viên..." 
             style={{ marginTop: 8 }}
-            defaultValue={selectedGroup?.comment}
+            value={feedback}
+            onChange={e => setFeedback(e.target.value)}
           />
         </div>
+      </Modal>
+
+      {/* Modal Thêm Mốc Tiến Độ */}
+      <Modal
+        title="Thêm Mốc Tiến Độ Riêng"
+        open={isAddModalOpen}
+        onOk={() => addForm.submit()}
+        onCancel={() => setIsAddModalOpen(false)}
+        okText="Thêm Mốc"
+        cancelText="Hủy"
+      >
+        <Form form={addForm} layout="vertical" onFinish={handleAddSubmit}>
+          <Form.Item name="name" label="Tên Milestone" rules={[{ required: true }]}>
+            <Input placeholder="VD: Báo cáo giữa kỳ" />
+          </Form.Item>
+          <Form.Item name="description" label="Mô tả / Yêu cầu">
+            <TextArea rows={3} placeholder="Mô tả yêu cầu cần nộp..." />
+          </Form.Item>
+          <Form.Item name="deadline" label="Hạn nộp" rules={[{ required: true }]}>
+            <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );
