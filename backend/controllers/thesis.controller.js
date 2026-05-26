@@ -42,7 +42,6 @@ const getAdminThesis = async (req, res) => {
   }
 };
 
-// --- Các hàm dùng service chung ---
 const thesisService = require("../services/thesis.service");
 
 exports.createThesis = async (req, res) => {
@@ -101,7 +100,6 @@ exports.deleteThesis = async (req, res) => {
   }
 };
 
-// Export tất cả (phải để cuối file)
 module.exports = {
   getAdminThesis,
   createThesis: exports.createThesis,

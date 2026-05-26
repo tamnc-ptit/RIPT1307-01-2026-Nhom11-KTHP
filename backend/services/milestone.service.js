@@ -41,7 +41,6 @@ exports.updateMilestoneFeedback = async (id, data) => {
   const { comment, score, status, userId } = data; 
   const pool = await poolPromise;
 
-  // 1. Tìm submission gần nhất của milestone này
   const subRes = await pool
     .request()
     .input("milestoneId", sql.Int, id)
@@ -52,17 +51,15 @@ exports.updateMilestoneFeedback = async (id, data) => {
   if (submission) {
     const submissionId = submission.id;
 
-    // 2. Thêm bình luận mới vào bảng Comments
     if (comment) {
       await pool
         .request()
         .input("submissionId", sql.Int, submissionId)
-        .input("userId", sql.Int, userId || 2) // Default to lecturer ID
+        .input("userId", sql.Int, userId || 2) 
         .input("content", sql.NVarChar, comment)
         .query("INSERT INTO Comments (submission_id, user_id, content, created_at, updated_at) VALUES (@submissionId, @userId, @content, GETDATE(), GETDATE())");
     }
 
-    // 3. Cập nhật điểm hoặc trạng thái cho Submission
     const reqSub = pool
       .request()
       .input("submissionId", sql.Int, submissionId)
@@ -76,7 +73,6 @@ exports.updateMilestoneFeedback = async (id, data) => {
     await reqSub.query(subQuery);
   }
 
-  // 4. Cập nhật trạng thái của Milestone (hỗ trợ overdue)
   let finalStatus = 'pending';
   if (status === 'done' || status === 'completed') finalStatus = 'completed';
   if (status === 'overdue') finalStatus = 'overdue';
@@ -99,7 +95,7 @@ exports.createMilestone = async (data) => {
   const { thesis_id, name, title, description, deadline, created_by } = data;
   const pool = await poolPromise;
   const finalTitle = title || name;
-  const finalCreatedBy = created_by || 2; // Default to lecturer ID
+  const finalCreatedBy = created_by || 2;
 
   const result = await pool
     .request()
