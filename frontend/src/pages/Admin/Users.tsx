@@ -20,7 +20,12 @@ import {
   SearchOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
-import { User, CreateUserValues, EditUserValues } from "../../types/AdminTypes/UserTypes"; 
+import {
+  User,
+  CreateUserValues,
+  EditUserValues,
+  UserRole,
+} from "../../types/AdminTypes/UserTypes"; 
 
 const API = "http://localhost:5000";
 

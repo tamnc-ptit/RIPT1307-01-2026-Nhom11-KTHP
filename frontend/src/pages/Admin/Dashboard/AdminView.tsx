@@ -28,14 +28,13 @@ const AdminView: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Fetch song song 4 nguồn dữ liệu để tổng hợp stats
-        const [resUsers, resClasses, resSessions, resTheses] =
-          await Promise.all([
-            fetch(`${API}/api/auth/users`),
-            fetch(`${API}/api/classes`),
-            fetch(`${API}/api/sessions`),
-            fetch(`${API}/api/thesis/admin`),
-          ]);
+       
+ const [resUsers, resClasses, resSessions, resTheses] = await Promise.all([
+   fetch(`${API}/api/admin/users`), 
+   fetch(`${API}/api/admin/classes`), 
+   fetch(`${API}/api/admin/sessions`), 
+   fetch(`${API}/api/admin/thesis`), 
+ ]);
 
         const users = await resUsers.json();
         const classes = await resClasses.json();
@@ -154,7 +153,7 @@ const AdminView: React.FC = () => {
               <Button
                 size="small"
                 type="link"
-                onClick={() => history.push("/admin/thesis")}
+                onClick={() => history.push("/admin/thesis-review")}
               >
                 Xem ngay
               </Button>
@@ -173,7 +172,7 @@ const AdminView: React.FC = () => {
               <Button
                 size="small"
                 type="link"
-                onClick={() => history.push("/admin/sessions")}
+                onClick={() => history.push("/admin/session-settings")}
               >
                 Thiết lập
               </Button>
@@ -199,7 +198,7 @@ const AdminView: React.FC = () => {
               icon={<BookOutlined />}
               block
               size="large"
-              onClick={() => history.push("/admin/classes")}
+              onClick={() => history.push("/admin/class-management")}
             >
               Quản lý Lớp tín chỉ
             </Button>
@@ -209,7 +208,7 @@ const AdminView: React.FC = () => {
               icon={<CalendarOutlined />}
               block
               size="large"
-              onClick={() => history.push("/admin/sessions")}
+              onClick={() => history.push("/admin/session-settings")}
             >
               Cấu hình đợt đồ án
             </Button>
@@ -219,7 +218,7 @@ const AdminView: React.FC = () => {
               icon={<DashboardOutlined />}
               block
               size="large"
-              onClick={() => history.push("/admin/thesis")}
+              onClick={() => history.push("/admin/thesis-review")}
             >
               Giám sát Đề tài
             </Button>
