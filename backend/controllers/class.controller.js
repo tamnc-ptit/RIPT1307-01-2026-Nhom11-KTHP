@@ -81,7 +81,7 @@ const getLecturerClasses = async (req, res) => {
       return res.status(400).json({ message: "Thiếu lecturerId" });
     }
 
-    const data = await classService.getClassesByLecturer(lecturerId);
+    const data = await classService.getLecturerClasses(lecturerId);
     res.json(data);
   } catch (err) {
     res.status(500).json({ message: "Lỗi Server", error: err.message });
