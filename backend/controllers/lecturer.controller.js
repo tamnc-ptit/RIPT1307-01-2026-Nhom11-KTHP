@@ -147,4 +147,44 @@ exports.createMilestone = async (req, res) => {
   }
 };
 
+exports.getSessions = async (req, res) => {
+  const lecturerId = req.user?.id;
+  if (!lecturerId) {
+    return res.status(400).json({ message: "Thiếu lecturerId hoặc bạn chưa đăng nhập" });
+  }
+  try {
+    const sessions = await lecturerService.getSessions(lecturerId);
+    res.json(sessions);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
+  }
+};
+
+exports.createSession = async (req, res) => {
+  const lecturerId = req.user?.id;
+  if (!lecturerId) {
+    return res.status(400).json({ message: "Thiếu thông tin người dùng" });
+  }
+  try {
+    const data = {
+      ...req.body,
+      created_by: lecturerId
+    };
+    const session = await lecturerService.createSession(data);
+    res.status(201).json(session);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
+  }
+};
+
+exports.deleteSession = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await lecturerService.deleteSession(id);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
+  }
+};
+
 

@@ -70,7 +70,7 @@ const updateClass = async (req, res) => {
   }
 };
 
-exports.getLecturerClasses = async (req, res) => {
+const getLecturerClasses = async (req, res) => {
   try {
     let lecturerId = req.query.lecturerId;
     if (req.user && req.user.role === "lecturer") {
@@ -88,7 +88,7 @@ exports.getLecturerClasses = async (req, res) => {
   }
 };
 
-exports.getLecturerClassStudents = async (req, res) => {
+const getLecturerClassStudents = async (req, res) => {
   const { classId } = req.params;
 
   try {
@@ -109,8 +109,11 @@ exports.getLecturerClassStudents = async (req, res) => {
     res.status(500).json({ message: "Lỗi Server", error: err.message });
   }
 };
+
 module.exports = {
   getClasses,
   createClass,
   updateClass,
+  getLecturerClasses,
+  getLecturerClassStudents,
 };
