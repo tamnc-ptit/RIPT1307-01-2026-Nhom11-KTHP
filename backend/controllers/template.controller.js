@@ -1,7 +1,6 @@
 const templateService = require("../services/template.service");
 const classService = require("../services/class.service");
 
-// --- Templates (Quy trình mẫu) ---
 
 exports.getTemplates = async (req, res) => {
   try {

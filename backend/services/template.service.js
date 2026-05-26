@@ -1,6 +1,5 @@
 const { poolPromise, sql } = require("../config/db");
 
-// --- QUY TRÌNH MẪU (MILESTONE TEMPLATES) ---
 
 exports.getTemplates = async (classId) => {
   const pool = await poolPromise;

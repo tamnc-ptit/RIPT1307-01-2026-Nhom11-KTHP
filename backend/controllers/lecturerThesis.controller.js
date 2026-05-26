@@ -1,9 +1,8 @@
 const lecturerThesisService = require("../services/lecturerThesis.service");
-const lecturerService = require("../services/lecturer.service"); // for createNotification + logAudit
+const lecturerService = require("../services/lecturer.service");
 const milestoneService = require("../services/milestone.service");
 const { poolPromise, sql } = require("../config/db");
 
-// ==================== THESIS ACTIONS FOR LECTURER ====================
 
 exports.approveThesis = async (req, res) => {
   const { id } = req.params;
@@ -17,7 +16,6 @@ exports.approveThesis = async (req, res) => {
   try {
     const result = await lecturerThesisService.approveThesis(id);
 
-    // Gửi thông báo cho sinh viên
     const pool = await poolPromise;
     const thesisInfo = await pool
       .request()
@@ -147,7 +145,6 @@ exports.finalizeThesis = async (req, res) => {
   }
 };
 
-// ==================== THESIS LIST FOR LECTURER ====================
 exports.getLecturerTheses = async (req, res) => {
   try {
     if (!req.user || req.user.role !== "lecturer") {
@@ -173,7 +170,6 @@ exports.getLecturerTheses = async (req, res) => {
   }
 };
 
-// ==================== THESIS DETAIL FOR LECTURER ====================
 exports.getThesisDetail = async (req, res) => {
   const { id } = req.params;
   const lecturerId = req.user?.id;
@@ -186,7 +182,6 @@ exports.getThesisDetail = async (req, res) => {
   }
 };
 
-// ==================== CUSTOM MILESTONE ====================
 exports.createMilestone = async (req, res) => {
   const { thesis_id } = req.body;
   const lecturerId = req.user?.id;
@@ -218,7 +213,6 @@ exports.createMilestone = async (req, res) => {
   }
 };
 
-// ==================== BULK ACTIONS ====================
 exports.bulkApproveTheses = async (req, res) => {
   const { thesisIds } = req.body;
   const lecturerId = req.user?.id;

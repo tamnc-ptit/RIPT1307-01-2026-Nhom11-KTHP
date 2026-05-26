@@ -1,6 +1,5 @@
 const { poolPromise, sql } = require("../config/db");
 
-// ==================== PROPOSALS (TopicSuggestions) ====================
 
 exports.getMyProposals = async (lecturerId) => {
   const pool = await poolPromise;
@@ -49,7 +48,6 @@ exports.updateProposal = async (id, data, lecturerId) => {
   const { title, description, max_groups, status, session_id } = data;
   const pool = await poolPromise;
 
-  // Verify ownership
   const ownerCheck = await pool
     .request()
     .input("id", sql.Int, id)
@@ -86,7 +84,6 @@ exports.updateProposal = async (id, data, lecturerId) => {
 exports.deleteProposal = async (id, lecturerId) => {
   const pool = await poolPromise;
 
-  // Verify ownership
   const ownerCheck = await pool
     .request()
     .input("id", sql.Int, id)
@@ -97,7 +94,6 @@ exports.deleteProposal = async (id, lecturerId) => {
     throw new Error("Bạn không có quyền xóa đề tài đề xuất này");
   }
 
-  // Prevent delete if already used in a Thesis
   const usedCheck = await pool
     .request()
     .input("id", sql.Int, id)

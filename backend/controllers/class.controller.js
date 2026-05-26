@@ -1,7 +1,5 @@
 const { poolPromise, sql } = require("../config/db");
-const classService = require("../services/class.service");
-
-// API chung (Admin / General)
+const classService = require("../services/class.service")
 const getClasses = async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -12,43 +10,6 @@ const getClasses = async (req, res) => {
             LEFT JOIN Sessions s ON c.session_id = s.id
         `);
     res.json(result.recordset);
-  } catch (err) {
-    res.status(500).json({ message: "Lỗi Server", error: err.message });
-  }
-};
-
-// Dành riêng cho Lecturer
-const getLecturerClasses = async (req, res) => {
-  try {
-    let lecturerId = req.query.lecturerId;
-    if (req.user && req.user.role === "lecturer") {
-      lecturerId = req.user.id;
-    }
-    if (!lecturerId) {
-      return res.status(400).json({ message: "Thiếu lecturerId" });
-    }
-
-    const data = await classService.getLecturerClasses(lecturerId);
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ message: "Lỗi Server", error: err.message });
-  }
-};
-
-const getLecturerClassStudents = async (req, res) => {
-  const { classId } = req.params;
-
-  try {
-    if (req.user && req.user.role === "lecturer") {
-      const classes = await classService.getLecturerClasses(req.user.id);
-      const isOwner = classes.some(c => c.id == classId);
-      if (!isOwner) {
-        return res.status(403).json({ message: "Bạn không có quyền xem danh sách sinh viên lớp này!" });
-      }
-    }
-
-    const data = await classService.getLecturerClassStudents(classId);
-    res.json(data);
   } catch (err) {
     res.status(500).json({ message: "Lỗi Server", error: err.message });
   }
@@ -109,10 +70,47 @@ const updateClass = async (req, res) => {
   }
 };
 
+exports.getLecturerClasses = async (req, res) => {
+  try {
+    let lecturerId = req.query.lecturerId;
+    if (req.user && req.user.role === "lecturer") {
+      lecturerId = req.user.id;
+    }
+
+    if (!lecturerId) {
+      return res.status(400).json({ message: "Thiếu lecturerId" });
+    }
+
+    const data = await classService.getClassesByLecturer(lecturerId);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
+  }
+};
+
+exports.getLecturerClassStudents = async (req, res) => {
+  const { classId } = req.params;
+
+  try {
+    if (req.user && req.user.role === "lecturer") {
+      const classes = await classService.getLecturerClasses(req.user.id);
+      const isOwner = classes.some(c => c.id == classId);
+
+      if (!isOwner) {
+        return res.status(403).json({ 
+          message: "Bạn không có quyền xem danh sách sinh viên lớp này!" 
+        });
+      }
+    }
+
+    const data = await classService.getLecturerClassStudents(classId);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
+  }
+};
 module.exports = {
   getClasses,
-  getLecturerClasses,
-  getLecturerClassStudents,
   createClass,
   updateClass,
 };

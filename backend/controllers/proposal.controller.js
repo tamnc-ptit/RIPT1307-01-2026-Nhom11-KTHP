@@ -1,7 +1,6 @@
 const proposalService = require("../services/proposal.service");
-const lecturerService = require("../services/lecturer.service"); // only for logAudit (shared helper)
+const lecturerService = require("../services/lecturer.service"); 
 
-// ==================== PROPOSALS (TopicSuggestions) - Management by Lecturer ====================
 
 exports.getMyProposals = async (req, res) => {
   try {
@@ -27,7 +26,6 @@ exports.createProposal = async (req, res) => {
     };
     const data = await proposalService.createProposal(payload);
 
-    // Audit log
     await lecturerService.logAudit({
       actor_id: req.user.id,
       actor_name: req.user?.name || req.user?.email,
@@ -52,7 +50,6 @@ exports.updateProposal = async (req, res) => {
     const lecturerId = req.user.id;
     const data = await proposalService.updateProposal(id, req.body, lecturerId);
 
-    // Audit log
     await lecturerService.logAudit({
       actor_id: lecturerId,
       actor_name: req.user?.name || req.user?.email,
@@ -77,7 +74,6 @@ exports.deleteProposal = async (req, res) => {
     const lecturerId = req.user.id;
     await proposalService.deleteProposal(id, lecturerId);
 
-    // Audit log
     await lecturerService.logAudit({
       actor_id: lecturerId,
       actor_name: req.user?.name || req.user?.email,

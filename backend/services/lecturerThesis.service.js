@@ -1,6 +1,5 @@
 const { poolPromise, sql } = require("../config/db");
 
-// ==================== PERMISSION HELPER (Thesis specific) ====================
 exports.verifyThesisOwnership = async (thesisId, lecturerId) => {
   const pool = await poolPromise;
   const res = await pool
@@ -12,7 +11,6 @@ exports.verifyThesisOwnership = async (thesisId, lecturerId) => {
   return res.recordset.length > 0;
 };
 
-// ==================== APPROVE / REJECT / FINALIZE ====================
 exports.approveThesis = async (thesisId) => {
   const pool = await poolPromise;
   const transaction = new sql.Transaction(pool);
@@ -20,13 +18,11 @@ exports.approveThesis = async (thesisId) => {
   try {
     await transaction.begin();
     
-    // 1. Cập nhật trạng thái duyệt của giảng viên
     const requestUpdate = new sql.Request(transaction);
     await requestUpdate
       .input("thesisId", sql.Int, thesisId)
       .query("UPDATE Thesis SET lecturer_status = 'approved', approved_at = GETDATE(), updated_at = GETDATE() WHERE id = @thesisId");
       
-    // 2. Lấy class_id và lecturer_id
     const requestGet = new sql.Request(transaction);
     const getRes = await requestGet
       .input("thesisId", sql.Int, thesisId)
@@ -35,7 +31,6 @@ exports.approveThesis = async (thesisId) => {
     if (getRes.recordset[0]) {
       const { class_id, lecturer_id } = getRes.recordset[0];
       
-      // 3. Sao chép quy trình mẫu của lớp vào mốc tiến độ thực tế của đề tài
       if (class_id) {
         const requestInsert = new sql.Request(transaction);
         await requestInsert
@@ -88,11 +83,9 @@ exports.finalizeThesis = async (thesisId, finalScore) => {
   return { success: true };
 };
 
-// ==================== THESIS DETAIL FOR LECTURER ====================
 exports.getThesisDetail = async (thesisId, lecturerId) => {
   const pool = await poolPromise;
 
-  // 1. Verify ownership
   const ownerRes = await pool
     .request()
     .input("thesisId", sql.Int, thesisId)
@@ -103,7 +96,6 @@ exports.getThesisDetail = async (thesisId, lecturerId) => {
     throw new Error("Bạn không có quyền xem đề tài này");
   }
 
-  // 2. Get basic thesis info
   const thesisRes = await pool
     .request()
     .input("thesisId", sql.Int, thesisId)
@@ -123,7 +115,6 @@ exports.getThesisDetail = async (thesisId, lecturerId) => {
 
   const thesis = thesisRes.recordset[0];
 
-  // 3. Get all milestones with submissions
   const milestonesRes = await pool
     .request()
     .input("thesisId", sql.Int, thesisId)
@@ -148,7 +139,6 @@ exports.getThesisDetail = async (thesisId, lecturerId) => {
       ORDER BY m.deadline ASC
     `);
 
-  // 4. Get all comments for this thesis (grouped by submission)
   const commentsRes = await pool
     .request()
     .input("thesisId", sql.Int, thesisId)
@@ -167,7 +157,6 @@ exports.getThesisDetail = async (thesisId, lecturerId) => {
       ORDER BY c.created_at DESC
     `);
 
-  // Group comments by submission_id
   const commentsBySubmission = {};
   commentsRes.recordset.forEach((comment) => {
     if (!commentsBySubmission[comment.submission_id]) {
@@ -176,7 +165,6 @@ exports.getThesisDetail = async (thesisId, lecturerId) => {
     commentsBySubmission[comment.submission_id].push(comment);
   });
 
-  // Attach comments to milestones
   const milestonesWithData = milestonesRes.recordset.map((m) => ({
     ...m,
     comments: m.submission_id ? (commentsBySubmission[m.submission_id] || []) : []
@@ -188,7 +176,6 @@ exports.getThesisDetail = async (thesisId, lecturerId) => {
   };
 };
 
-// ==================== LECTURER THESIS LIST (Advanced filter + pagination) ====================
 exports.getLecturerTheses = async (params) => {
   const { lecturerId, keyword, status, class_id, session_id, page = 1, pageSize = 10 } = params;
   const pool = await poolPromise;

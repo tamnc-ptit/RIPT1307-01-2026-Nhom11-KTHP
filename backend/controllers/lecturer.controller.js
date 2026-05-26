@@ -1,21 +1,7 @@
 const lecturerService = require("../services/lecturer.service");
-const classController = require("./class.controller");
-const classService = require("../services/class.service");
-const lecturerThesisController = require("./lecturerThesis.controller");
-const proposalController = require("./proposal.controller");
-const templateController = require("./template.controller");
 const { poolPromise, sql } = require("../config/db");
-
-// Delegate sang class module (chỉ dành cho Lecturer)
-exports.getClasses = classController.getLecturerClasses;
-
-// Delegate sang lecturerThesis module
-exports.approveThesis = lecturerThesisController.approveThesis;
-
-// Delegate sang lecturerThesis module
-exports.rejectThesis = lecturerThesisController.rejectThesis;
-
 const milestoneService = require("../services/milestone.service");
+
 
 exports.getMilestones = async (req, res) => {
   const { thesisId } = req.query;
@@ -83,8 +69,6 @@ exports.updateMilestoneFeedback = async (req, res) => {
   }
 };
 
-// Delegate sang lecturerThesis module
-exports.finalizeThesis = lecturerThesisController.finalizeThesis;
 
 exports.exportReport = async (req, res) => {
   const { classId } = req.query;
@@ -92,7 +76,7 @@ exports.exportReport = async (req, res) => {
 
   try {
     if (req.user && req.user.role === "lecturer") {
-      const classes = await classService.getLecturerClasses(req.user.id);
+      const classes = await lecturerService.getClasses(req.user.id);
       const isOwner = classes.some(c => c.id == classId);
       if (!isOwner) {
         return res.status(403).json({ message: "Bạn không có quyền xuất báo cáo lớp học này!" });
@@ -115,59 +99,52 @@ exports.exportReport = async (req, res) => {
   }
 };
 
-// --- Sessions ---
-exports.getSessions = async (req, res) => {
+
+// --- Thesis Detail ---
+exports.getThesisDetail = async (req, res) => {
+  const { id } = req.params;
+  const lecturerId = req.user?.id;
+
   try {
-    let { lecturerId } = req.query;
-    if (req.user && req.user.role === "lecturer") {
-      lecturerId = req.user.id;
-    }
-    const data = await lecturerService.getSessions(lecturerId);
+    const data = await lecturerService.getThesisDetail(id, lecturerId);
     res.json(data);
   } catch (err) {
-    res.status(500).json({ message: "Lỗi lấy Sessions", error: err.message });
+    res.status(403).json({ message: err.message || "Lỗi khi lấy chi tiết đề tài" });
   }
 };
 
-exports.createSession = async (req, res) => {
+// --- Custom Milestones ---
+exports.createMilestone = async (req, res) => {
+  const { thesis_id } = req.body;
+  const lecturerId = req.user?.id;
+
+  if (!thesis_id) {
+    return res.status(400).json({ message: "Thiếu thesis_id" });
+  }
+
+  // Permission: chỉ được tạo milestone cho thesis của mình
+  const isOwner = await lecturerService.verifyThesisOwnership(thesis_id, lecturerId);
+  if (!isOwner) {
+    return res.status(403).json({ message: "Bạn không có quyền thêm mốc cho đề tài này" });
+  }
+
   try {
-    const data = await lecturerService.createSession(req.body);
+    const data = await lecturerService.createMilestone(req.body);
+
+    // Audit log
+    await lecturerService.logAudit({
+      actor_id: lecturerId,
+      actor_name: req.user?.name || req.user?.email,
+      action: "CREATE_MILESTONE",
+      target_table: "Milestones",
+      target_id: data?.id,
+      new_value: req.body
+    });
+
     res.status(201).json(data);
   } catch (err) {
-    res.status(500).json({ message: "Lỗi tạo Session", error: err.message });
+    res.status(500).json({ message: "Lỗi tạo Milestone", error: err.message });
   }
 };
 
-exports.deleteSession = async (req, res) => {
-  try {
-    const { id } = req.params;
-    await lecturerService.deleteSession(id);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ message: "Lỗi xóa Session", error: err.message });
-  }
-};
 
-// Delegate sang template module (common module)
-exports.getTemplates = templateController.getTemplates;
-exports.createTemplate = templateController.createTemplate;
-exports.updateTemplate = templateController.updateTemplate;
-exports.deleteTemplate = templateController.deleteTemplate;
-
-// Delegate sang proposal module (common module)
-exports.getMyProposals = proposalController.getMyProposals;
-exports.createProposal = proposalController.createProposal;
-exports.updateProposal = proposalController.updateProposal;
-exports.deleteProposal = proposalController.deleteProposal;
-
-// Delegate sang lecturerThesis module
-exports.getThesisDetail = lecturerThesisController.getThesisDetail;
-exports.createMilestone = lecturerThesisController.createMilestone;
-
-// Delegate sang class module (chỉ dành cho Lecturer)
-exports.getClassStudents = classController.getLecturerClassStudents;
-
-// Delegate sang lecturerThesis module
-exports.getLecturerTheses = lecturerThesisController.getLecturerTheses;
-exports.bulkApproveTheses = lecturerThesisController.bulkApproveTheses;
-exports.bulkRejectTheses = lecturerThesisController.bulkRejectTheses;
