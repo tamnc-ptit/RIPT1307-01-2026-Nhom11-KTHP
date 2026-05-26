@@ -9,6 +9,13 @@ const templateController = require("../controllers/template.controller");
 const auth = require("../middlewares/auth");
 
 router.use(auth); // Áp dụng auth middleware cho toàn bộ các route dưới đây
+console.log("Checking controllers:");
+console.log("lecturerController:", !!lecturerController.getMilestones);
+console.log("dashboardController:", !!dashboardController.getLecturerDashboard);
+console.log("classController:", !!classController.getLecturerClasses);
+console.log("lecturerThesisController:", !!lecturerThesisController.approveThesis);
+console.log("proposalController:", !!proposalController.getMyProposals);
+console.log("templateController:", !!templateController.getTemplates);
 
 router.get("/dashboard/stats", dashboardController.getLecturerDashboard);
 router.get("/dashboard/risks", dashboardController.getRiskFlags);
