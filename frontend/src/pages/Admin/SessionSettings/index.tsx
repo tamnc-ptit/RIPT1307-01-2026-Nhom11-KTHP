@@ -22,31 +22,14 @@ import {
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
+import { SessionItem, SessionFormValues } from "../../../types/AdminTypes/SessionTypes";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 const API = "http://localhost:5000";
 
-/**
- * Khớp với schema DB [Sessions]:
- *   id, name, start_date, end_date, is_active, created_by, created_at
- *
- * Lưu ý: KHÔNG có trường `semester` — tên đợt lưu vào `name`
- */
-interface SessionItem {
-  id: number;
-  name: string;
-  start_date: string;
-  end_date: string;
-  is_active: boolean;
-  created_at: string;
-}
 
-interface SessionFormValues {
-  name: string;
-  timeRange: [dayjs.Dayjs, dayjs.Dayjs];
-}
 
 const SessionSettings: React.FC = () => {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
@@ -57,7 +40,7 @@ const SessionSettings: React.FC = () => {
   const fetchSessions = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/sessions`);
+      const res = await fetch(`${API}/api/admin/sessions`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setSessions(Array.isArray(data) ? data : []);
@@ -77,7 +60,7 @@ const SessionSettings: React.FC = () => {
 
   const handleCloseSession = async (id: number) => {
     try {
-      const res = await fetch(`${API}/api/sessions/${id}/close`, {
+      const res = await fetch(`${API}/api/admin/sessions/${id}/close`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
       });
@@ -108,7 +91,7 @@ const SessionSettings: React.FC = () => {
     };
 
     try {
-      const res = await fetch(`${API}/api/sessions`, {
+      const res = await fetch(`${API}/api/admin/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

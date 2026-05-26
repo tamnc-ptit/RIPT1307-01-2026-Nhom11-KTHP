@@ -20,37 +20,12 @@ import {
   SearchOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
+import { User, CreateUserValues, EditUserValues } from "../../types/AdminTypes/UserTypes"; 
 
 const API = "http://localhost:5000";
 
-/**
- * Khớp với schema DB [Users]:
- *   id, name, email, password_hash, role, is_active,
- *   last_login, created_at, updated_at
- */
-type UserRole = "student" | "lecturer" | "admin";
 
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: UserRole;
-  is_active: boolean;
-  last_login: string | null;
-  created_at: string;
-}
 
-interface CreateUserValues {
-  name: string;
-  email: string;
-  password: string;
-  role: UserRole;
-}
-
-interface EditUserValues {
-  role: UserRole;
-  is_active: boolean;
-}
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -67,10 +42,7 @@ const AdminUsers: React.FC = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      /**
-       * Dùng /api/auth/users — endpoint quản lý user của admin
-       * (Tách biệt với /api/users?role=lecturer dùng cho dropdown filter)
-       */
+
       const res = await fetch(`${API}/api/auth/users`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: User[] = await res.json();
@@ -130,7 +102,6 @@ const AdminUsers: React.FC = () => {
     setIsModalVisible(true);
   };
 
-  /** Tạo mới user */
   const handleCreate = async (values: CreateUserValues) => {
     setSubmitting(true);
     try {
@@ -155,15 +126,11 @@ const AdminUsers: React.FC = () => {
     }
   };
 
-  /** Cập nhật role và is_active của user */
   const handleUpdate = async (values: EditUserValues) => {
     if (!editingUser) return;
     setSubmitting(true);
     try {
-      /**
-       * Gửi cả role lẫn is_active — is_active khớp với cột DB
-       * is_active: bit NOT NULL trong schema Users
-       */
+
       const res = await fetch(`${API}/api/auth/users/${editingUser.id}/role`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -372,12 +339,6 @@ const AdminUsers: React.FC = () => {
         </Form>
       </Modal>
 
-      {/* ===== MODAL CHỈNH SỬA ===== */}
-      {/*
-       * Tách thành modal riêng để tránh conflict rules giữa create / edit.
-       * Khi edit: chỉ cho đổi role và is_active.
-       * name + email disabled và KHÔNG có rules required (tránh lỗi validate).
-       */}
       <Modal
         title={`Chỉnh sửa: ${editingUser?.name ?? ""}`}
         open={isModalVisible && !!editingUser}
