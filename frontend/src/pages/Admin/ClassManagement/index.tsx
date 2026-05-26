@@ -5,6 +5,7 @@ import {
   Modal,
   Form,
   Input,
+  InputNumber,
   Select,
   Card,
   message,
@@ -18,40 +19,57 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from "@ant-design/icons";
-import { ClassItem, ClassFormValues } from "@/types/AdminTypes/ClassTypes";
-import { SessionItem } from "@/types/AdminTypes/SessionTypes";
+import {
+  ClassItem,
+  SessionItem,
+  LecturerItem,
+  ClassFormValues,
+} from "../../../types/AdminTypes/ClassTypes";
+
+const API = "http://localhost:8000";
 
 const ClassManagement: React.FC = () => {
   const [classes, setClasses] = useState<ClassItem[]>([]);
-  const [lecturers, setLecturers] = useState<{ id: number; name: string }[]>(
-    [],
-  );
+  const [lecturers, setLecturers] = useState<LecturerItem[]>([]);
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<ClassFormValues>();
 
-  const fetchData = async () => {
-    try {
-      const [resClasses, resLecs, resSessions] = await Promise.all([
-        fetch("http://localhost:5000/api/classes"),
-        fetch("http://localhost:5000/api/users?role=lecturer"),
-        fetch("http://localhost:5000/api/sessions"),
-      ]);
-
-      const classesData = await resClasses.json();
-      const lecturersData = await resLecs.json();
-      const sessionsData = await resSessions.json();
+const fetchData = async () => {
+  // 1. Lấy dữ liệu lớp (Độc lập hoàn toàn)
+  try {
+    const res = await fetch(`${API}/api/admin/classes`);
+    if (res.ok) {
+      const classesData = await res.json();
       setClasses(Array.isArray(classesData) ? classesData : []);
-      setLecturers(Array.isArray(lecturersData) ? lecturersData : []);
-      setSessions(Array.isArray(sessionsData) ? sessionsData : []);
-    } catch (error) {
-      message.error("Không thể tải dữ liệu từ server!");
-      console.error(error);
     }
-  };
+  } catch (err) {
+    console.error("Lỗi tải lớp:", err);
+  }
 
+  // 2. Lấy dữ liệu học kỳ (Độc lập)
+  try {
+    const res = await fetch(`${API}/api/admin/sessions`);
+    if (res.ok) {
+      const sessionsData = await res.json();
+      setSessions(Array.isArray(sessionsData) ? sessionsData : []);
+    }
+  } catch (err) {
+    console.error("Lỗi tải học kỳ:", err);
+  }
+
+  try {
+    const res = await fetch(`${API}/api/admin/users?role=lecturer`);
+    if (res.ok) {
+      const lecturersData = await res.json();
+      setLecturers(Array.isArray(lecturersData) ? lecturersData : []);
+    }
+  } catch (err) {
+    console.error("Lỗi tải giảng viên:", err);
+  }
+};
   useEffect(() => {
     fetchData();
   }, []);
@@ -59,6 +77,8 @@ const ClassManagement: React.FC = () => {
   const handleOpenCreate = () => {
     setEditingClass(null);
     form.resetFields();
+
+    form.setFieldsValue({ max_students: 30 });
     setIsModalOpen(true);
   };
 
@@ -67,8 +87,11 @@ const ClassManagement: React.FC = () => {
     form.setFieldsValue({
       class_name: record.class_name,
       course_name: record.course_name,
-      session_id: record.session_id ? Number(record.session_id) : undefined,
-      lecturer_id: record.lecturer_id ? Number(record.lecturer_id) : undefined,
+
+      session_id: Number(record.session_id),
+      lecturer_id: Number(record.lecturer_id),
+      max_students: record.max_students ?? 30,
+      description: record.description ?? undefined,
     });
     setIsModalOpen(true);
   };
@@ -78,14 +101,20 @@ const ClassManagement: React.FC = () => {
     try {
       const isEditing = !!editingClass;
       const url = isEditing
-        ? `http://localhost:5000/api/classes/${editingClass.id}`
-        : "http://localhost:5000/api/classes";
+        ? `${API}/api/admin/classes/${editingClass!.id}`
+        : `${API}/api/admin/classes`;
       const method = isEditing ? "PATCH" : "POST";
 
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...values,
+          // Đảm bảo gửi number, không phải string
+          session_id: Number(values.session_id),
+          lecturer_id: Number(values.lecturer_id),
+          max_students: Number(values.max_students),
+        }),
       });
 
       if (res.ok) {
@@ -94,7 +123,7 @@ const ClassManagement: React.FC = () => {
         form.resetFields();
         fetchData();
       } else {
-        const errData = await res.json();
+        const errData = await res.json().catch(() => ({}));
         message.error(errData.message || "Lưu lớp thất bại!");
       }
     } catch (err) {
@@ -106,7 +135,7 @@ const ClassManagement: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/classes/${id}`, {
+      const res = await fetch(`${API}/api/admin/classes/${id}`, {
         method: "DELETE",
       });
 
@@ -114,7 +143,7 @@ const ClassManagement: React.FC = () => {
         message.success("Xóa lớp thành công!");
         fetchData();
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         message.error(
           err.message || "Không thể xóa lớp. Vui lòng kiểm tra lại!",
         );
@@ -125,19 +154,43 @@ const ClassManagement: React.FC = () => {
   };
 
   const columns = [
-    { title: "Mã lớp", dataIndex: "class_name", key: "class_name" },
-    { title: "Tên học phần", dataIndex: "course_name", key: "course_name" },
     {
-      title: "Học kỳ",
-      dataIndex: "session_name",
-      key: "session_name",
-      render: (s: string) => <Tag color="purple">{s || "Chưa xác định"}</Tag>,
+      title: "Mã lớp",
+      dataIndex: "class_name",
+      key: "class_name",
     },
     {
-      title: "Giảng viên phụ trách",
+      title: "Tên học phần",
+      dataIndex: "course_name",
+      key: "course_name",
+    },
+    {
+      title: "Học kỳ",
+      dataIndex: "session_id",
+      key: "session_id",
+      render: (id: number) => {
+        const matchedSession = sessions.find(
+          (s) => Number(s.id) === Number(id),
+        );
+        return (
+          <Tag color="purple">
+            {matchedSession ? matchedSession.name : `Mã kỳ: ${id}`}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: "Giảng viên",
       dataIndex: "lecturer_name",
       key: "lecturer_name",
       render: (name: string) => <b>{name || "Chưa gán"}</b>,
+    },
+    {
+      title: "Sĩ số tối đa",
+      dataIndex: "max_students",
+      key: "max_students",
+      align: "center" as const,
+      render: (n: number) => n ?? 30,
     },
     {
       title: "Thao tác",
@@ -154,7 +207,7 @@ const ClassManagement: React.FC = () => {
           </Button>
           <Popconfirm
             title="Bạn có chắc chắn muốn xóa lớp này?"
-            description="Đề tài thuộc lớp này sẽ mất liên kết phân công."
+            description="Đề tài và sinh viên thuộc lớp này sẽ mất liên kết."
             onConfirm={() => handleDelete(record.id)}
             okText="Xóa"
             cancelText="Hủy"
@@ -210,18 +263,24 @@ const ClassManagement: React.FC = () => {
         <Form form={form} layout="vertical" onFinish={handleSave}>
           <Form.Item
             name="class_name"
-            label="Mã lớp (ví dụ: L01_Nhom01)"
-            rules={[{ required: true, message: "Vui lòng nhập mã lớp" }]}
+            label="Mã lớp"
+            rules={[
+              { required: true, message: "Vui lòng nhập mã lớp" },
+              { max: 100, message: "Tối đa 100 ký tự" },
+            ]}
           >
-            <Input />
+            <Input placeholder="Ví dụ: L01_Nhom01" />
           </Form.Item>
 
           <Form.Item
             name="course_name"
             label="Tên môn học"
-            rules={[{ required: true, message: "Vui lòng nhập tên môn" }]}
+            rules={[
+              { required: true, message: "Vui lòng nhập tên môn" },
+              { max: 200, message: "Tối đa 200 ký tự" },
+            ]}
           >
-            <Input />
+            <Input placeholder="Ví dụ: Đồ án Cơ sở" />
           </Form.Item>
 
           <Form.Item
@@ -231,9 +290,13 @@ const ClassManagement: React.FC = () => {
           >
             <Select placeholder="Chọn học kỳ">
               {sessions.map((session) => (
-                // FIX #1: dùng session.name thay vì session.session_name (đúng với schema Sessions)
                 <Select.Option key={session.id} value={Number(session.id)}>
                   {session.name}
+                  {session.is_active && (
+                    <Tag color="green" style={{ marginLeft: 8, fontSize: 11 }}>
+                      Đang mở
+                    </Tag>
+                  )}
                 </Select.Option>
               ))}
             </Select>
@@ -250,11 +313,34 @@ const ClassManagement: React.FC = () => {
               optionFilterProp="children"
             >
               {lecturers.map((lec) => (
-                <Select.Option key={lec.id} value={lec.id}>
+                <Select.Option key={lec.id} value={Number(lec.id)}>
                   {lec.name}
                 </Select.Option>
               ))}
             </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="max_students"
+            label="Sĩ số tối đa"
+            rules={[
+              { required: true, message: "Vui lòng nhập sĩ số tối đa" },
+              {
+                type: "number",
+                min: 1,
+                message: "Sĩ số phải lớn hơn 0 (ràng buộc DB)",
+              },
+            ]}
+          >
+            <InputNumber min={1} max={500} style={{ width: "100%" }} />
+          </Form.Item>
+
+          <Form.Item
+            name="description"
+            label="Mô tả (tuỳ chọn)"
+            rules={[{ max: 500, message: "Tối đa 500 ký tự" }]}
+          >
+            <Input.TextArea rows={2} placeholder="Ghi chú về lớp học phần..." />
           </Form.Item>
         </Form>
       </Modal>
