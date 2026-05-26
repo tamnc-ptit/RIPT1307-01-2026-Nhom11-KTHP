@@ -21,10 +21,13 @@ import {
   StopOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
-import {SessionItem,SessionFormValues} from "@/types/AdminTypes/SessionTypes"
 import dayjs from "dayjs";
+import { SessionItem, SessionFormValues } from "../../../types/AdminTypes/SessionTypes";
+
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
+
+const API = "http://localhost:5000";
 
 
 
@@ -32,15 +35,15 @@ const SessionSettings: React.FC = () => {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<SessionFormValues>();
 
   const fetchSessions = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/sessions");
-      if (!res.ok) throw new Error("Network response was not ok");
+      const res = await fetch(`${API}/api/admin/sessions`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setSessions(data);
+      setSessions(Array.isArray(data) ? data : []);
     } catch (err) {
       notification.error({
         message: "Lỗi kết nối",
@@ -57,19 +60,19 @@ const SessionSettings: React.FC = () => {
 
   const handleCloseSession = async (id: number) => {
     try {
-      const res = await fetch(
-        `http://localhost:5000/api/sessions/${id}/close`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-        },
-      );
+      const res = await fetch(`${API}/api/admin/sessions/${id}/close`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+      });
 
       if (res.ok) {
         notification.success({ message: "Đã đóng đợt đồ án thủ công." });
         fetchSessions();
       } else {
-        notification.error({ message: "Không thể đóng đợt đồ án này." });
+        const errData = await res.json().catch(() => ({}));
+        notification.error({
+          message: errData.message || "Không thể đóng đợt đồ án này.",
+        });
       }
     } catch (err) {
       notification.error({ message: "Lỗi hệ thống khi đóng đợt." });
@@ -77,14 +80,18 @@ const SessionSettings: React.FC = () => {
   };
 
   const handleCreate = async (values: SessionFormValues) => {
+    /**
+     * Gửi đúng field `name` theo schema Sessions
+     * start_date / end_date format YYYY-MM-DD HH:mm:ss
+     */
     const payload = {
-      semester: values.semester,
+      name: values.name.trim(),
       start_date: values.timeRange[0].format("YYYY-MM-DD HH:mm:ss"),
       end_date: values.timeRange[1].format("YYYY-MM-DD HH:mm:ss"),
     };
 
     try {
-      const res = await fetch("http://localhost:5000/api/sessions", {
+      const res = await fetch(`${API}/api/admin/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -93,22 +100,31 @@ const SessionSettings: React.FC = () => {
       if (res.ok) {
         notification.success({
           message: "Thành công",
-          description: `Đã thiết lập đợt mới.`,
+          description: `Đã tạo đợt "${payload.name}" thành công.`,
         });
         setIsModalOpen(false);
         form.resetFields();
         fetchSessions();
+      } else {
+        // Xử lý lỗi trả về từ server (ví dụ: trùng tên do UQ_Sessions_Name)
+        const errData = await res.json().catch(() => ({}));
+        notification.error({
+          message: "Tạo đợt thất bại",
+          description:
+            errData.message ||
+            "Tên đợt có thể đã tồn tại hoặc dữ liệu không hợp lệ.",
+        });
       }
     } catch (err) {
-      notification.error({ message: "Lỗi hệ thống" });
+      notification.error({ message: "Lỗi hệ thống khi tạo đợt." });
     }
   };
 
   const columns: ColumnsType<SessionItem> = [
     {
-      title: "Học kỳ",
-      dataIndex: "semester",
-      key: "semester",
+      title: "Tên đợt / Học kỳ",
+      dataIndex: "name",
+      key: "name",
       render: (text: string) => <Text strong>{text}</Text>,
     },
     {
@@ -139,13 +155,12 @@ const SessionSettings: React.FC = () => {
         </Tag>
       ),
     },
-    // --- BỔ SUNG CỘT THAO TÁC ---
     {
       title: "Thao tác",
       key: "action",
       align: "center",
       render: (_, record) =>
-        record.is_active && (
+        record.is_active ? (
           <Popconfirm
             title="Bạn có chắc muốn đóng đợt đồ án này sớm hơn dự kiến?"
             onConfirm={() => handleCloseSession(record.id)}
@@ -157,6 +172,10 @@ const SessionSettings: React.FC = () => {
               Đóng đợt thủ công
             </Button>
           </Popconfirm>
+        ) : (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            —
+          </Text>
         ),
     },
   ];
@@ -168,7 +187,7 @@ const SessionSettings: React.FC = () => {
           <Space>
             <CalendarOutlined />
             <Title level={4} style={{ margin: 0 }}>
-              Quản lý Đợt đồ án & Thời hạn nộp bài
+              Quản lý Đợt đồ án &amp; Thời hạn nộp bài
             </Title>
           </Space>
         }
@@ -199,26 +218,37 @@ const SessionSettings: React.FC = () => {
           rowKey="id"
           loading={loading}
           bordered
+          locale={{ emptyText: "Chưa có đợt đồ án nào" }}
         />
       </Card>
 
       <Modal
-        title="Cấu hình thời gian nộp đề tài"
+        title="Thiết lập đợt đồ án mới"
         open={isModalOpen}
         onOk={() => form.submit()}
-        onCancel={() => setIsModalOpen(false)}
+        onCancel={() => {
+          setIsModalOpen(false);
+          form.resetFields();
+        }}
         okText="Kích hoạt đợt mới"
         cancelText="Hủy"
         width={600}
         destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleCreate}>
+          {/*
+           * Field `name` — khớp với cột `name` trong bảng Sessions (DB)
+           * Có ràng buộc UQ_Sessions_Name nên tên phải duy nhất
+           */}
           <Form.Item
-            name="semester"
-            label="Tên học kỳ / Đợt đồ án"
-            rules={[{ required: true, message: "Vui lòng nhập tên học kỳ!" }]}
+            name="name"
+            label="Tên đợt / Học kỳ"
+            rules={[
+              { required: true, message: "Vui lòng nhập tên đợt!" },
+              { max: 50, message: "Tên đợt tối đa 50 ký tự (giới hạn DB)." },
+            ]}
           >
-            <Input placeholder="Ví dụ: HK2-2025-2026 (Đợt 1)" />
+            <Input placeholder="Ví dụ: HK2-2025-2026" />
           </Form.Item>
 
           <Form.Item
@@ -231,6 +261,9 @@ const SessionSettings: React.FC = () => {
               format="DD/MM/YYYY HH:mm"
               style={{ width: "100%" }}
               placeholder={["Ngày bắt đầu", "Ngày kết thúc"]}
+              disabledDate={(current) =>
+                current && current < dayjs().startOf("day")
+              }
             />
           </Form.Item>
         </Form>

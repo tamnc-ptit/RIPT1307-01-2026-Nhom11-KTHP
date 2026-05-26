@@ -40,50 +40,51 @@ export default [
         component: "Admin/ThesisReview",
         icon: "FileSearchOutlined",
       },
+
     ],
   },
   {
-    path:"/lecturer",
-    name :"Quản lý giảng dạy",
-    icon :"DashboardOutlined",
+    path: "/lecturer",
+    name: "Quản lý giảng dạy",
+    icon: "DashboardOutlined",
     access: "isLecturer",
-    routes : [
+    routes: [
       {
-        path :"/lecturer/dashboard",
-        name : "Bảng điều khiển",
-        component : "./Lecturer/LecturerView",
-        icon:"DashboardOutlined",
+        path: "/lecturer/dashboard",
+        name: "Bảng điều khiển",
+        component: "./Lecturer/LecturerView",
+        icon: "DashboardOutlined",
       },
       {
-        path :"/lecturer/thesis-management",
-        name : "Quản lý đề tài",
-        component : "./Lecturer/ThesisLecturer",
-        icon:"FileTextOutlined",
+        path: "/lecturer/thesis-management",
+        name: "Quản lý đề tài",
+        component: "./Lecturer/ThesisLecturer",
+        icon: "FileTextOutlined",
       },
       {
-        path :"/lecturer/class-groups",
-        name : "Lớp & Nhóm hướng dẫn",
-        component : "./Lecturer/ClassGroups",
+        path: "/lecturer/class-groups",
+        name: "Lớp & Nhóm hướng dẫn",
+        component: "./Lecturer/ClassGroups",
         icon: "TeamOutlined",
       },
       {
-        path :"/lecturer/templates",
-        name : "Quy trình mẫu",
-        component : "./Lecturer/MilestoneTemplates",
-        icon:"SisternodeOutlined",
+        path: "/lecturer/templates",
+        name: "Quy trình mẫu",
+        component: "./Lecturer/MilestoneTemplates",
+        icon: "SisternodeOutlined",
       },
       {
-        path :"/lecturer/milestones",
+        path: "/lecturer/milestones",
         name: "Chấm điểm & Tiến độ",
         component: "./Lecturer/Milestones",
         icon: "ClockCircleOutlined",
       },
       {
-        path:"/lecturer/session",
-        name:"Học kỳ",
-        component :"./Lecturer/SessionSettings"
-      }
-    ]
+        path: "/lecturer/session",
+        name: "Học kỳ",
+        component: "./Lecturer/SessionSettings",
+      },
+    ],
   },
   { path: "*", component: "404" },
 ];

@@ -6,14 +6,14 @@ import {
   Space, 
   Form, 
   Input, 
-  Switch, 
   InputNumber, 
   Popconfirm, 
   message, 
   Typography,
   Select,
   Row,
-  Col
+  Col,
+  DatePicker
 } from "antd";
 import { 
   PlusOutlined, 
@@ -23,14 +23,24 @@ import {
 } from "@ant-design/icons";
 import { useModel } from "umi";
 import { getLecturerClasses, getTemplates, createTemplate, updateTemplate, deleteTemplate } from "@/services/lecturer";
-import { MilestoneTemplate } from "@/types/LecturerTypes/ThesisTypes";
+import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
+interface MilestoneTemplateItem {
+  id: number;
+  class_id: number;
+  created_by: number;
+  title: string;
+  description: string;
+  deadline: string;
+  order_no: number;
+}
+
 const MilestoneTemplates: React.FC = () => {
   const [form] = Form.useForm();
-  const [templates, setTemplates] = useState<MilestoneTemplate[]>([]);
+  const [templates, setTemplates] = useState<MilestoneTemplateItem[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -80,12 +90,19 @@ const MilestoneTemplates: React.FC = () => {
   const onFinish = async (values: any) => {
     if (!selectedClass) return message.warning("Vui lòng chọn lớp");
     
+    const payload = {
+      ...values,
+      class_id: selectedClass,
+      created_by: lecturerId,
+      deadline: values.deadline ? values.deadline.toISOString() : null
+    };
+
     try {
       if (editingId) {
-        await updateTemplate(editingId, { ...values, class_id: selectedClass });
+        await updateTemplate(editingId, payload);
         message.success("Đã cập nhật mốc quy trình");
       } else {
-        await createTemplate({ ...values, class_id: selectedClass });
+        await createTemplate(payload);
         message.success("Đã thêm mốc quy trình mới");
       }
       form.resetFields();
@@ -96,9 +113,14 @@ const MilestoneTemplates: React.FC = () => {
     }
   };
 
-  const handleEdit = (record: MilestoneTemplate) => {
+  const handleEdit = (record: MilestoneTemplateItem) => {
     setEditingId(record.id);
-    form.setFieldsValue(record);
+    form.setFieldsValue({
+      title: record.title,
+      description: record.description,
+      order_no: record.order_no,
+      deadline: record.deadline ? dayjs(record.deadline) : null
+    });
   };
 
   const handleDelete = async (id: number) => {
@@ -113,43 +135,41 @@ const MilestoneTemplates: React.FC = () => {
 
   const columns = [
     {
+      title: 'Thứ tự',
+      dataIndex: 'order_no',
+      key: 'order_no',
+      align: 'center' as const,
+      width: 80,
+      render: (val: number) => <Text strong>{val}</Text>
+    },
+    {
       title: 'Tên mốc (Milestone)',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text: string) => <Text strong>{text}</Text>
+      dataIndex: 'title',
+      key: 'title',
+      render: (text: string) => <Text strong style={{ color: '#1e3c72' }}>{text}</Text>
     },
     {
-      title: 'Hạn nộp (Ngày sau khi duyệt)',
-      dataIndex: 'relative_deadline_days',
-      key: 'relative_deadline_days',
-      align: 'center' as const,
-      render: (days: number) => <Text>{days} ngày</Text>
+      title: 'Mô tả',
+      dataIndex: 'description',
+      key: 'description',
+      render: (text: string) => <Text type="secondary">{text || '-'}</Text>
     },
     {
-      title: 'Bắt buộc nộp?',
-      dataIndex: 'is_mandatory',
-      key: 'is_mandatory',
+      title: 'Hạn nộp (Deadline)',
+      dataIndex: 'deadline',
+      key: 'deadline',
       align: 'center' as const,
-      render: (is_mandatory: boolean) => (
-        <Switch checked={is_mandatory} disabled />
-      )
-    },
-    {
-      title: 'Check Đạo văn',
-      dataIndex: 'requires_plagiarism_check',
-      key: 'requires_plagiarism_check',
-      align: 'center' as const,
-      render: (req: boolean) => (
-        <Switch checked={req} disabled />
-      )
+      render: (date: string) => <Text>{date ? new Date(date).toLocaleString() : '-'}</Text>
     },
     {
       title: 'Thao tác',
       key: 'action',
-      render: (_: any, record: MilestoneTemplate) => (
+      align: 'center' as const,
+      width: 120,
+      render: (_: any, record: MilestoneTemplateItem) => (
         <Space>
-          <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Popconfirm title="Bạn có chắc muốn xóa?" onConfirm={() => handleDelete(record.id)}>
+          <Button type="text" icon={<EditOutlined style={{ color: '#1890ff' }} />} onClick={() => handleEdit(record)} />
+          <Popconfirm title="Bạn có chắc muốn xóa mốc này?" onConfirm={() => handleDelete(record.id)}>
             <Button danger type="text" icon={<DeleteOutlined />} />
           </Popconfirm>
         </Space>
@@ -158,12 +178,12 @@ const MilestoneTemplates: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: '24px', background: '#f5f7fa', minHeight: '100vh' }}>
       <Row gutter={24}>
         <Col span={24} style={{ marginBottom: 24 }}>
-          <Card>
+          <Card bordered={false} style={{ borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
             <Space align="center">
-              <Title level={4} style={{ margin: 0 }}>Lớp tín chỉ:</Title>
+              <Title level={4} style={{ margin: 0, color: '#1e3c72' }}>Lớp tín chỉ quản lý:</Title>
               <Select 
                 style={{ width: 300 }} 
                 value={selectedClass} 
@@ -180,31 +200,37 @@ const MilestoneTemplates: React.FC = () => {
 
         {selectedClass && (
           <>
-            <Col span={8}>
-              <Card title={<span><PlusOutlined /> {editingId ? "Sửa Mốc Thời Gian" : "Thêm Mốc Mới"}</span>}>
-                <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ is_mandatory: true, requires_plagiarism_check: false, relative_deadline_days: 7 }}>
-                  <Form.Item name="name" label="Tên Milestone" rules={[{ required: true }]}>
-                    <Input placeholder="VD: Báo cáo giữa kỳ" />
+            <Col xs={24} md={8}>
+              <Card 
+                title={<span style={{ color: '#1e3c72', fontWeight: 'bold' }}>{editingId ? "Sửa Mốc Quy Trình" : "Thêm Mốc Quy Trình Mẫu"}</span>}
+                bordered={false} 
+                style={{ borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+              >
+                <Form 
+                  form={form} 
+                  layout="vertical" 
+                  onFinish={onFinish} 
+                  initialValues={{ order_no: 1 }}
+                >
+                  <Form.Item name="title" label="Tên Milestone" rules={[{ required: true, message: 'Nhập tên mốc tiến độ!' }]}>
+                    <Input placeholder="VD: Nộp báo cáo đề cương" style={{ borderRadius: '6px' }} />
                   </Form.Item>
                   <Form.Item name="description" label="Mô tả / Yêu cầu">
-                    <Input.TextArea rows={3} placeholder="Mô tả yêu cầu cần nộp..." />
+                    <Input.TextArea rows={3} placeholder="Mô tả nội dung cần nộp..." style={{ borderRadius: '6px' }} />
                   </Form.Item>
-                  <Form.Item name="relative_deadline_days" label="Hạn nộp (Ngày sau khi duyệt đề tài)" rules={[{ required: true }]}>
-                    <InputNumber min={1} style={{ width: '100%' }} />
+                  <Form.Item name="deadline" label="Hạn nộp" rules={[{ required: true, message: 'Chọn hạn nộp!' }]}>
+                    <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" style={{ width: '100%', borderRadius: '6px' }} />
                   </Form.Item>
-                  <Form.Item name="is_mandatory" valuePropName="checked">
-                    <Switch checkedChildren="Bắt buộc" unCheckedChildren="Không bắt buộc" />
+                  <Form.Item name="order_no" label="Thứ tự thực hiện" rules={[{ required: true }]}>
+                    <InputNumber min={1} style={{ width: '100%', borderRadius: '6px' }} />
                   </Form.Item>
-                  <Form.Item name="requires_plagiarism_check" valuePropName="checked">
-                    <Switch checkedChildren="Bắt buộc check Đạo văn" unCheckedChildren="Không check đạo văn" />
-                  </Form.Item>
-                  <Form.Item>
+                  <Form.Item style={{ marginBottom: 0 }}>
                     <Space>
-                      <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
-                        {editingId ? "Lưu thay đổi" : "Thêm mốc"}
+                      <Button type="primary" htmlType="submit" icon={<SaveOutlined />} style={{ borderRadius: '6px', background: '#1e3c72', borderColor: '#1e3c72' }}>
+                        {editingId ? "Lưu thay đổi" : "Thêm mốc mẫu"}
                       </Button>
                       {editingId && (
-                        <Button onClick={() => { setEditingId(null); form.resetFields(); }}>
+                        <Button style={{ borderRadius: '6px' }} onClick={() => { setEditingId(null); form.resetFields(); }}>
                           Hủy
                         </Button>
                       )}
@@ -213,14 +239,19 @@ const MilestoneTemplates: React.FC = () => {
                 </Form>
               </Card>
             </Col>
-            <Col span={16}>
-              <Card title="Quy trình mẫu hiện tại">
+            <Col xs={24} md={16}>
+              <Card 
+                title={<span style={{ color: '#1e3c72', fontWeight: 'bold' }}>Quy trình mẫu lớp tín chỉ</span>}
+                bordered={false} 
+                style={{ borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+              >
                 <Table 
                   dataSource={templates} 
                   columns={columns} 
                   rowKey="id" 
                   pagination={false} 
                   loading={loading}
+                  style={{ borderRadius: '8px', overflow: 'hidden' }}
                 />
               </Card>
             </Col>
