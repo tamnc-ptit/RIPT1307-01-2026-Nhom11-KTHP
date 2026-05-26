@@ -19,54 +19,16 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from "@ant-design/icons";
+import {
+  ClassItem,
+  SessionItem,
+  LecturerItem,
+  ClassFormValues,
+} from "../../../types/AdminTypes/ClassTypes";
 
 const API = "http://localhost:5000";
 
-/**
- * Khớp với schema DB [Classes]:
- *   id, session_id, class_name, course_name, lecturer_id,
- *   max_students (NOT NULL, default 30), description, created_at
- *
- * Các field join từ query (API trả về thêm):
- *   session_name, lecturer_name
- */
-interface ClassItem {
-  id: number;
-  session_id: number;
-  class_name: string;
-  course_name: string;
-  lecturer_id: number;
-  max_students: number;
-  description: string | null;
-  created_at: string;
-  // join fields
-  session_name?: string;
-  lecturer_name?: string;
-}
 
-/**
- * Khớp với schema DB [Sessions]:
- *   id, name (KHÔNG phải semester hay session_name)
- */
-interface SessionItem {
-  id: number;
-  name: string;
-  is_active: boolean;
-}
-
-interface LecturerItem {
-  id: number;
-  name: string;
-}
-
-interface ClassFormValues {
-  class_name: string;
-  course_name: string;
-  session_id: number;
-  lecturer_id: number;
-  max_students: number;
-  description?: string;
-}
 
 const ClassManagement: React.FC = () => {
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -80,9 +42,9 @@ const ClassManagement: React.FC = () => {
   const fetchData = async () => {
     try {
       const [resClasses, resLecs, resSessions] = await Promise.all([
-        fetch(`${API}/api/classes`),
-        fetch(`${API}/api/users?role=lecturer`),
-        fetch(`${API}/api/sessions`),
+        fetch(`${API}/api/admin/classes`),
+        fetch(`${API}/api/admin/users?role=lecturer`),
+        fetch(`${API}/api/admin/sessions`),
       ]);
 
       const [classesData, lecturersData, sessionsData] = await Promise.all([
@@ -107,7 +69,7 @@ const ClassManagement: React.FC = () => {
   const handleOpenCreate = () => {
     setEditingClass(null);
     form.resetFields();
-    // Giá trị mặc định theo DB (max_students default = 30)
+
     form.setFieldsValue({ max_students: 30 });
     setIsModalOpen(true);
   };
@@ -117,7 +79,7 @@ const ClassManagement: React.FC = () => {
     form.setFieldsValue({
       class_name: record.class_name,
       course_name: record.course_name,
-      // Ép kiểu Number để tránh mismatch Select value string vs number
+
       session_id: Number(record.session_id),
       lecturer_id: Number(record.lecturer_id),
       max_students: record.max_students ?? 30,
@@ -131,8 +93,8 @@ const ClassManagement: React.FC = () => {
     try {
       const isEditing = !!editingClass;
       const url = isEditing
-        ? `${API}/api/classes/${editingClass!.id}`
-        : `${API}/api/classes`;
+        ? `${API}/api/admin/classes/${editingClass!.id}`
+        : `${API}/api/admin/classes`;
       const method = isEditing ? "PATCH" : "POST";
 
       const res = await fetch(url, {
@@ -165,7 +127,7 @@ const ClassManagement: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      const res = await fetch(`${API}/api/classes/${id}`, {
+      const res = await fetch(`${API}/api/admin/classes/${id}`, {
         method: "DELETE",
       });
 
@@ -311,10 +273,6 @@ const ClassManagement: React.FC = () => {
           >
             <Select placeholder="Chọn học kỳ">
               {sessions.map((session) => (
-                /*
-                 * value là Number(session.id) để tránh mismatch kiểu dữ liệu
-                 * session.name — đúng với schema DB [Sessions]
-                 */
                 <Select.Option key={session.id} value={Number(session.id)}>
                   {session.name}
                   {session.is_active && (
@@ -345,10 +303,6 @@ const ClassManagement: React.FC = () => {
             </Select>
           </Form.Item>
 
-          {/*
-           * max_students — cột NOT NULL trong DB với default 30
-           * Có constraint CK_Classes_MaxStudents: max_students > 0
-           */}
           <Form.Item
             name="max_students"
             label="Sĩ số tối đa"

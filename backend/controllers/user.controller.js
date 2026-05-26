@@ -123,10 +123,18 @@ const deleteUser = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+const getProfile = async (req, res) => {
+  try {
+    res.json({ message: "Xử lý profile thành công" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 module.exports = {
   getUsers,
   bulkCreateUsers,
   updateUser,
   deleteUser,
+  getProfile,
 };

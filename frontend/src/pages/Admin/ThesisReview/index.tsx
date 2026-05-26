@@ -24,65 +24,20 @@ import {
   EyeOutlined,
   ExclamationCircleOutlined,
 } from "@ant-design/icons";
+// Thêm dòng này lên đầu file ThesisReview của bạn
+import { 
+  ThesisItem, 
+  ClassFilterItem, 
+  LecturerFilterItem, 
+  SessionFilterItem, 
+  FilterParams 
+} from "../../../types/AdminTypes/ThesisTypes";
 
 const API = "http://localhost:5000";
 
-// ─── Interfaces khớp schema DB ────────────────────────────────────────────────
 
-/**
- * [Thesis]: id, session_id, class_id, student_id, lecturer_id,
- *           title, description,
- *           lecturer_status, admin_status, lecturer_note,
- *           reject_reason, approved_at, created_at, final_score, status
- * + join: student_name, lecturer_name, class_name, session_name
- */
-interface ThesisItem {
-  id: number;
-  title: string;
-  description: string | null;
-  student_id: number;
-  student_name: string;
-  lecturer_id: number;
-  lecturer_name: string;
-  class_id: number | null;
-  class_name: string | null;
-  session_id: number;
-  session_name: string | null;
-  lecturer_status: "pending" | "approved" | "rejected";
-  admin_status: "pending" | "approved" | "rejected";
-  lecturer_note: string | null;
-  reject_reason: string | null;
-  status: string | null;
-  final_score: number | null;
-  created_at: string;
-  approved_at: string | null;
-}
 
-interface ClassFilterItem {
-  id: number;
-  class_name: string;
-  session_name?: string;
-}
 
-interface LecturerFilterItem {
-  id: number;
-  name: string;
-}
-
-interface SessionFilterItem {
-  id: number;
-  name: string;
-  is_active: boolean;
-}
-
-interface FilterParams {
-  adminStatus?: string;
-  lecturerStatus?: string;
-  classId?: number;
-  sessionId?: number;
-}
-
-// ─── Helpers render ────────────────────────────────────────────────────────────
 
 const ADMIN_STATUS_CFG: Record<string, { color: string; text: string }> = {
   approved: { color: "green", text: "Admin duyệt" },
@@ -112,10 +67,9 @@ const renderLecturerStatus = (status: string) => {
   return <Tag color={c.color}>{c.text}</Tag>;
 };
 
-// ─── Component ─────────────────────────────────────────────────────────────────
+
 
 const ThesisReview: React.FC = () => {
-  // Data
   const [theses, setTheses] = useState<ThesisItem[]>([]);
   const [classes, setClasses] = useState<ClassFilterItem[]>([]);
   const [lecturers, setLecturers] = useState<LecturerFilterItem[]>([]);
@@ -123,7 +77,6 @@ const ThesisReview: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<FilterParams>({});
 
-  // Modal duyệt / từ chối
   const [reviewTarget, setReviewTarget] = useState<ThesisItem | null>(null);
   const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(
     null,
@@ -131,22 +84,19 @@ const ThesisReview: React.FC = () => {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [rejectForm] = Form.useForm<{ reject_reason: string }>();
 
-  // Modal xem chi tiết
   const [detailTarget, setDetailTarget] = useState<ThesisItem | null>(null);
 
-  // Modal can thiệp phân công
   const [overrideTarget, setOverrideTarget] = useState<ThesisItem | null>(null);
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
   const [overrideForm] = Form.useForm();
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
 
   const fetchFilterData = async () => {
     try {
       const [r1, r2, r3] = await Promise.all([
-        fetch(`${API}/api/classes`),
-        fetch(`${API}/api/users?role=lecturer`),
-        fetch(`${API}/api/sessions`),
+        fetch(`${API}/api/admin/classes`), 
+        fetch(`${API}/api/admin/users?role=lecturer`), 
+        fetch(`${API}/api/admin/sessions`),
       ]);
       const [c, l, s] = await Promise.all([r1.json(), r2.json(), r3.json()]);
       setClasses(Array.isArray(c) ? c : []);
@@ -166,7 +116,7 @@ const ThesisReview: React.FC = () => {
       if (f.classId) q.append("classId", f.classId.toString());
       if (f.sessionId) q.append("session_id", f.sessionId.toString());
 
-      const res = await fetch(`${API}/api/thesis/admin?${q.toString()}`);
+      const res = await fetch(`${API}/api/admin/thesis?${q.toString()}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
       setTheses(Array.isArray(data) ? data : []);
@@ -184,12 +134,6 @@ const ThesisReview: React.FC = () => {
     fetchTheses(filters);
   }, [filters]);
 
-  // ── Duyệt / Từ chối ────────────────────────────────────────────────────────
-
-  /**
-   * Mở modal duyệt: chỉ hiện Popconfirm nhanh vì không cần nhập thêm gì.
-   * Mở modal từ chối: cần nhập reject_reason → lưu vào cột reject_reason (DB).
-   */
   const openReview = (record: ThesisItem, action: "approve" | "reject") => {
     setReviewTarget(record);
     setReviewAction(action);
@@ -204,11 +148,7 @@ const ThesisReview: React.FC = () => {
     rejectForm.resetFields();
   };
 
-  /**
-   * Gọi PATCH /api/admin/thesis/:id/review
-   * Body: { admin_status: 'approved' | 'rejected', reject_reason?: string }
-   * Cập nhật cột admin_status (và reject_reason nếu từ chối) trong bảng Thesis
-   */
+
   const submitReview = async (rejectReason?: string) => {
     if (!reviewTarget || !reviewAction) return;
     setReviewSubmitting(true);
@@ -323,7 +263,6 @@ const ThesisReview: React.FC = () => {
     }
   };
 
-  // ── Columns ────────────────────────────────────────────────────────────────
 
   const columns = [
     {
