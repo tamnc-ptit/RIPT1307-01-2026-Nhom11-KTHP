@@ -24,7 +24,7 @@ const createClass = async (req, res) => {
       .request()
       .input("class_name", sql.NVarChar, class_name)
       .input("course_name", sql.NVarChar, course_name)
-      .input("session_id", sql.Int, session_id) // Dùng session_id thay vì semester
+      .input("session_id", sql.Int, session_id) 
       .input("lecturer_id", sql.Int, lecturer_id)
       .input("max_students", sql.Int, max_students || 30).query(`
                 INSERT INTO Classes (class_name, course_name, session_id, lecturer_id, max_students)

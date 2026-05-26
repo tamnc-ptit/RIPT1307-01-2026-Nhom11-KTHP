@@ -3,9 +3,7 @@ const { poolPromise, sql } = require("../config/db");
 exports.getDashboardStats = async (lecturerId) => {
   const pool = await poolPromise;
   
-  // Tổng số sinh viên đang hướng dẫn (Thesis có trạng thái Approved)
-  // Đề tài đang chờ duyệt (Pending)
-  // Bài nộp mới (Milestones có status 'submitted' và chưa có lecturer_comment)
+
   
   const result = await pool.request()
     .input("lecturerId", sql.Int, lecturerId)
@@ -24,8 +22,7 @@ exports.getDashboardStats = async (lecturerId) => {
 exports.getRiskFlags = async (lecturerId) => {
   const pool = await poolPromise;
   
-  // 1. Không có cập nhật tiến độ trong 30 ngày (Dựa trên Thesis.updated_at hoặc Milestone.submitted_at)
-  // 2. Trễ hạn Milestone quá 1 tuần
+
   
   const risks = await pool.request()
     .input("lecturerId", sql.Int, lecturerId)
@@ -224,7 +221,6 @@ exports.deleteSession = async (id) => {
   return { success: true };
 };
 
-// --- Milestone Templates ---
 exports.getTemplates = async (classId) => {
   const pool = await poolPromise;
   const result = await pool.request()

@@ -1,7 +1,7 @@
 const lecturerService = require("../services/lecturer.service");
 
 exports.getDashboardStats = async (req, res) => {
-  const { lecturerId } = req.query; // Tạm thời lấy qua query, sau này nên lấy từ token
+  const { lecturerId } = req.query; 
   if (!lecturerId) return res.status(400).json({ message: "Thiếu lecturerId" });
 
   try {
