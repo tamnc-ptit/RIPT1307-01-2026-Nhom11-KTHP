@@ -1,6 +1,6 @@
 const { poolPromise, sql } = require("../config/db");
 const classService = require("../services/class.service")
-const getClasses = async (req, res) => {
+exports.getClasses = async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
@@ -15,7 +15,7 @@ const getClasses = async (req, res) => {
   }
 };
 
-const createClass = async (req, res) => {
+exports.createClass = async (req, res) => {
   const { class_name, course_name, session_id, lecturer_id, max_students } =
     req.body;
   try {
@@ -36,7 +36,7 @@ const createClass = async (req, res) => {
   }
 };
 
-const updateClass = async (req, res) => {
+exports.updateClass = async (req, res) => {
   try {
     const { id } = req.params;
     const { class_name, course_name, session_id, lecturer_id, max_students } =
@@ -70,7 +70,7 @@ const updateClass = async (req, res) => {
   }
 };
 
-const getLecturerClasses = async (req, res) => {
+exports.getLecturerClasses = async (req, res) => {
   try {
     let lecturerId = req.query.lecturerId;
     if (req.user && req.user.role === "lecturer") {
@@ -88,7 +88,7 @@ const getLecturerClasses = async (req, res) => {
   }
 };
 
-const getLecturerClassStudents = async (req, res) => {
+exports.getLecturerClassStudents = async (req, res) => {
   const { classId } = req.params;
 
   try {
@@ -110,10 +110,3 @@ const getLecturerClassStudents = async (req, res) => {
   }
 };
 
-module.exports = {
-  getClasses,
-  createClass,
-  updateClass,
-  getLecturerClasses,
-  getLecturerClassStudents,
-};
