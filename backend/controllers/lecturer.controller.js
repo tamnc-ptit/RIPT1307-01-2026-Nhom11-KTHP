@@ -1,7 +1,5 @@
 const lecturerService = require("../services/lecturer.service");
 const { poolPromise, sql } = require("../config/db");
-<<<<<<< HEAD
-=======
 
 exports.getDashboardStats = async (req, res) => {
   const { lecturerId } = req.query; 
@@ -144,7 +142,6 @@ exports.rejectThesis = async (req, res) => {
   }
 };
 
->>>>>>> main
 const milestoneService = require("../services/milestone.service");
 
 

@@ -27,8 +27,6 @@ exports.getClasses = async (lecturerId) => {
   return result.recordset;
 };
 
-<<<<<<< HEAD
-=======
 exports.getDashboardStats = async (lecturerId) => {
   const pool = await poolPromise;
   
@@ -222,7 +220,6 @@ exports.finalizeThesis = async (thesisId, finalScore) => {
     `);
   return { success: true };
 };
->>>>>>> main
 
 exports.exportClassReport = async (classId) => {
   const pool = await poolPromise;
@@ -401,9 +398,6 @@ exports.deleteSession = async (id) => {
   }
 };
 
-<<<<<<< HEAD
-
-=======
 exports.getTemplates = async (classId) => {
   const pool = await poolPromise;
   const result = await pool
@@ -715,7 +709,6 @@ exports.getThesisDetail = async (thesisId, lecturerId) => {
     milestones: milestonesWithData
   };
 };
->>>>>>> main
 
 // ==================== NOTIFICATION HELPER (for Lecturer actions) ====================
 exports.createNotification = async (data) => {

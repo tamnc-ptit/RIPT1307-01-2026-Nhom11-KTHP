@@ -10,7 +10,6 @@ exports.register = async (req, res) => {
   try {
     const pool = await poolPromise;
 
-    // Kiểm tra email tồn tại
     const userExist = await pool
       .request()
       .input("email", sql.NVarChar, email)

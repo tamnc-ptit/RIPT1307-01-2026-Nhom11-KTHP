@@ -1,49 +1,5 @@
 const { poolPromise, sql } = require("../config/db");
 
-<<<<<<< HEAD
-// Dành riêng cho Lecturer
-exports.getLecturerClasses = async (lecturerId) => {
-  const pool = await poolPromise;
-  const result = await pool
-    .request()
-    .input("lecturerId", sql.Int, lecturerId)
-    .query("SELECT * FROM Classes WHERE lecturer_id = @lecturerId");
-  return result.recordset;
-};
-
-exports.getLecturerClassStudents = async (classId) => {
-  const pool = await poolPromise;
-  const result = await pool
-    .request()
-    .input("classId", sql.Int, classId)
-    .query(`
-      SELECT 
-        u.id AS studentId,
-        u.name AS studentName,
-        t.id AS thesisId,
-        t.title AS topicName,
-        t.lecturer_status,
-        t.admin_status,
-        t.lecturer_note,
-        t.final_score
-      FROM ClassStudents cs
-      JOIN Users u ON cs.student_id = u.id
-      LEFT JOIN Thesis t ON t.student_id = u.id AND t.class_id = cs.class_id
-      WHERE cs.class_id = @classId
-    `);
-  return result.recordset.map(row => {
-    // Ưu tiên final_score thật, fallback lecturer_note cũ
-    let finalScore = row.final_score ?? null;
-    if (finalScore === null && row.lecturer_note && row.lecturer_note.startsWith("final_score=")) {
-      finalScore = parseFloat(row.lecturer_note.split("=")[1]);
-    }
-    return {
-      ...row,
-      finalScore
-    };
-  });
-};
-=======
 exports.getAllClasses = async () => {
   const pool = await poolPromise;
   const result = await pool.request().query(`
@@ -69,7 +25,9 @@ exports.deleteClassIfNoStudents = async (classId) => {
   const checkStudents = await pool
     .request()
     .input("classId", sql.Int, classId)
-    .query("SELECT COUNT(*) AS studentCount FROM ClassStudents WHERE class_id = @classId");
+    .query(
+      "SELECT COUNT(*) AS studentCount FROM ClassStudents WHERE class_id = @classId",
+    );
 
   const studentCount = checkStudents.recordset[0].studentCount;
 
@@ -91,7 +49,14 @@ exports.deleteClassIfNoStudents = async (classId) => {
 };
 exports.updateClass = async (classId, classData) => {
   const pool = await poolPromise;
-  const { class_name, course_name, session_id, lecturer_id, max_students, description } = classData;
+  const {
+    class_name,
+    course_name,
+    session_id,
+    lecturer_id,
+    max_students,
+    description,
+  } = classData;
 
   const result = await pool
     .request()
@@ -101,8 +66,7 @@ exports.updateClass = async (classId, classData) => {
     .input("sessionId", sql.Int, session_id)
     .input("lecturerId", sql.Int, lecturer_id)
     .input("maxStudents", sql.Int, max_students)
-    .input("description", sql.NVarChar, description || null)
-    .query(`
+    .input("description", sql.NVarChar, description || null).query(`
       UPDATE Classes 
       SET 
         class_name = @className, 
@@ -114,12 +78,19 @@ exports.updateClass = async (classId, classData) => {
       WHERE id = @id
     `);
 
-  return result.rowsAffected[0]; 
+  return result.rowsAffected[0];
 };
 exports.createClass = async (classData) => {
   const pool = await poolPromise;
-  
-  const { class_name, course_name, session_id, lecturer_id, max_students, description } = classData;
+
+  const {
+    class_name,
+    course_name,
+    session_id,
+    lecturer_id,
+    max_students,
+    description,
+  } = classData;
 
   const result = await pool
     .request()
@@ -128,12 +99,10 @@ exports.createClass = async (classData) => {
     .input("sessionId", sql.Int, session_id)
     .input("lecturerId", sql.Int, lecturer_id)
     .input("maxStudents", sql.Int, max_students)
-    .input("description", sql.NVarChar, description || null)
-    .query(`
+    .input("description", sql.NVarChar, description || null).query(`
       INSERT INTO Classes (session_id, class_name, course_name, lecturer_id, max_students, description, created_at)
       VALUES (@sessionId, @className, @courseName, @lecturerId, @maxStudents, @description, GETDATE());
     `);
 
-  return result.rowsAffected[0]; 
+  return result.rowsAffected[0];
 };
->>>>>>> main

@@ -21,10 +21,6 @@ const getAdminThesis = async (req, res) => {
   }
 };
 
-<<<<<<< HEAD
-const thesisService = require("../services/thesis.service");
-=======
->>>>>>> main
 
 const createThesis = async (req, res) => {
   const { title, student_id } = req.body;
