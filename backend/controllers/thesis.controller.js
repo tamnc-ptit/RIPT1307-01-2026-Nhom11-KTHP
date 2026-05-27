@@ -1,6 +1,6 @@
 const { poolPromise, sql } = require("../config/db");
 const thesisService = require("../services/thesis.service");
-
+const auditService = require("../services/audit.service");
 
 const getAdminThesis = async (req, res) => {
   try {
@@ -84,7 +84,6 @@ const deleteThesis = async (req, res) => {
 const updateThesisReviewStatus = async (req, res) => {
   const { id } = req.params;
 
-  // SỬA: Hứng đúng các trường admin_status, reject_reason từ Frontend gửi lên
   const { admin_status, reject_reason } = req.body;
 
   if (isNaN(id)) {
@@ -137,15 +136,27 @@ const updateThesisReviewStatus = async (req, res) => {
         SELECT * FROM @TmpReview;
       `);
 
-    const data = result.recordset[0];
+const data = result.recordset[0];
 
-    if (!data) {
-      return res
-        .status(404)
-        .json({ message: "Không tìm thấy đề tài để duyệt" });
-    }
+if (!data) {
+  return res.status(404).json({ message: "Không tìm thấy đề tài để duyệt" });
+}
 
-    res.json({ message: "Cập nhật trạng thái duyệt thành công!", data });
+await auditService.logAction({
+  actor_id: req.user ? req.user.id : null,
+  actor_name: req.user ? req.user.name : "Admin Tổng",
+  action: admin_status ? admin_status.toUpperCase() : "REVIEW",
+  target_table: "Thesis",
+  target_id: id,
+  old_value: { admin_status: "pending" },
+  new_value: {
+    admin_status: admin_status,
+    reject_reason: reject_reason || null,
+  },
+  ip_address: req.ip,
+});
+
+res.json({ message: "Cập nhật trạng thái duyệt thành công!", data });
   } catch (err) {
     res
       .status(500)

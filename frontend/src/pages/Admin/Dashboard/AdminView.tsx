@@ -7,17 +7,11 @@ import {
   DashboardOutlined,
   TeamOutlined,
   FileTextOutlined,
+  AuditOutlined,
 } from "@ant-design/icons";
 import { history } from "umi";
+import { AdminStats } from "../../../types/AdminTypes/AdminViewTypes";
 
-interface AdminStats {
-  totalUsers: number;
-  totalClasses: number;
-  totalSessions: number;
-  totalTheses: number;
-  pendingTheses: number;
-  activeSession: string | null;
-}
 
 const API = "http://localhost:5000";
 
@@ -182,7 +176,7 @@ const AdminView: React.FC = () => {
 
         {/* Navigation buttons */}
         <Row gutter={[16, 16]}>
-          <Col span={6}>
+          <Col span={4}>
             <Button
               type="primary"
               icon={<UserOutlined />}
@@ -193,27 +187,27 @@ const AdminView: React.FC = () => {
               Quản lý User
             </Button>
           </Col>
-          <Col span={6}>
+          <Col span={4}>
             <Button
               icon={<BookOutlined />}
               block
               size="large"
               onClick={() => history.push("/admin/class-management")}
             >
-              Quản lý Lớp tín chỉ
+              Lớp tín chỉ
             </Button>
           </Col>
-          <Col span={6}>
+          <Col span={4}>
             <Button
               icon={<CalendarOutlined />}
               block
               size="large"
               onClick={() => history.push("/admin/session-settings")}
             >
-              Cấu hình đợt đồ án
+              Cấu hình đợt
             </Button>
           </Col>
-          <Col span={6}>
+          <Col span={4}>
             <Button
               icon={<DashboardOutlined />}
               block
@@ -221,6 +215,16 @@ const AdminView: React.FC = () => {
               onClick={() => history.push("/admin/thesis-review")}
             >
               Giám sát Đề tài
+            </Button>
+          </Col>
+          <Col span={4}>
+            <Button
+              icon={<AuditOutlined />}
+              block
+              size="large"
+              onClick={() => history.push("/admin/audit-logs")}
+            >
+              Nhật ký hệ thống
             </Button>
           </Col>
         </Row>

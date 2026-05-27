@@ -23,3 +23,8 @@ export interface EditUserValues {
   role: UserRole;
   is_active: boolean;
 }
+export interface ImportResult {
+  imported: number;
+  errors?: string[];
+  message?: string;
+}

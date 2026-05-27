@@ -40,6 +40,11 @@ export default [
         component: "Admin/ThesisReview",
         icon: "FileSearchOutlined",
       },
+      {
+      path: '/admin/audit-logs',
+      name: 'Nhật ký hệ thống',
+      component: './Admin/AuditLog',
+    },
 
     ],
   },
