@@ -185,13 +185,22 @@ const fetchData = async () => {
       key: "lecturer_name",
       render: (name: string) => <b>{name || "Chưa gán"}</b>,
     },
-    {
-      title: "Sĩ số tối đa",
-      dataIndex: "max_students",
-      key: "max_students",
-      align: "center" as const,
-      render: (n: number) => n ?? 30,
+{
+    title: 'Sĩ số (Hiện tại / Tối đa)',
+    key: 'class_size',
+    align: 'center', 
+    render: (_, record: any) => {
+      const current = record.current_students || 0;
+      const max = record.max_students || 0;
+            const isFull = current >= max;
+      
+      return (
+        <span style={{ color: isFull ? '#cf1322' : 'inherit', fontWeight: isFull ? 'bold' : 'normal' }}>
+          {current} / {max} {isFull && ' (Đầy)'}
+        </span>
+      );
     },
+  },
     {
       title: "Thao tác",
       key: "action",

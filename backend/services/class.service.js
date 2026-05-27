@@ -11,9 +11,20 @@ exports.getAllClasses = async () => {
       c.description,
       c.session_id,
       c.lecturer_id,
-      u.name AS lecturer_name -- Lấy tên giảng viên từ bảng Users để khớp với dataIndex Frontend
+      u.name AS lecturer_name,
+      COUNT(cs.student_id) AS current_students
     FROM Classes c
     LEFT JOIN Users u ON c.lecturer_id = u.id
+    LEFT JOIN ClassStudents cs ON c.id = cs.class_id    GROUP BY 
+      c.id, 
+      c.class_name, 
+      c.course_name, 
+      c.max_students, 
+      c.description, 
+      c.session_id, 
+      c.lecturer_id, 
+      u.name,
+      c.created_at
     ORDER BY c.created_at DESC;
   `);
   return result.recordset;
@@ -105,4 +116,19 @@ exports.createClass = async (classData) => {
     `);
 
   return result.rowsAffected[0];
+};
+exports.getLecturerClasses = async (lecturerId) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool
+      .request()
+      .input("lecturerId", sql.Int, lecturerId)
+      .query(`
+        SELECT * FROM Classes 
+        WHERE lecturer_id = @lecturerId
+      `);
+    return result.recordset; 
+  } catch (err) {
+    throw new Error("Lỗi truy vấn lấy lớp của giảng viên: " + err.message);
+  }
 };
