@@ -1,78 +1,129 @@
 const { poolPromise, sql } = require("../config/db");
+const classService = require("../services/class.service");
+const auditService = require("../services/audit.service");
 
-const getClasses = async (req, res) => {
+exports.getClasses = async (req, res) => {
   try {
-    const pool = await poolPromise;
-    const result = await pool.request().query(`
-            SELECT c.*, u.name as lecturer_name, s.name as session_name
-            FROM Classes c
-            LEFT JOIN Users u ON c.lecturer_id = u.id
-            LEFT JOIN Sessions s ON c.session_id = s.id
-        `);
-    res.json(result.recordset);
+    const data = await classService.getAllClasses();
+    res.json(data);
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Lỗi lấy danh sách lớp học phần", error: err.message });
+  }
+};
+
+exports.createClass = async (req, res) => {
+  try {
+    console.log(">>> Dữ liệu Frontend gửi lên để tạo lớp:", req.body);
+    const affected = await classService.createClass(req.body);
+    await auditService.logAction({
+      actor_id: req.user ? req.user.id : null,
+      actor_name: req.user ? req.user.name : "Admin Tổng",
+      action: "CREATE",
+      target_table: "Classes",
+      target_id: affected, 
+      old_value: null,
+      new_value: req.body, 
+      ip_address: req.ip,
+    });
+    res
+      .status(201)
+      .json({ message: "Tạo lớp học phần mới thành công!", affected });
+  } catch (err) {
+    res.status(400).json({ message: "Lưu lớp thất bại!", error: err.message });
+  }
+};
+
+exports.updateClass = async (req, res) => {
+  const { id } = req.params;
+  if (isNaN(id)) {
+    return res.status(400).json({ message: "ID lớp không hợp lệ" });
+  }
+
+  try {
+    const affected = await classService.updateClass(id, req.body);
+    if (affected === 0) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy lớp học để cập nhật" });
+    }
+    res.json({ message: "Cập nhật lớp học phần thành công!" });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Lỗi cập nhật lớp học", error: err.message });
+  }
+};
+
+exports.deleteClass = async (req, res) => {
+  const { id } = req.params;
+  if (isNaN(id)) {
+    return res.status(400).json({ message: "ID lớp không hợp lệ" });
+  }
+
+  try {
+    const affected = await classService.deleteClassIfNoStudents(id);
+
+    if (affected === 0) {
+      return res.status(404).json({
+        message:
+          "Không tìm thấy lớp học hoặc lớp đã có sinh viên không thể xóa",
+      });
+    }
+
+    await auditService.logAction({
+      actor_id: req.user ? req.user.id : null,
+      actor_name: req.user ? req.user.name : "Admin Tổng",
+      action: "DELETE",
+      target_table: "Classes",
+      target_id: id,
+      old_value: { message: `Xóa lớp học phần có ID là ${id}` },
+      new_value: null,
+      ip_address: req.ip,
+    });
+
+    res.json({ message: "Xóa lớp tín chỉ thành công!" });
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi khi xóa lớp", error: err.message });
+  }
+};
+exports.getLecturerClasses = async (req, res) => {
+  try {
+    let lecturerId = req.query.lecturerId;
+    if (req.user && req.user.role === "lecturer") {
+      lecturerId = req.user.id;
+    }
+
+    if (!lecturerId) {
+      return res.status(400).json({ message: "Thiếu lecturerId" });
+    }
+
+    const data = await classService.getLecturerClasses(lecturerId);
+    res.json(data);
   } catch (err) {
     res.status(500).json({ message: "Lỗi Server", error: err.message });
   }
 };
 
-const createClass = async (req, res) => {
-  const { class_name, course_name, session_id, lecturer_id, max_students } =
-    req.body;
-  try {
-    const pool = await poolPromise;
-    await pool
-      .request()
-      .input("class_name", sql.NVarChar, class_name)
-      .input("course_name", sql.NVarChar, course_name)
-      .input("session_id", sql.Int, session_id) // Dùng session_id thay vì semester
-      .input("lecturer_id", sql.Int, lecturer_id)
-      .input("max_students", sql.Int, max_students || 30).query(`
-                INSERT INTO Classes (class_name, course_name, session_id, lecturer_id, max_students)
-                VALUES (@class_name, @course_name, @session_id, @lecturer_id, @max_students)
-            `);
-    res.status(201).json({ message: "Tạo lớp tín chỉ thành công!" });
-  } catch (err) {
-    res.status(500).json({ message: "Lỗi khi tạo lớp", error: err.message });
-  }
-};
-const updateClass = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { class_name, course_name, session_id, lecturer_id, max_students } =
-      req.body;
+exports.getLecturerClassStudents = async (req, res) => {
+  const { classId } = req.params;
 
-    const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input("id", sql.Int, id)
-      .input("class_name", sql.NVarChar, class_name)
-      .input("course_name", sql.NVarChar, course_name)
-      .input("session_id", sql.Int, session_id)
-      .input("lecturer_id", sql.Int, lecturer_id)
-      .input("max_students", sql.Int, max_students || 30).query(`
-        UPDATE Classes 
-        SET class_name = @class_name, 
-            course_name = @course_name, 
-            session_id = @session_id, 
-            lecturer_id = @lecturer_id, 
-            max_students = @max_students 
-        WHERE id = @id
-      `);
+  try {
+    if (req.user && req.user.role === "lecturer") {
+      const classes = await classService.getLecturerClasses(req.user.id);
+      const isOwner = classes.some((c) => c.id == classId);
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ message: "Lớp học phần không tồn tại" });
+      if (!isOwner) {
+        return res.status(403).json({
+          message: "Bạn không có quyền xem danh sách sinh viên lớp này!",
+        });
+      }
     }
 
-    res.json({ message: "Cập nhật lớp tín chỉ thành công!" });
+    const data = await classService.getLecturerClassStudents(classId);
+    res.json(data);
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Lỗi khi cập nhật lớp", error: err.message });
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
   }
-};
-
-module.exports = {
-  getClasses,
-  createClass,
-  updateClass,
 };

@@ -1,60 +1,64 @@
 const { poolPromise, sql } = require("../config/db");
 
-exports.getAllThesis = async (keyword, lecturerId) => {
+exports.getAllThesis = async (filterParams) => {
+  const { keyword, lecturerId, adminStatus, lecturerStatus, classId, sessionId } = filterParams;
   const pool = await poolPromise;
 
   const result = await pool
     .request()
     .input("keyword", sql.NVarChar, keyword || null)
     .input("lecturerId", sql.Int, lecturerId || null)
+    .input("adminStatus", sql.NVarChar, adminStatus || null)
+    .input("lecturerStatus", sql.NVarChar, lecturerStatus || null)
+    .input("classId", sql.Int, classId || null)
+    .input("sessionId", sql.Int, sessionId || null)
     .query(`
       SELECT 
-        t.id,
+        t.id,                        
         t.title,
         t.description,
         t.student_id,
         t.lecturer_id,
         t.class_id,
+        t.session_id,                
         t.status,
+        t.lecturer_status,           
+        t.admin_status,              
         t.reject_reason,
         t.final_score,
-        s.name AS studentName,
-        l.name AS supervisorName
-      FROM Thesis t
+        t.created_at,                
+        s.name AS student_name,      
+        l.name AS lecturer_name,     
+        c.class_name,                
+        se.name AS session_name      
+      FROM Thesis t                  
       LEFT JOIN Users s ON t.student_id = s.id
+      LEFT JOIN Classes c ON t.class_id = c.id
       LEFT JOIN Users l ON t.lecturer_id = l.id
+      LEFT JOIN Sessions se ON t.session_id = se.id 
       WHERE (@keyword IS NULL OR t.title LIKE '%' + @keyword + '%')
         AND (@lecturerId IS NULL OR t.lecturer_id = @lecturerId)
+        -- 🚀 THÊM CÁC ĐIỀU KIỆN LỌC DƯỚI ĐÂY VÀO SQL:
+        AND (@adminStatus IS NULL OR t.admin_status = @adminStatus)
+        AND (@lecturerStatus IS NULL OR t.lecturer_status = @lecturerStatus)
+        AND (@classId IS NULL OR t.class_id = @classId)
+        AND (@sessionId IS NULL OR t.session_id = @sessionId)
       ORDER BY t.id DESC
     `);
 
   return result.recordset;
 };
-
-// CREATE
-exports.createThesis = async (data) => {
-  const { title, description, student_id, lecturer_id, class_id } = data;
-  const pool = await poolPromise;
-
-  const result = await pool
-    .request()
-    .input("title", sql.NVarChar, title)
-    .input("description", sql.NVarChar, description || null)
-    .input("student_id", sql.Int, student_id || null)
-    .input("lecturer_id", sql.Int, lecturer_id || null)
-    .input("class_id", sql.Int, class_id || null).query(`
-      INSERT INTO Thesis (title, description, student_id, lecturer_id, class_id, status)
-      OUTPUT INSERTED.*
-      VALUES (@title, @description, @student_id, @lecturer_id, @class_id, 'Pending')
-    `);
-
-  return result.recordset[0];
-};
-
-// UPDATE (Hỗ trợ cả Sửa nội dung, Duyệt, Từ chối và Gán GV)
 exports.updateThesis = async (id, data) => {
-  const { title, description, student_id, lecturer_id, status, rejectReason, finalScore, class_id } =
-    data;
+  const {
+    title,
+    description,
+    student_id,
+    lecturer_id,
+    status,
+    rejectReason,
+    finalScore,
+    class_id,
+  } = data;
   const pool = await poolPromise;
 
   const result = await pool
@@ -66,7 +70,7 @@ exports.updateThesis = async (id, data) => {
     .input("lecturer_id", sql.Int, lecturer_id || null)
     .input("status", sql.NVarChar, status || null)
     .input("reject_reason", sql.NVarChar, rejectReason || null)
-    .input("final_score", sql.Decimal(4, 2), finalScore || null)
+    .input("final_score", sql.Float, finalScore || null)
     .input("class_id", sql.Int, class_id || null).query(`
       UPDATE Thesis
       SET 
@@ -86,7 +90,6 @@ exports.updateThesis = async (id, data) => {
   return result.recordset[0];
 };
 
-// DELETE
 exports.deleteThesis = async (id) => {
   const pool = await poolPromise;
   const result = await pool
@@ -96,31 +99,29 @@ exports.deleteThesis = async (id) => {
 
   return result.rowsAffected[0];
 };
-// Lấy danh sách giảng viên để gán hướng dẫn
+
+
 exports.getSupervisors = async () => {
   const pool = await poolPromise;
   const result = await pool.request().query(`
     SELECT 
       u.id, 
       u.name, 
-      -- Đếm số đề tài đã duyệt mà GV này đang hướng dẫn
-      (SELECT COUNT(*) FROM Thesis t WHERE t.lecturer_id = u.id AND t.status = 'Approved') AS currentSlots,
-      5 AS maxSlots -- Bạn có thể để cứng hoặc thêm cột max_slots vào bảng Users
+      (SELECT COUNT(*) FROM Thesis t WHERE t.lecturer_id = u.id AND t.status = 'approved') AS currentSlots,
+      5 AS maxSlots 
     FROM Users u
-    WHERE u.role = 'lecturer' -- Lọc ra những người là giảng viên
+    WHERE u.role = 'lecturer'
   `);
   return result.recordset;
 };
-// Lấy danh sách đề tài theo ID Lớp
+
 exports.getThesesByClass = async (classId) => {
   const pool = await poolPromise;
-  const result = await pool.request()
-    .input("classId", sql.Int, classId)
-    .query(`
+  const result = await pool.request().input("classId", sql.Int, classId).query(`
       SELECT 
         t.id, t.title, t.status, 
-        u_std.name AS studentName,
-        u_lec.name AS supervisorName
+        u_std.name AS student_name,
+        u_lec.name AS lecturer_name
       FROM Thesis t
       LEFT JOIN Users u_std ON t.student_id = u_std.id
       LEFT JOIN Users u_lec ON t.lecturer_id = u_lec.id
@@ -130,10 +131,10 @@ exports.getThesesByClass = async (classId) => {
   return result.recordset;
 };
 
-// Lấy danh sách các lớp mà một Giảng viên đang dạy
 exports.getClassesByLecturer = async (lecturerId) => {
   const pool = await poolPromise;
-  const result = await pool.request()
+  const result = await pool
+    .request()
     .input("lecturerId", sql.Int, lecturerId)
     .query("SELECT * FROM Classes WHERE lecturer_id = @lecturerId");
   return result.recordset;

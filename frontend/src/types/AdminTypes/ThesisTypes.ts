@@ -1,5 +1,5 @@
+// ===================== 1. USER & ROLE =====================
 export type UserRole = "admin" | "lecturer" | "student";
-
 export type ThesisStatus = "not_registered" | "pending" | "approved" | "rejected";
 
 export interface User {
@@ -16,7 +16,7 @@ export interface UserFormValues {
   password?: string;
 }
 
-// Map với bảng Users + UserProfiles
+// ===================== 2. LECTURER & TOPIC =====================
 export interface LecturerERD {
   id: number;
   name: string;
@@ -29,7 +29,6 @@ export interface LecturerERD {
   domains: string[];
 }
 
-// Map với bảng TopicSuggestions
 export interface TopicSuggestionERD {
   id: number;
   session_id: number;
@@ -38,10 +37,11 @@ export interface TopicSuggestionERD {
   description: string;
   max_groups: number;
   status: "draft" | "open" | "closed";
-  domain: string; // Phục vụ cho UI filter
+  domain: string;
 }
 
-// Map chuẩn 100% với bảng Thesis
+// ===================== 3. THESIS (Gộp ERD và Item để hiển thị) =====================
+// Giữ lại ThesisERD để làm việc với DB và ThesisItem để làm việc với Table UI
 export interface ThesisERD {
   id: number;
   session_id: number;
@@ -60,6 +60,29 @@ export interface ThesisERD {
   updated_at: string;
 }
 
+export interface ThesisItem {
+  id: number;
+  title: string;
+  description: string | null;
+  student_id: number;
+  student_name: string;
+  lecturer_id: number;
+  lecturer_name: string;
+  class_id: number | null;
+  class_name: string | null;
+  session_id: number;
+  session_name: string | null;
+  lecturer_status: "pending" | "approved" | "rejected";
+  admin_status: "pending" | "approved" | "rejected";
+  lecturer_note: string | null;
+  reject_reason: string | null;
+  status: string | null;
+  final_score: number | null;
+  created_at: string;
+  approved_at: string | null;
+}
+
+// ===================== 4. FILTERS =====================
 export interface ClassFilterItem {
   id: number;
   class_name: string;
@@ -73,11 +96,14 @@ export interface LecturerFilterItem {
 
 export interface SessionFilterItem {
   id: number;
-  session_name: string;
+  name: string;
+  is_active: boolean;
 }
 
 export interface FilterParams {
-  status?: string;
+  adminStatus?: string;
+  lecturerStatus?: string;
   classId?: number;
-  semester?: string;
+  sessionId?: number; 
+  semester?: string;  
 }

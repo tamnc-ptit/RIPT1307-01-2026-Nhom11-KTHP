@@ -3,18 +3,42 @@ import { ThesisItem } from "@/types/LecturerTypes/ThesisTypes";
 import { LecturerERD, TopicSuggestionERD } from "@/types/AdminTypes/ThesisTypes";
 import { IMilestone, ISubmission, MilestoneStatus, SubmissionStatus } from "@/types/LecturerTypes/SubmissionTypes";
 
-// ===================== 1. API THESIS =====================
-export async function getThesisList(params?: any) {
-  return request<ThesisItem[]>("/api/thesis", { method: "GET", params });
-}
-export async function addThesis(data: Partial<ThesisItem>) {
-  return request("/api/thesis", { method: "POST", data });
-}
-export const updateThesis = (id: number, data: any) => {
-  return request(`/api/thesis/${id}`, { method: "PUT", data });
+// ===================== HELPER AUTH =====================
+const getAuthHeader = (): Record<string, string> => {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
 };
+
+// ===================== 1. API THESIS (Kết hợp) =====================
+export async function getThesisList(params?: any) {
+  return request<ThesisItem[]>("/api/thesis", { 
+    method: "GET", 
+    params,
+    headers: getAuthHeader(),
+  });
+}
+
+export async function addThesis(data: Partial<ThesisItem>) {
+  return request("/api/thesis", { 
+    method: "POST", 
+    data,
+    headers: getAuthHeader(),
+  });
+}
+
+export const updateThesis = (id: number, data: any) => {
+  return request(`/api/thesis/${id}`, { 
+    method: "PUT", 
+    data,
+    headers: getAuthHeader(),
+  });
+};
+
 export const deleteThesis = (id: number) => {
-  return request(`/api/thesis/${id}`, { method: "DELETE" });
+  return request(`/api/thesis/${id}`, { 
+    method: "DELETE",
+    headers: getAuthHeader(),
+  });
 };
 
 // ===================== 2. MOCK DATA & SERVICES =====================
