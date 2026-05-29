@@ -1,15 +1,15 @@
 {
   "extends": "./src/.umi/tsconfig.json",
   "compilerOptions": {
-    "ignoreDeprecations": "5.0", 
-    "moduleResolution": "bundler", // Hoặc "bundler" nếu bạn dùng Vite/Webpack mới
+    "ignoreDeprecations": "6.0",
+    "moduleResolution": "bundler",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
       "@@/*": ["src/.umi/*"],
       "@admin/*": ["src/roles/admin/*"],
       "@gv/*": ["src/roles/lecturer/*"],
-      "@sv/*": ["src/roles/student/*"],
+      "@sv/*": ["src/roles/student/*"]
     }
   }
 }

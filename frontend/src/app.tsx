@@ -10,6 +10,9 @@ export interface CurrentUser {
   name: string;
   email: string;
   role: "student" | "lecturer" | "admin";
+  student_code?: string;
+  class_name?: string;
+  class_id?: number;
 }
 export interface InitialState {
   currentUser?: CurrentUser;
