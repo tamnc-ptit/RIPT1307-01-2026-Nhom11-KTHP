@@ -223,9 +223,11 @@ exports.getLecturerTheses = async (params) => {
       t.id,
       t.title,
       t.description,
+      t.class_id,
       t.lecturer_status,
       t.admin_status,
       t.final_score,
+      t.lecturer_note,
       t.created_at,
       t.updated_at,
       u.name AS studentName,
@@ -254,9 +256,16 @@ exports.getLecturerTheses = async (params) => {
     else if (row.final_score !== null) displayStatus = 'Completed';
     else if (row.lecturer_status === 'approved') displayStatus = 'Approved';
 
+    let finalScore = row.final_score ?? null;
+    if (finalScore === null && row.lecturer_note && row.lecturer_note.startsWith("final_score=")) {
+      finalScore = parseFloat(row.lecturer_note.split("=")[1]);
+    }
+
     return {
       ...row,
       status: displayStatus,
+      final_score: finalScore,
+      finalScore: finalScore,
       progress: row.total_milestones > 0 
         ? Math.round((row.completed_milestones / row.total_milestones) * 100) 
         : 0

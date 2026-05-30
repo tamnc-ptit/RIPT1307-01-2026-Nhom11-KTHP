@@ -230,15 +230,18 @@ const ThesisLecturer: React.FC = () => {
     },
     {
       title: 'Lớp',
-      dataIndex: 'class_id',
-      key: 'class_id',
-      render: (classId: number) => classId ? `Lớp ${classId}` : '-'
+      dataIndex: 'class_name',
+      key: 'class_name',
+      render: (className: string, record: any) => className || (record.class_id ? `Lớp ${record.class_id}` : '-')
     },
     {
       title: 'Điểm',
       dataIndex: 'final_score',
       key: 'final_score',
-      render: (score: number) => score !== null ? <Tag color="cyan" style={{ fontWeight: 'bold' }}>{score}</Tag> : '-'
+      render: (score: number, record: any) => {
+        const finalScore = score !== null && score !== undefined ? score : record.finalScore;
+        return finalScore !== null && finalScore !== undefined ? <Tag color="cyan" style={{ fontWeight: 'bold' }}>{finalScore}</Tag> : '-';
+      }
     },
     {
       title: 'Trạng thái',
