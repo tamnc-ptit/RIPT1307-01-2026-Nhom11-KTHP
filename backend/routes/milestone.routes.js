@@ -13,12 +13,12 @@ router.get("/", milestoneController.getMilestones);
 router.get("/:id", milestoneController.getMilestoneById);
 
 // POST /api/milestones   — chỉ lecturer, admin
-router.post("/", roleMiddleware(["lecturer", "admin"]), milestoneController.createMilestone);
+router.post("/", roleMiddleware("lecturer", "admin"), milestoneController.createMilestone);
 
 // PUT  /api/milestones/:id
-router.put("/:id", roleMiddleware(["lecturer", "admin"]), milestoneController.updateMilestone);
+router.put("/:id", roleMiddleware("lecturer", "admin"), milestoneController.updateMilestone);
 
 // DELETE /api/milestones/:id
-router.delete("/:id", roleMiddleware(["lecturer", "admin"]), milestoneController.deleteMilestone);
+router.delete("/:id", roleMiddleware("lecturer", "admin"), milestoneController.deleteMilestone);
 
 module.exports = router;

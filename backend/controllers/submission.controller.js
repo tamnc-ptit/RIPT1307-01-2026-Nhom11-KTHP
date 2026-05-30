@@ -46,9 +46,9 @@ exports.getSubmissions = async (req, res) => {
 exports.getSubmissionById = async (req, res) => {
   try {
     const submission = await submissionService.getSubmissionById(parseInt(req.params.id));
-    if (!submission) {
+    /*if (!submission) {
       return res.status(404).json({ message: "Không tìm thấy submission" });
-    }
+    }*/
 
     const baseUrl = process.env.BASE_URL || "http://localhost:3000";
     res.json({ ...submission, file_url: `${baseUrl}/${submission.file_url}` });
@@ -111,7 +111,7 @@ exports.downloadFile = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy submission" });
     }
 
-    const filePath = path.resolve(submission.file_url);
+    const filePath = path.join(__dirname, "../../", submission.file_url);
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ message: "File không còn tồn tại trên server" });
     }

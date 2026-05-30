@@ -37,6 +37,30 @@ exports.getMilestonesByThesis = async (thesisId) => {
   return result.recordset;
 };
 
+exports.getAllMilestones = async () => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .query(`
+      SELECT 
+        m.id,
+        m.thesis_id,
+        m.title AS name,
+        m.description,
+        m.deadline,
+        m.status,
+        s.submitted_at,
+        s.file_url AS evidence_url,
+        s.file_name,
+        s.score,
+        (SELECT TOP 1 c.content FROM Comments c WHERE c.submission_id = s.id ORDER BY c.created_at DESC) AS lecturer_comment
+      FROM Milestones m
+      LEFT JOIN Submissions s ON s.milestone_id = m.id
+      ORDER BY m.deadline ASC
+    `);
+  return result.recordset;
+};
+
 exports.updateMilestoneFeedback = async (id, data) => {
   const { comment, score, status, userId } = data; 
   const pool = await poolPromise;
@@ -107,7 +131,7 @@ exports.createMilestone = async (data) => {
     .input("created_by", sql.Int, finalCreatedBy)
     .input("title", sql.NVarChar, finalTitle)
     .input("description", sql.NVarChar, description || null)
-    .input("deadline", sql.DateTime, deadline)
+    .input("deadline", sql.DateTime, deadline ? new Date(deadline + "T00:00:00") : null)
     .query(`
       INSERT INTO Milestones (thesis_id, created_by, title, description, deadline, status, created_at)
       OUTPUT INSERTED.*
@@ -144,7 +168,7 @@ exports.createMilestone = async ({ thesisId, createdBy, title, description, dead
     .input("title",       sql.NVarChar, title)
     .input("description", sql.NVarChar, description || null)
     .input("deadline",    sql.DateTime, deadline ? new Date(deadline) : null)
-    .input("status",      sql.NVarChar, status || "active")
+    .input("status",      sql.NVarChar, status || "pending")
     .query(`
       INSERT INTO Milestones (thesis_id, created_by, title, description, deadline, status)
       OUTPUT INSERTED.*

@@ -25,6 +25,8 @@ app.use("/api/thesis", require("./routes/thesis.routes"));
 app.use("/api/milestones", require("./routes/milestone.routes"));
 app.use("/api/submissions", require("./routes/submission.routes"));
 app.use("/api/lecturer", require("./routes/lecturer.routes"));
+app.use("/api/topics", require("./routes/topic.routes"));
+app.use("/api/notifications", require("./routes/notification.routes"));
 
 app.use("/api/admin/thesis", require("./routes/thesis.routes"));
 app.get("/", (req, res) => {

@@ -20,7 +20,7 @@ router.get("/:id", submissionController.getSubmissionById);
 // Body fields: file (File), milestoneId, thesisId, studentId, note
 router.post(
   "/",
-  roleMiddleware(["student"]),
+  roleMiddleware("student"),
   uploadSingle("file"),
   submissionController.createSubmission
 );
@@ -28,7 +28,7 @@ router.post(
 // DELETE /api/submissions/:id
 router.delete(
   "/:id",
-  roleMiddleware(["student", "lecturer", "admin"]),
+  roleMiddleware("student", "lecturer", "admin"),
   submissionController.deleteSubmission
 );
 

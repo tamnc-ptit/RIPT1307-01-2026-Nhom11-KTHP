@@ -33,7 +33,7 @@ exports.getSubmissionsByThesis = async (thesisId, filters = {}) => {
       FROM Submissions s
       JOIN Milestones m ON m.id = s.milestone_id
       JOIN Users u      ON u.id = s.student_id
-      WHERE s.thesis_id    = @thesisId
+      WHERE  (@thesisId IS NULL OR s.thesis_id = @thesisId)
         AND (@milestoneId IS NULL OR s.milestone_id = @milestoneId)
         AND (@studentId   IS NULL OR s.student_id   = @studentId)
       ORDER BY s.submitted_at DESC
@@ -105,9 +105,10 @@ exports.createSubmission = async (
     .query(`
       INSERT INTO Submissions
         (milestone_id, thesis_id, student_id, file_url, file_name, file_size, note, status)
-      OUTPUT INSERTED.*
       VALUES
         (@milestoneId, @thesisId, @studentId, @fileUrl, @fileName, @fileSize, @note, 'submitted')
+
+      SELECT * FROM Submissions WHERE id = SCOPE_IDENTITY();
     `);
 
   return result.recordset[0];

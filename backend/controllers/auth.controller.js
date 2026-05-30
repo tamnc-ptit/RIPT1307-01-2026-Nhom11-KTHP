@@ -4,10 +4,10 @@ const { poolPromise, sql } = require("../config/db");
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_key";
 
-
 exports.register = async (req, res) => {
   const { name, email, password, role } = req.body;
-
+  console.log(req.body);
+  console.log("password:", password);
   try {
     const pool = await poolPromise;
 

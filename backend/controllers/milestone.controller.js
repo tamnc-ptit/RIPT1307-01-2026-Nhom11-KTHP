@@ -2,12 +2,16 @@ const milestoneService = require("../services/milestone.service");
 
 exports.getMilestones = async (req, res) => {
   const { thesis_id } = req.query;
-  if (!thesis_id) {
-    return res.status(400).json({ message: "thesis_id là bắt buộc" });
-  }
+  console.log("getMilestones called, thesis_id:", thesis_id);
 
   try {
-    const milestones = await milestoneService.getMilestonesByThesis(parseInt(thesis_id));
+    let milestones;
+    if (thesis_id) {
+      milestones = await milestoneService.getMilestonesByThesis(parseInt(thesis_id));
+    } else {
+      // Nếu không có thesis_id, trả về tất cả milestones
+      milestones = await milestoneService.getAllMilestones();
+    }
     res.json({ data: milestones, total: milestones.length });
   } catch (err) {
     res.status(500).json({ message: "Lỗi lấy danh sách milestone", error: err.message });
