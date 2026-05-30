@@ -19,6 +19,7 @@ app.use((req, res, next) => {
 
 app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/admin", require("./routes/admin.routes"));
+app.use("/api/thesis", require("./routes/thesis.routes"));
 app.use("/api/lecturer", require("./routes/lecturer.routes"));
 app.get("/", (req, res) => {
   res.send("API đang chạy...");

@@ -29,6 +29,10 @@ router.put("/milestones/:id/feedback", lecturerController.updateMilestoneFeedbac
   router.put("/theses/:id/finalize", lecturerThesisController.finalizeThesis);
 router.get("/reports/export-excel", lecturerController.exportReport);
 
+// Profile
+router.get("/profile", lecturerController.getProfile);
+router.put("/profile", lecturerController.updateProfile);
+
 // Sessions
 router.get("/sessions", lecturerController.getSessions);
 router.post("/sessions", lecturerController.createSession);
@@ -45,6 +49,7 @@ router.post("/templates", templateController.createTemplate);
   router.post("/proposals", proposalController.createProposal);
   router.put("/proposals/:id", proposalController.updateProposal);
   router.delete("/proposals/:id", proposalController.deleteProposal);
+  router.get("/proposals/:proposalId/registrations", proposalController.getProposalRegistrations);
 
   // Thesis Detail
   router.get("/theses/:id/detail", lecturerThesisController.getThesisDetail);

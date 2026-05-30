@@ -329,4 +329,76 @@ exports.deleteSession = async (req, res) => {
   }
 };
 
+exports.getProfile = async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ message: "Chưa đăng nhập" });
+  }
+
+  try {
+    const pool = await poolPromise;
+    const profileRes = await pool
+      .request()
+      .input("userId", sql.Int, userId)
+      .query("SELECT id, name, email, role, phone, degree, domain, max_quota FROM Users WHERE id = @userId");
+
+    const lecturer = profileRes.recordset[0];
+    if (!lecturer) {
+      return res.status(404).json({ message: "Không tìm thấy thông tin giảng viên" });
+    }
+
+    const quotaRes = await pool
+      .request()
+      .input("userId", sql.Int, userId)
+      .query(`
+        SELECT COUNT(DISTINCT student_id) as count 
+        FROM Thesis 
+        WHERE lecturer_id = @userId 
+          AND lecturer_status = 'approved'
+      `);
+    
+    const quota = quotaRes.recordset[0].count;
+
+    res.json({
+      ...lecturer,
+      quota,
+      maxQuota: lecturer.max_quota ?? 5
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server khi tải hồ sơ", error: err.message });
+  }
+};
+
+exports.updateProfile = async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ message: "Chưa đăng nhập" });
+  }
+
+  const { phone, degree, domain } = req.body;
+
+  try {
+    const pool = await poolPromise;
+    await pool
+      .request()
+      .input("userId", sql.Int, userId)
+      .input("phone", sql.NVarChar, phone || null)
+      .input("degree", sql.NVarChar, degree || null)
+      .input("domain", sql.NVarChar, domain || null)
+      .query(`
+        UPDATE Users 
+        SET 
+          phone = @phone, 
+          degree = @degree, 
+          domain = @domain, 
+          updated_at = GETDATE() 
+        WHERE id = @userId
+      `);
+
+    res.json({ message: "Cập nhật hồ sơ thành công!" });
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server khi cập nhật hồ sơ", error: err.message });
+  }
+};
+
 

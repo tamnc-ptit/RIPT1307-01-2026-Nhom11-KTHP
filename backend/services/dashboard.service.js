@@ -51,11 +51,43 @@ exports.getLecturerDashboard = async (lecturerId) => {
     `);
   const completedThesis = completedRes.recordset[0].count;
 
+  const rejectedRes = await pool
+    .request()
+    .input("lecturerId", sql.Int, lecturerId)
+    .query(`
+      SELECT COUNT(*) as count 
+      FROM Thesis 
+      WHERE lecturer_id = @lecturerId 
+        AND (lecturer_status = 'rejected' OR admin_status = 'rejected')
+    `);
+  const rejectedThesis = rejectedRes.recordset[0].count;
+
+  const progressRes = await pool
+    .request()
+    .input("lecturerId", sql.Int, lecturerId)
+    .query(`
+      SELECT 
+        (SELECT COUNT(*) FROM Milestones m WHERE m.thesis_id = t.id) AS total_milestones,
+        (SELECT COUNT(*) FROM Milestones m WHERE m.thesis_id = t.id AND m.status = 'completed') AS completed_milestones
+      FROM Thesis t
+      WHERE t.lecturer_id = @lecturerId AND t.lecturer_status = 'approved'
+    `);
+    
+  let totalM = 0;
+  let compM = 0;
+  progressRes.recordset.forEach(row => {
+    totalM += row.total_milestones;
+    compM += row.completed_milestones;
+  });
+  const averageProgress = totalM > 0 ? Math.round((compM / totalM) * 100) : 0;
+
   return {
     totalStudents,
     pendingApprovals,
     newReports,
-    completedThesis
+    completedThesis,
+    rejectedThesis,
+    averageProgress
   };
 };
 

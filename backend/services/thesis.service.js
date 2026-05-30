@@ -48,6 +48,63 @@ exports.getAllThesis = async (filterParams) => {
 
   return result.recordset;
 };
+
+exports.createThesis = async (data) => {
+  const {
+    title,
+    description,
+    student_id,
+    lecturer_id,
+    class_id,
+    session_id,
+    status,
+    lecturer_status,
+    admin_status,
+    reject_reason,
+    final_score,
+  } = data;
+
+  const pool = await poolPromise;
+  // Ensure we always have a valid session_id because the DB column is NOT NULL
+  let resolvedSessionId = session_id;
+  if (!resolvedSessionId) {
+    const sessionRes = await pool
+      .request()
+      .query("SELECT TOP 1 id FROM Sessions WHERE is_active = 1 ORDER BY created_at DESC");
+    if (sessionRes.recordset && sessionRes.recordset.length > 0) {
+      resolvedSessionId = sessionRes.recordset[0].id;
+    } else {
+      throw new Error("Không có đợt đồ án đang mở. Vui lòng tạo hoặc kích hoạt một 'Session' trước khi thêm đề tài.");
+    }
+  }
+  const result = await pool
+    .request()
+    .input("title", sql.NVarChar, title || null)
+    .input("description", sql.NVarChar, description || null)
+    .input("student_id", sql.Int, student_id || null)
+    .input("lecturer_id", sql.Int, lecturer_id || null)
+    .input("class_id", sql.Int, class_id || null)
+    .input("session_id", sql.Int, resolvedSessionId)
+    .input("status", sql.NVarChar, status || "pending")
+    .input("lecturer_status", sql.NVarChar, lecturer_status || "pending")
+    .input("admin_status", sql.NVarChar, admin_status || "pending")
+    .input("reject_reason", sql.NVarChar, reject_reason || null)
+    .input("final_score", sql.Float, final_score || null)
+    .query(`
+      INSERT INTO Thesis (
+        title, description, student_id, lecturer_id, class_id, session_id,
+        status, lecturer_status, admin_status, reject_reason, final_score
+      )
+      OUTPUT INSERTED.*
+      VALUES (
+        @title, @description, @student_id, @lecturer_id, @class_id, @session_id,
+        @status, @lecturer_status, @admin_status, @reject_reason, @final_score
+      );
+    `);
+
+  return result.recordset[0];
+};
+
 exports.updateThesis = async (id, data) => {
   const {
     title,

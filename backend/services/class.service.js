@@ -146,15 +146,26 @@ exports.getLecturerClassStudents = async (classId) => {
          u.name AS studentName,
          u.email,
          u.role,
-         t.id AS thesisId,
-         t.title AS topicName,
+         t.thesisId,
+         t.topicName,
          t.lecturer_status,
          t.admin_status,
          t.lecturer_note,
          t.final_score
        FROM ClassStudents cs
        JOIN Users u ON cs.student_id = u.id
-       LEFT JOIN Thesis t ON t.student_id = u.id AND t.class_id = cs.class_id
+       OUTER APPLY (
+         SELECT TOP 1
+           t2.id AS thesisId,
+           t2.title AS topicName,
+           t2.lecturer_status,
+           t2.admin_status,
+           t2.lecturer_note,
+           t2.final_score
+         FROM Thesis t2
+         WHERE t2.student_id = u.id
+         ORDER BY CASE WHEN t2.class_id = cs.class_id THEN 0 ELSE 1 END, t2.id DESC
+       ) t
        WHERE cs.class_id = @classId
      `);
 

@@ -43,14 +43,24 @@ exports.exportClassReport = async (classId) => {
     .query(`
       SELECT 
         u.name AS studentName,
-        t.title AS topicName,
+        t.topicName,
         t.lecturer_note,
         t.lecturer_status,
         t.admin_status,
         t.final_score
       FROM ClassStudents cs
       JOIN Users u ON cs.student_id = u.id
-      LEFT JOIN Thesis t ON t.student_id = u.id AND t.class_id = cs.class_id
+      OUTER APPLY (
+        SELECT TOP 1
+          t2.title AS topicName,
+          t2.lecturer_note,
+          t2.lecturer_status,
+          t2.admin_status,
+          t2.final_score
+        FROM Thesis t2
+        WHERE t2.student_id = u.id
+        ORDER BY CASE WHEN t2.class_id = cs.class_id THEN 0 ELSE 1 END, t2.id DESC
+      ) t
       WHERE cs.class_id = @classId
     `);
 
@@ -100,7 +110,7 @@ exports.exportClassReport = async (classId) => {
     .query(`
       SELECT 
         u.name AS studentName,
-        t.title AS topicName,
+        t.topicName,
         m.title AS milestoneTitle,
         m.deadline,
         s.submitted_at,
@@ -108,9 +118,16 @@ exports.exportClassReport = async (classId) => {
         m.status AS milestoneStatus
       FROM ClassStudents cs
       JOIN Users u ON cs.student_id = u.id
-      LEFT JOIN Thesis t ON t.student_id = u.id AND t.class_id = cs.class_id
-      LEFT JOIN Milestones m ON m.thesis_id = t.id
-      LEFT JOIN Submissions s ON s.milestone_id = m.id AND s.thesis_id = t.id
+      OUTER APPLY (
+        SELECT TOP 1
+          t2.title AS topicName,
+          t2.id AS thesisId
+        FROM Thesis t2
+        WHERE t2.student_id = u.id
+        ORDER BY CASE WHEN t2.class_id = cs.class_id THEN 0 ELSE 1 END, t2.id DESC
+      ) t
+      LEFT JOIN Milestones m ON m.thesis_id = t.thesisId
+      LEFT JOIN Submissions s ON s.milestone_id = m.id AND s.thesis_id = t.thesisId
       WHERE cs.class_id = @classId
       ORDER BY u.name, m.deadline
     `);

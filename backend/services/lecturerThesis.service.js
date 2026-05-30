@@ -11,7 +11,7 @@ exports.verifyThesisOwnership = async (thesisId, lecturerId) => {
   return res.recordset.length > 0;
 };
 
-exports.approveThesis = async (thesisId) => {
+exports.approveThesis = async (thesisId, lecturerNote) => {
   const pool = await poolPromise;
   const transaction = new sql.Transaction(pool);
   
@@ -21,7 +21,8 @@ exports.approveThesis = async (thesisId) => {
     const requestUpdate = new sql.Request(transaction);
     await requestUpdate
       .input("thesisId", sql.Int, thesisId)
-      .query("UPDATE Thesis SET lecturer_status = 'approved', approved_at = GETDATE(), updated_at = GETDATE() WHERE id = @thesisId");
+      .input("lecturerNote", sql.NVarChar, lecturerNote || null)
+      .query("UPDATE Thesis SET lecturer_status = 'approved', lecturer_note = @lecturerNote, approved_at = GETDATE(), updated_at = GETDATE() WHERE id = @thesisId");
       
     const requestGet = new sql.Request(transaction);
     const getRes = await requestGet
