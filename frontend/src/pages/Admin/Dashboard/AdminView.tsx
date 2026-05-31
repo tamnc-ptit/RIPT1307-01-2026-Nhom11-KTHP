@@ -12,7 +12,6 @@ import {
 import { history } from "umi";
 import { AdminStats } from "../../../types/AdminTypes/AdminViewTypes";
 
-
 const API = "http://localhost:5000";
 
 const AdminView: React.FC = () => {
@@ -22,36 +21,51 @@ const AdminView: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        // FIX: Dùng Promise.allSettled để một API lỗi không làm sập toàn bộ dashboard
         const [resUsers, resClasses, resSessions, resTheses] =
-          await Promise.all([
+          await Promise.allSettled([
             fetch(`${API}/api/admin/users`),
             fetch(`${API}/api/admin/classes`),
             fetch(`${API}/api/admin/sessions`),
             fetch(`${API}/api/admin/thesis`),
           ]);
 
-        const users = await resUsers.json();
-        const classes = await resClasses.json();
-        const sessions = await resSessions.json();
-        const theses = await resTheses.json();
+        const safeJson = async (
+          result: PromiseSettledResult<Response>,
+        ): Promise<unknown[]> => {
+          if (result.status === "rejected") return [];
+          try {
+            const data = await result.value.json();
+            return Array.isArray(data) ? data : [];
+          } catch {
+            return [];
+          }
+        };
 
-        const activeSession = Array.isArray(sessions)
-          ? (sessions.find(
-              (s: { is_active: boolean; name: string }) => s.is_active,
-            )?.name ?? null)
-          : null;
+        const [users, classes, sessions, theses] = await Promise.all([
+          safeJson(resUsers),
+          safeJson(resClasses),
+          safeJson(resSessions),
+          safeJson(resTheses),
+        ]);
 
-        const pendingTheses = Array.isArray(theses)
-          ? theses.filter(
-              (t: { admin_status: string }) => t.admin_status === "pending",
-            ).length
-          : 0;
+        const activeSession =
+          (
+            sessions.find(
+              (s: unknown) => (s as { is_active: boolean }).is_active,
+            ) as { name: string } | undefined
+          )?.name ?? null;
+
+        const pendingTheses = theses.filter(
+          (t: unknown) =>
+            (t as { admin_status: string }).admin_status === "pending",
+        ).length;
 
         setStats({
-          totalUsers: Array.isArray(users) ? users.length : 0,
-          totalClasses: Array.isArray(classes) ? classes.length : 0,
-          totalSessions: Array.isArray(sessions) ? sessions.length : 0,
-          totalTheses: Array.isArray(theses) ? theses.length : 0,
+          totalUsers: users.length,
+          totalClasses: classes.length,
+          totalSessions: sessions.length,
+          totalTheses: theses.length,
           pendingTheses,
           activeSession,
         });
@@ -80,7 +94,6 @@ const AdminView: React.FC = () => {
         headStyle={{ background: "#fff7e6", fontSize: 18, fontWeight: 600 }}
         style={{ marginBottom: 24 }}
       >
-        {/* Thống kê nhanh */}
         {loading ? (
           <div style={{ textAlign: "center", padding: "32px 0" }}>
             <Spin tip="Đang tải thống kê..." />
@@ -136,7 +149,6 @@ const AdminView: React.FC = () => {
           </Row>
         )}
 
-        {/* Cảnh báo đề tài chờ duyệt */}
         {!loading && (stats?.pendingTheses ?? 0) > 0 && (
           <Alert
             message={`Có ${stats!.pendingTheses} đề tài đang chờ Admin duyệt.`}
@@ -155,7 +167,6 @@ const AdminView: React.FC = () => {
           />
         )}
 
-        {/* Cảnh báo không có đợt đang mở */}
         {!loading && !stats?.activeSession && (
           <Alert
             message="Hiện không có đợt đồ án nào đang mở. Hãy thiết lập đợt mới."
@@ -174,7 +185,6 @@ const AdminView: React.FC = () => {
           />
         )}
 
-        {/* Navigation buttons */}
         <Row gutter={[16, 16]}>
           <Col span={4}>
             <Button

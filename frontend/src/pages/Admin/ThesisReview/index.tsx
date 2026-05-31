@@ -32,7 +32,7 @@ import {
   FilterParams,
 } from "../../../types/AdminTypes/ThesisTypes";
 
-const API = "http://localhost:8000";
+const API = "http://localhost:5000";
 
 const ADMIN_STATUS_CFG: Record<string, { color: string; text: string }> = {
   approved: { color: "green", text: "Admin duyệt" },
@@ -83,7 +83,10 @@ const ThesisReview: React.FC = () => {
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
   const [overrideForm] = Form.useForm();
 
-const fetchFilterData = async () => {
+  // FIX: Track loading per-row để tránh double-click
+  const [approvingIds, setApprovingIds] = useState<Set<number>>(new Set());
+
+  const fetchFilterData = async () => {
     try {
       const res = await fetch(`${API}/api/admin/classes`);
       if (res.ok) {
@@ -138,6 +141,7 @@ const fetchFilterData = async () => {
   useEffect(() => {
     fetchFilterData();
   }, []);
+
   useEffect(() => {
     fetchTheses(filters);
   }, [filters]);
@@ -195,12 +199,11 @@ const fetchFilterData = async () => {
     }
   };
 
-  /** Duyệt nhanh từ Popconfirm — không cần form */
-  const handleApproveConfirm = (record: ThesisItem) => async () => {
-    setReviewTarget(record);
-    setReviewAction("approve");
-    // Gọi thẳng, không qua modal
-    setReviewSubmitting(true);
+  // FIX: Tách thành hàm độc lập nhận id, không còn trả về function
+  const handleApprove = async (record: ThesisItem) => {
+    // Ngăn double-click
+    if (approvingIds.has(record.id)) return;
+    setApprovingIds((prev) => new Set(prev).add(record.id));
     try {
       const res = await fetch(`${API}/api/admin/thesis/${record.id}/review`, {
         method: "PATCH",
@@ -217,13 +220,13 @@ const fetchFilterData = async () => {
     } catch {
       message.error("Lỗi hệ thống khi duyệt!");
     } finally {
-      setReviewSubmitting(false);
-      setReviewTarget(null);
-      setReviewAction(null);
+      setApprovingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(record.id);
+        return next;
+      });
     }
   };
-
-  // ── Can thiệp phân công ────────────────────────────────────────────────────
 
   const openOverride = (record: ThesisItem) => {
     setOverrideTarget(record);
@@ -352,10 +355,11 @@ const fetchFilterData = async () => {
         const isPending = record.admin_status === "pending";
         const isApproved = record.admin_status === "approved";
         const isRejected = record.admin_status === "rejected";
+        // FIX: Kiểm tra loading theo id
+        const isApproving = approvingIds.has(record.id);
 
         return (
           <Space size={4} wrap>
-            {/* ── Xem chi tiết ── */}
             <Tooltip title="Xem chi tiết đề tài">
               <Button
                 size="small"
@@ -364,8 +368,8 @@ const fetchFilterData = async () => {
               />
             </Tooltip>
 
-            {/* ── Duyệt (Approve) ── chỉ hiện khi chưa duyệt hoặc đang bị từ chối */}
             {!isApproved && (
+              // FIX: onConfirm gọi trực tiếp handleApprove(record), không double-invoke
               <Popconfirm
                 title={`Duyệt đề tài "${record.title}"?`}
                 description={
@@ -373,7 +377,7 @@ const fetchFilterData = async () => {
                     ? "Đề tài này đã bị từ chối trước đó. Bạn có chắc muốn duyệt lại?"
                     : "Xác nhận duyệt đề tài này."
                 }
-                onConfirm={handleApproveConfirm(record)}
+                onConfirm={() => handleApprove(record)}
                 okText="Duyệt"
                 cancelText="Huỷ"
                 icon={<CheckCircleOutlined style={{ color: "#52c41a" }} />}
@@ -382,14 +386,15 @@ const fetchFilterData = async () => {
                   size="small"
                   type="primary"
                   icon={<CheckCircleOutlined />}
-                  disabled={reviewSubmitting}
+                  // FIX: Disable theo id, không disable toàn bộ bảng
+                  disabled={isApproving}
+                  loading={isApproving}
                 >
                   Duyệt
                 </Button>
               </Popconfirm>
             )}
 
-            {/* ── Từ chối (Reject) ── chỉ hiện khi chưa từ chối hoặc đang được duyệt */}
             {!isRejected && (
               <Button
                 size="small"
@@ -401,7 +406,6 @@ const fetchFilterData = async () => {
               </Button>
             )}
 
-            {/* ── Can thiệp phân công ── */}
             <Tooltip title="Đổi lớp / giảng viên">
               <Button
                 size="small"
@@ -417,9 +421,6 @@ const fetchFilterData = async () => {
     },
   ];
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
-  // Đếm đề tài đang chờ để hiện alert
   const pendingCount = theses.filter(
     (t) => t.admin_status === "pending",
   ).length;
@@ -433,7 +434,6 @@ const fetchFilterData = async () => {
       }
       style={{ margin: 24 }}
     >
-      {/* Cảnh báo đề tài chờ duyệt */}
       {pendingCount > 0 && (
         <Alert
           type="warning"
@@ -455,7 +455,6 @@ const fetchFilterData = async () => {
         />
       )}
 
-      {/* ── Bộ lọc ── */}
       <Space style={{ marginBottom: 20 }} wrap>
         <Select
           placeholder="Admin Status"
@@ -518,7 +517,6 @@ const fetchFilterData = async () => {
         <Button onClick={() => setFilters({})}>Xoá bộ lọc</Button>
       </Space>
 
-      {/* ── Bảng ── */}
       <Table
         dataSource={theses}
         columns={columns}
@@ -533,9 +531,7 @@ const fetchFilterData = async () => {
         }
       />
 
-      {/* ══════════════════════════════════════════════════════
-          MODAL 1: XEM CHI TIẾT ĐỀ TÀI
-      ══════════════════════════════════════════════════════ */}
+      {/* MODAL 1: XEM CHI TIẾT */}
       <Modal
         title={
           <Space>
@@ -546,15 +542,15 @@ const fetchFilterData = async () => {
         open={!!detailTarget}
         onCancel={() => setDetailTarget(null)}
         footer={[
-          /* Nút hành động ngay trong modal chi tiết cho tiện */
           detailTarget?.admin_status !== "approved" && (
+            // FIX: Dùng handleApprove trực tiếp, không double-invoke
             <Popconfirm
               key="approve"
-              title={`Duyệt đề tài này?`}
+              title="Duyệt đề tài này?"
               onConfirm={async () => {
                 if (!detailTarget) return;
-                await handleApproveConfirm(detailTarget)();
                 setDetailTarget(null);
+                await handleApprove(detailTarget);
               }}
               okText="Duyệt"
               cancelText="Huỷ"
@@ -586,72 +582,67 @@ const fetchFilterData = async () => {
         destroyOnClose
       >
         {detailTarget && (
-          <>
-            <Descriptions bordered column={1} size="small">
-              <Descriptions.Item label="Tiêu đề">
-                <strong>{detailTarget.title}</strong>
-              </Descriptions.Item>
-              <Descriptions.Item label="Mô tả">
-                {detailTarget.description || (
-                  <i style={{ color: "#aaa" }}>Không có mô tả</i>
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label="Sinh viên">
-                {detailTarget.student_name}
-              </Descriptions.Item>
-              <Descriptions.Item label="Giảng viên">
-                {detailTarget.lecturer_name}
-              </Descriptions.Item>
-              <Descriptions.Item label="Lớp học phần">
-                {detailTarget.class_name || (
-                  <span style={{ color: "#ff4d4f" }}>Chưa phân lớp</span>
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label="Học kỳ">
-                {detailTarget.session_name || "—"}
-              </Descriptions.Item>
-              <Descriptions.Item label="GV duyệt">
-                {renderLecturerStatus(detailTarget.lecturer_status)}
-              </Descriptions.Item>
-              {detailTarget.lecturer_note && (
-                <Descriptions.Item label="Nhận xét GV">
-                  {detailTarget.lecturer_note}
-                </Descriptions.Item>
+          <Descriptions bordered column={1} size="small">
+            <Descriptions.Item label="Tiêu đề">
+              <strong>{detailTarget.title}</strong>
+            </Descriptions.Item>
+            <Descriptions.Item label="Mô tả">
+              {detailTarget.description || (
+                <i style={{ color: "#aaa" }}>Không có mô tả</i>
               )}
-              <Descriptions.Item label="Admin duyệt">
-                {renderAdminStatus(detailTarget.admin_status)}
-              </Descriptions.Item>
-              {detailTarget.reject_reason && (
-                <Descriptions.Item label="Lý do từ chối">
-                  <span style={{ color: "#ff4d4f" }}>
-                    {detailTarget.reject_reason}
-                  </span>
-                </Descriptions.Item>
+            </Descriptions.Item>
+            <Descriptions.Item label="Sinh viên">
+              {detailTarget.student_name}
+            </Descriptions.Item>
+            <Descriptions.Item label="Giảng viên">
+              {detailTarget.lecturer_name}
+            </Descriptions.Item>
+            <Descriptions.Item label="Lớp học phần">
+              {detailTarget.class_name || (
+                <span style={{ color: "#ff4d4f" }}>Chưa phân lớp</span>
               )}
-              <Descriptions.Item label="Điểm cuối">
-                {detailTarget.final_score != null
-                  ? detailTarget.final_score
-                  : "Chưa có"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Học kỳ">
+              {detailTarget.session_name || "—"}
+            </Descriptions.Item>
+            <Descriptions.Item label="GV duyệt">
+              {renderLecturerStatus(detailTarget.lecturer_status)}
+            </Descriptions.Item>
+            {detailTarget.lecturer_note && (
+              <Descriptions.Item label="Nhận xét GV">
+                {detailTarget.lecturer_note}
               </Descriptions.Item>
-              <Descriptions.Item label="Ngày nộp">
-                {detailTarget.created_at
-                  ? new Date(detailTarget.created_at).toLocaleString("vi-VN")
-                  : "—"}
+            )}
+            <Descriptions.Item label="Admin duyệt">
+              {renderAdminStatus(detailTarget.admin_status)}
+            </Descriptions.Item>
+            {detailTarget.reject_reason && (
+              <Descriptions.Item label="Lý do từ chối">
+                <span style={{ color: "#ff4d4f" }}>
+                  {detailTarget.reject_reason}
+                </span>
               </Descriptions.Item>
-              {detailTarget.approved_at && (
-                <Descriptions.Item label="Ngày duyệt">
-                  {new Date(detailTarget.approved_at).toLocaleString("vi-VN")}
-                </Descriptions.Item>
-              )}
-            </Descriptions>
-          </>
+            )}
+            <Descriptions.Item label="Điểm cuối">
+              {detailTarget.final_score != null
+                ? detailTarget.final_score
+                : "Chưa có"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Ngày nộp">
+              {detailTarget.created_at
+                ? new Date(detailTarget.created_at).toLocaleString("vi-VN")
+                : "—"}
+            </Descriptions.Item>
+            {detailTarget.approved_at && (
+              <Descriptions.Item label="Ngày duyệt">
+                {new Date(detailTarget.approved_at).toLocaleString("vi-VN")}
+              </Descriptions.Item>
+            )}
+          </Descriptions>
         )}
       </Modal>
 
-      {/* ══════════════════════════════════════════════════════
-          MODAL 2: TỪ CHỐI — nhập reject_reason
-          Ghi vào cột reject_reason (nvarchar(max)) trong bảng Thesis
-      ══════════════════════════════════════════════════════ */}
+      {/* MODAL 2: TỪ CHỐI */}
       <Modal
         title={
           <Space>
@@ -711,9 +702,7 @@ const fetchFilterData = async () => {
         )}
       </Modal>
 
-      {/* ══════════════════════════════════════════════════════
-          MODAL 3: CAN THIỆP PHÂN CÔNG (đổi lớp / GV)
-      ══════════════════════════════════════════════════════ */}
+      {/* MODAL 3: CAN THIỆP PHÂN CÔNG */}
       <Modal
         title={
           <Space>
@@ -769,7 +758,10 @@ const fetchFilterData = async () => {
                   {classes.map((c) => (
                     <Select.Option key={c.id} value={Number(c.id)}>
                       {c.class_name}
-                      {c.session_name ? ` (${c.session_name})` : ""}
+                      {(c as ClassFilterItem & { session_name?: string })
+                        .session_name
+                        ? ` (${(c as ClassFilterItem & { session_name?: string }).session_name})`
+                        : ""}
                     </Select.Option>
                   ))}
                 </Select>

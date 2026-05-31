@@ -37,8 +37,6 @@ import { importStudentExcel } from "../../services/admin";
 
 const API = "http://localhost:5000";
 
-
-
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -56,6 +54,9 @@ const AdminUsers: React.FC = () => {
   const [importing, setImporting] = useState(false);
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [importSuccess, setImportSuccess] = useState<number>(0);
+
+  // FIX: Track deleting per row để tránh double-click xóa
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -85,6 +86,8 @@ const AdminUsers: React.FC = () => {
   });
 
   const handleDelete = async (id: number) => {
+    if (deletingIds.has(id)) return;
+    setDeletingIds((prev) => new Set(prev).add(id));
     try {
       const res = await fetch(`${API}/api/admin/users/${id}`, {
         method: "DELETE",
@@ -101,6 +104,12 @@ const AdminUsers: React.FC = () => {
       }
     } catch {
       message.error("Lỗi kết nối hệ thống khi xóa");
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -177,7 +186,6 @@ const AdminUsers: React.FC = () => {
     setImportSuccess(0);
     setIsImportModalOpen(true);
   };
-
 
   const handleImport = async () => {
     if (!importFile?.originFileObj) {
@@ -282,7 +290,13 @@ const AdminUsers: React.FC = () => {
             cancelText="Hủy"
             okButtonProps={{ danger: true }}
           >
-            <Button type="link" danger icon={<DeleteOutlined />}>
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              loading={deletingIds.has(record.id)}
+              disabled={deletingIds.has(record.id)}
+            >
               Xóa
             </Button>
           </Popconfirm>
@@ -342,6 +356,7 @@ const AdminUsers: React.FC = () => {
         locale={{ emptyText: "Không có người dùng nào" }}
       />
 
+      {/* MODAL TẠO MỚI */}
       <Modal
         title="Thêm người dùng mới"
         open={isModalVisible && !editingUser}
@@ -452,7 +467,7 @@ const AdminUsers: React.FC = () => {
         </Form>
       </Modal>
 
-
+      {/* MODAL IMPORT */}
       <Modal
         title={
           <Space>
@@ -518,7 +533,7 @@ const AdminUsers: React.FC = () => {
                 message.error("File không được vượt quá 5MB!");
                 return Upload.LIST_IGNORE;
               }
-              return false; // Không auto-upload, chờ submit thủ công
+              return false;
             }}
             fileList={importFile ? [importFile] : []}
             onChange={({ fileList }) => {
