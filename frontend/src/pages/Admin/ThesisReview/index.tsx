@@ -25,65 +25,15 @@ import {
   EyeOutlined,
   ExclamationCircleOutlined,
 } from "@ant-design/icons";
+import {
+  ThesisItem,
+  ClassFilterItem,
+  LecturerFilterItem,
+  SessionFilterItem,
+  FilterParams,
+} from "../../../types/AdminTypes/ThesisTypes";
 
 const API = "http://localhost:5000";
-
-// ─── Interfaces khớp schema DB ────────────────────────────────────────────────
-
-/**
- * [Thesis]: id, session_id, class_id, student_id, lecturer_id,
- *           title, description,
- *           lecturer_status, admin_status, lecturer_note,
- *           reject_reason, approved_at, created_at, final_score, status
- * + join: student_name, lecturer_name, class_name, session_name
- */
-interface ThesisItem {
-  id: number;
-  title: string;
-  description: string | null;
-  student_id: number;
-  student_name: string;
-  lecturer_id: number;
-  lecturer_name: string;
-  class_id: number | null;
-  class_name: string | null;
-  session_id: number;
-  session_name: string | null;
-  lecturer_status: "pending" | "approved" | "rejected";
-  admin_status: "pending" | "approved" | "rejected";
-  lecturer_note: string | null;
-  reject_reason: string | null;
-  status: string | null;
-  final_score: number | null;
-  created_at: string;
-  approved_at: string | null;
-}
-
-interface ClassFilterItem {
-  id: number;
-  class_name: string;
-  session_name?: string;
-}
-
-interface LecturerFilterItem {
-  id: number;
-  name: string;
-}
-
-interface SessionFilterItem {
-  id: number;
-  name: string;
-  is_active: boolean;
-}
-
-interface FilterParams {
-  adminStatus?: string;
-  lecturerStatus?: string;
-  classId?: number;
-  sessionId?: number;
-}
-
-// ─── Helpers render ────────────────────────────────────────────────────────────
 
 const ADMIN_STATUS_CFG: Record<string, { color: string; text: string }> = {
   approved: { color: "green", text: "Admin duyệt" },
@@ -113,10 +63,7 @@ const renderLecturerStatus = (status: string) => {
   return <Tag color={c.color}>{c.text}</Tag>;
 };
 
-// ─── Component ─────────────────────────────────────────────────────────────────
-
 const ThesisReview: React.FC = () => {
-  // Data
   const [theses, setTheses] = useState<ThesisItem[]>([]);
   const [classes, setClasses] = useState<ClassFilterItem[]>([]);
   const [lecturers, setLecturers] = useState<LecturerFilterItem[]>([]);
@@ -124,7 +71,6 @@ const ThesisReview: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<FilterParams>({});
 
-  // Modal duyệt / từ chối
   const [reviewTarget, setReviewTarget] = useState<ThesisItem | null>(null);
   const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(
     null,
@@ -132,30 +78,44 @@ const ThesisReview: React.FC = () => {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [rejectForm] = Form.useForm<{ reject_reason: string }>();
 
-  // Modal xem chi tiết
   const [detailTarget, setDetailTarget] = useState<ThesisItem | null>(null);
 
-  // Modal can thiệp phân công
   const [overrideTarget, setOverrideTarget] = useState<ThesisItem | null>(null);
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
   const [overrideForm] = Form.useForm();
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  // FIX: Track loading per-row để tránh double-click
+  const [approvingIds, setApprovingIds] = useState<Set<number>>(new Set());
 
   const fetchFilterData = async () => {
     try {
-      const [r1, r2, r3] = await Promise.all([
-        fetch(`${API}/api/classes`),
-        fetch(`${API}/api/users?role=lecturer`),
-        fetch(`${API}/api/sessions`),
-      ]);
-      const [c, l, s] = await Promise.all([r1.json(), r2.json(), r3.json()]);
-      setClasses(Array.isArray(c) ? c : []);
-      setLecturers(Array.isArray(l) ? l : []);
-      setSessions(Array.isArray(s) ? s : []);
-    } catch {
-      message.error("Lỗi khi tải dữ liệu bộ lọc!");
-      console.error(error);
+      const res = await fetch(`${API}/api/admin/classes`);
+      if (res.ok) {
+        const c = await res.json();
+        setClasses(Array.isArray(c) ? c : []);
+      }
+    } catch (err) {
+      console.error("Lỗi tải bộ lọc lớp:", err);
+    }
+
+    try {
+      const res = await fetch(`${API}/api/admin/users?role=lecturer`);
+      if (res.ok) {
+        const l = await res.json();
+        setLecturers(Array.isArray(l) ? l : []);
+      }
+    } catch (err) {
+      console.error("Lỗi tải bộ lọc giảng viên:", err);
+    }
+
+    try {
+      const res = await fetch(`${API}/api/admin/sessions`);
+      if (res.ok) {
+        const s = await res.json();
+        setSessions(Array.isArray(s) ? s : []);
+      }
+    } catch (err) {
+      console.error("Lỗi tải bộ lọc học kỳ:", err);
     }
   };
 
@@ -168,7 +128,7 @@ const ThesisReview: React.FC = () => {
       if (f.classId) q.append("classId", f.classId.toString());
       if (f.sessionId) q.append("session_id", f.sessionId.toString());
 
-      const res = await fetch(`${API}/api/thesis/admin?${q.toString()}`);
+      const res = await fetch(`${API}/api/admin/thesis?${q.toString()}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
       setTheses(Array.isArray(data) ? data : []);
@@ -182,16 +142,11 @@ const ThesisReview: React.FC = () => {
   useEffect(() => {
     fetchFilterData();
   }, []);
+
   useEffect(() => {
     fetchTheses(filters);
   }, [filters]);
 
-  // ── Duyệt / Từ chối ────────────────────────────────────────────────────────
-
-  /**
-   * Mở modal duyệt: chỉ hiện Popconfirm nhanh vì không cần nhập thêm gì.
-   * Mở modal từ chối: cần nhập reject_reason → lưu vào cột reject_reason (DB).
-   */
   const openReview = (record: ThesisItem, action: "approve" | "reject") => {
     setReviewTarget(record);
     setReviewAction(action);
@@ -206,11 +161,6 @@ const ThesisReview: React.FC = () => {
     rejectForm.resetFields();
   };
 
-  /**
-   * Gọi PATCH /api/admin/thesis/:id/review
-   * Body: { admin_status: 'approved' | 'rejected', reject_reason?: string }
-   * Cập nhật cột admin_status (và reject_reason nếu từ chối) trong bảng Thesis
-   */
   const submitReview = async (rejectReason?: string) => {
     if (!reviewTarget || !reviewAction) return;
     setReviewSubmitting(true);
@@ -250,12 +200,11 @@ const ThesisReview: React.FC = () => {
     }
   };
 
-  /** Duyệt nhanh từ Popconfirm — không cần form */
-  const handleApproveConfirm = (record: ThesisItem) => async () => {
-    setReviewTarget(record);
-    setReviewAction("approve");
-    // Gọi thẳng, không qua modal
-    setReviewSubmitting(true);
+  // FIX: Tách thành hàm độc lập nhận id, không còn trả về function
+  const handleApprove = async (record: ThesisItem) => {
+    // Ngăn double-click
+    if (approvingIds.has(record.id)) return;
+    setApprovingIds((prev) => new Set(prev).add(record.id));
     try {
       const res = await fetch(`${API}/api/admin/thesis/${record.id}/review`, {
         method: "PATCH",
@@ -272,13 +221,13 @@ const ThesisReview: React.FC = () => {
     } catch {
       message.error("Lỗi hệ thống khi duyệt!");
     } finally {
-      setReviewSubmitting(false);
-      setReviewTarget(null);
-      setReviewAction(null);
+      setApprovingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(record.id);
+        return next;
+      });
     }
   };
-
-  // ── Can thiệp phân công ────────────────────────────────────────────────────
 
   const openOverride = (record: ThesisItem) => {
     setOverrideTarget(record);
@@ -324,8 +273,6 @@ const ThesisReview: React.FC = () => {
       setOverrideSubmitting(false);
     }
   };
-
-  // ── Columns ────────────────────────────────────────────────────────────────
 
   const columns = [
     {
@@ -409,10 +356,11 @@ const ThesisReview: React.FC = () => {
         const isPending = record.admin_status === "pending";
         const isApproved = record.admin_status === "approved";
         const isRejected = record.admin_status === "rejected";
+        // FIX: Kiểm tra loading theo id
+        const isApproving = approvingIds.has(record.id);
 
         return (
           <Space size={4} wrap>
-            {/* ── Xem chi tiết ── */}
             <Tooltip title="Xem chi tiết đề tài">
               <Button
                 size="small"
@@ -421,8 +369,8 @@ const ThesisReview: React.FC = () => {
               />
             </Tooltip>
 
-            {/* ── Duyệt (Approve) ── chỉ hiện khi chưa duyệt hoặc đang bị từ chối */}
             {!isApproved && (
+              // FIX: onConfirm gọi trực tiếp handleApprove(record), không double-invoke
               <Popconfirm
                 title={`Duyệt đề tài "${record.title}"?`}
                 description={
@@ -430,7 +378,7 @@ const ThesisReview: React.FC = () => {
                     ? "Đề tài này đã bị từ chối trước đó. Bạn có chắc muốn duyệt lại?"
                     : "Xác nhận duyệt đề tài này."
                 }
-                onConfirm={handleApproveConfirm(record)}
+                onConfirm={() => handleApprove(record)}
                 okText="Duyệt"
                 cancelText="Huỷ"
                 icon={<CheckCircleOutlined style={{ color: "#52c41a" }} />}
@@ -439,14 +387,15 @@ const ThesisReview: React.FC = () => {
                   size="small"
                   type="primary"
                   icon={<CheckCircleOutlined />}
-                  disabled={reviewSubmitting}
+                  // FIX: Disable theo id, không disable toàn bộ bảng
+                  disabled={isApproving}
+                  loading={isApproving}
                 >
                   Duyệt
                 </Button>
               </Popconfirm>
             )}
 
-            {/* ── Từ chối (Reject) ── chỉ hiện khi chưa từ chối hoặc đang được duyệt */}
             {!isRejected && (
               <Button
                 size="small"
@@ -458,7 +407,6 @@ const ThesisReview: React.FC = () => {
               </Button>
             )}
 
-            {/* ── Can thiệp phân công ── */}
             <Tooltip title="Đổi lớp / giảng viên">
               <Button
                 size="small"
@@ -474,9 +422,6 @@ const ThesisReview: React.FC = () => {
     },
   ];
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
-  // Đếm đề tài đang chờ để hiện alert
   const pendingCount = theses.filter(
     (t) => t.admin_status === "pending",
   ).length;
@@ -490,7 +435,6 @@ const ThesisReview: React.FC = () => {
       }
       style={{ margin: 24 }}
     >
-      {/* Cảnh báo đề tài chờ duyệt */}
       {pendingCount > 0 && (
         <Alert
           type="warning"
@@ -512,7 +456,6 @@ const ThesisReview: React.FC = () => {
         />
       )}
 
-      {/* ── Bộ lọc ── */}
       <Space style={{ marginBottom: 20 }} wrap>
         <Select
           placeholder="Admin Status"
@@ -575,7 +518,6 @@ const ThesisReview: React.FC = () => {
         <Button onClick={() => setFilters({})}>Xoá bộ lọc</Button>
       </Space>
 
-      {/* ── Bảng ── */}
       <Table
         dataSource={theses}
         columns={columns}
@@ -590,9 +532,7 @@ const ThesisReview: React.FC = () => {
         }
       />
 
-      {/* ══════════════════════════════════════════════════════
-          MODAL 1: XEM CHI TIẾT ĐỀ TÀI
-      ══════════════════════════════════════════════════════ */}
+      {/* MODAL 1: XEM CHI TIẾT */}
       <Modal
         title={
           <Space>
@@ -603,15 +543,15 @@ const ThesisReview: React.FC = () => {
         open={!!detailTarget}
         onCancel={() => setDetailTarget(null)}
         footer={[
-          /* Nút hành động ngay trong modal chi tiết cho tiện */
           detailTarget?.admin_status !== "approved" && (
+            // FIX: Dùng handleApprove trực tiếp, không double-invoke
             <Popconfirm
               key="approve"
-              title={`Duyệt đề tài này?`}
+              title="Duyệt đề tài này?"
               onConfirm={async () => {
                 if (!detailTarget) return;
-                await handleApproveConfirm(detailTarget)();
                 setDetailTarget(null);
+                await handleApprove(detailTarget);
               }}
               okText="Duyệt"
               cancelText="Huỷ"
@@ -643,72 +583,67 @@ const ThesisReview: React.FC = () => {
         destroyOnClose
       >
         {detailTarget && (
-          <>
-            <Descriptions bordered column={1} size="small">
-              <Descriptions.Item label="Tiêu đề">
-                <strong>{detailTarget.title}</strong>
-              </Descriptions.Item>
-              <Descriptions.Item label="Mô tả">
-                {detailTarget.description || (
-                  <i style={{ color: "#aaa" }}>Không có mô tả</i>
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label="Sinh viên">
-                {detailTarget.student_name}
-              </Descriptions.Item>
-              <Descriptions.Item label="Giảng viên">
-                {detailTarget.lecturer_name}
-              </Descriptions.Item>
-              <Descriptions.Item label="Lớp học phần">
-                {detailTarget.class_name || (
-                  <span style={{ color: "#ff4d4f" }}>Chưa phân lớp</span>
-                )}
-              </Descriptions.Item>
-              <Descriptions.Item label="Học kỳ">
-                {detailTarget.session_name || "—"}
-              </Descriptions.Item>
-              <Descriptions.Item label="GV duyệt">
-                {renderLecturerStatus(detailTarget.lecturer_status)}
-              </Descriptions.Item>
-              {detailTarget.lecturer_note && (
-                <Descriptions.Item label="Nhận xét GV">
-                  {detailTarget.lecturer_note}
-                </Descriptions.Item>
+          <Descriptions bordered column={1} size="small">
+            <Descriptions.Item label="Tiêu đề">
+              <strong>{detailTarget.title}</strong>
+            </Descriptions.Item>
+            <Descriptions.Item label="Mô tả">
+              {detailTarget.description || (
+                <i style={{ color: "#aaa" }}>Không có mô tả</i>
               )}
-              <Descriptions.Item label="Admin duyệt">
-                {renderAdminStatus(detailTarget.admin_status)}
-              </Descriptions.Item>
-              {detailTarget.reject_reason && (
-                <Descriptions.Item label="Lý do từ chối">
-                  <span style={{ color: "#ff4d4f" }}>
-                    {detailTarget.reject_reason}
-                  </span>
-                </Descriptions.Item>
+            </Descriptions.Item>
+            <Descriptions.Item label="Sinh viên">
+              {detailTarget.student_name}
+            </Descriptions.Item>
+            <Descriptions.Item label="Giảng viên">
+              {detailTarget.lecturer_name}
+            </Descriptions.Item>
+            <Descriptions.Item label="Lớp học phần">
+              {detailTarget.class_name || (
+                <span style={{ color: "#ff4d4f" }}>Chưa phân lớp</span>
               )}
-              <Descriptions.Item label="Điểm cuối">
-                {detailTarget.final_score != null
-                  ? detailTarget.final_score
-                  : "Chưa có"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Học kỳ">
+              {detailTarget.session_name || "—"}
+            </Descriptions.Item>
+            <Descriptions.Item label="GV duyệt">
+              {renderLecturerStatus(detailTarget.lecturer_status)}
+            </Descriptions.Item>
+            {detailTarget.lecturer_note && (
+              <Descriptions.Item label="Nhận xét GV">
+                {detailTarget.lecturer_note}
               </Descriptions.Item>
-              <Descriptions.Item label="Ngày nộp">
-                {detailTarget.created_at
-                  ? new Date(detailTarget.created_at).toLocaleString("vi-VN")
-                  : "—"}
+            )}
+            <Descriptions.Item label="Admin duyệt">
+              {renderAdminStatus(detailTarget.admin_status)}
+            </Descriptions.Item>
+            {detailTarget.reject_reason && (
+              <Descriptions.Item label="Lý do từ chối">
+                <span style={{ color: "#ff4d4f" }}>
+                  {detailTarget.reject_reason}
+                </span>
               </Descriptions.Item>
-              {detailTarget.approved_at && (
-                <Descriptions.Item label="Ngày duyệt">
-                  {new Date(detailTarget.approved_at).toLocaleString("vi-VN")}
-                </Descriptions.Item>
-              )}
-            </Descriptions>
-          </>
+            )}
+            <Descriptions.Item label="Điểm cuối">
+              {detailTarget.final_score != null
+                ? detailTarget.final_score
+                : "Chưa có"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Ngày nộp">
+              {detailTarget.created_at
+                ? new Date(detailTarget.created_at).toLocaleString("vi-VN")
+                : "—"}
+            </Descriptions.Item>
+            {detailTarget.approved_at && (
+              <Descriptions.Item label="Ngày duyệt">
+                {new Date(detailTarget.approved_at).toLocaleString("vi-VN")}
+              </Descriptions.Item>
+            )}
+          </Descriptions>
         )}
       </Modal>
 
-      {/* ══════════════════════════════════════════════════════
-          MODAL 2: TỪ CHỐI — nhập reject_reason
-          Ghi vào cột reject_reason (nvarchar(max)) trong bảng Thesis
-      ══════════════════════════════════════════════════════ */}
+      {/* MODAL 2: TỪ CHỐI */}
       <Modal
         title={
           <Space>
@@ -768,9 +703,7 @@ const ThesisReview: React.FC = () => {
         )}
       </Modal>
 
-      {/* ══════════════════════════════════════════════════════
-          MODAL 3: CAN THIỆP PHÂN CÔNG (đổi lớp / GV)
-      ══════════════════════════════════════════════════════ */}
+      {/* MODAL 3: CAN THIỆP PHÂN CÔNG */}
       <Modal
         title={
           <Space>
@@ -826,7 +759,10 @@ const ThesisReview: React.FC = () => {
                   {classes.map((c) => (
                     <Select.Option key={c.id} value={Number(c.id)}>
                       {c.class_name}
-                      {c.session_name ? ` (${c.session_name})` : ""}
+                      {(c as ClassFilterItem & { session_name?: string })
+                        .session_name
+                        ? ` (${(c as ClassFilterItem & { session_name?: string }).session_name})`
+                        : ""}
                     </Select.Option>
                   ))}
                 </Select>

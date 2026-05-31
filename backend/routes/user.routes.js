@@ -1,3 +1,4 @@
+// routes/user.routes.js
 const express = require("express");
 const router = express.Router();
 const userController = require("../controllers/user.controller");
@@ -11,5 +12,8 @@ router.get("/me", authMiddleware, userController.getProfile);
 router.patch("/:id", userController.updateUser);
 router.patch("/:id/role", authController.updateRole);
 router.delete("/:id", userController.deleteUser);
+
+// router.get("/profile", userController.getProfile);         
+// router.patch("/profile", userController.updateProfile);    
 
 module.exports = router;

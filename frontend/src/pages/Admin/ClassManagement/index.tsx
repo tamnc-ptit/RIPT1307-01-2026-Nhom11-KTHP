@@ -19,54 +19,14 @@ import {
   EditOutlined,
   DeleteOutlined,
 } from "@ant-design/icons";
+import {
+  ClassItem,
+  SessionItem,
+  LecturerItem,
+  ClassFormValues,
+} from "../../../types/AdminTypes/ClassTypes";
 
 const API = "http://localhost:5000";
-
-/**
- * Khớp với schema DB [Classes]:
- *   id, session_id, class_name, course_name, lecturer_id,
- *   max_students (NOT NULL, default 30), description, created_at
- *
- * Các field join từ query (API trả về thêm):
- *   session_name, lecturer_name
- */
-interface ClassItem {
-  id: number;
-  session_id: number;
-  class_name: string;
-  course_name: string;
-  lecturer_id: number;
-  max_students: number;
-  description: string | null;
-  created_at: string;
-  // join fields
-  session_name?: string;
-  lecturer_name?: string;
-}
-
-/**
- * Khớp với schema DB [Sessions]:
- *   id, name (KHÔNG phải semester hay session_name)
- */
-interface SessionItem {
-  id: number;
-  name: string;
-  is_active: boolean;
-}
-
-interface LecturerItem {
-  id: number;
-  name: string;
-}
-
-interface ClassFormValues {
-  class_name: string;
-  course_name: string;
-  session_id: number;
-  lecturer_id: number;
-  max_students: number;
-  description?: string;
-}
 
 const ClassManagement: React.FC = () => {
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -79,24 +39,33 @@ const ClassManagement: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [resClasses, resLecs, resSessions] = await Promise.all([
-        fetch(`${API}/api/classes`),
-        fetch(`${API}/api/users?role=lecturer`),
-        fetch(`${API}/api/sessions`),
-      ]);
+      const res = await fetch(`${API}/api/admin/classes`);
+      if (res.ok) {
+        const classesData = await res.json();
+        setClasses(Array.isArray(classesData) ? classesData : []);
+      }
+    } catch (err) {
+      console.error("Lỗi tải lớp:", err);
+    }
 
-      const [classesData, lecturersData, sessionsData] = await Promise.all([
-        resClasses.json(),
-        resLecs.json(),
-        resSessions.json(),
-      ]);
+    try {
+      const res = await fetch(`${API}/api/admin/sessions`);
+      if (res.ok) {
+        const sessionsData = await res.json();
+        setSessions(Array.isArray(sessionsData) ? sessionsData : []);
+      }
+    } catch (err) {
+      console.error("Lỗi tải học kỳ:", err);
+    }
 
-      setClasses(Array.isArray(classesData) ? classesData : []);
-      setLecturers(Array.isArray(lecturersData) ? lecturersData : []);
-      setSessions(Array.isArray(sessionsData) ? sessionsData : []);
-    } catch (error) {
-      message.error("Không thể tải dữ liệu từ server!");
-      console.error(error);
+    try {
+      const res = await fetch(`${API}/api/admin/users?role=lecturer`);
+      if (res.ok) {
+        const lecturersData = await res.json();
+        setLecturers(Array.isArray(lecturersData) ? lecturersData : []);
+      }
+    } catch (err) {
+      console.error("Lỗi tải giảng viên:", err);
     }
   };
 
@@ -107,7 +76,6 @@ const ClassManagement: React.FC = () => {
   const handleOpenCreate = () => {
     setEditingClass(null);
     form.resetFields();
-    // Giá trị mặc định theo DB (max_students default = 30)
     form.setFieldsValue({ max_students: 30 });
     setIsModalOpen(true);
   };
@@ -117,7 +85,6 @@ const ClassManagement: React.FC = () => {
     form.setFieldsValue({
       class_name: record.class_name,
       course_name: record.course_name,
-      // Ép kiểu Number để tránh mismatch Select value string vs number
       session_id: Number(record.session_id),
       lecturer_id: Number(record.lecturer_id),
       max_students: record.max_students ?? 30,
@@ -131,8 +98,8 @@ const ClassManagement: React.FC = () => {
     try {
       const isEditing = !!editingClass;
       const url = isEditing
-        ? `${API}/api/classes/${editingClass!.id}`
-        : `${API}/api/classes`;
+        ? `${API}/api/admin/classes/${editingClass!.id}`
+        : `${API}/api/admin/classes`;
       const method = isEditing ? "PATCH" : "POST";
 
       const res = await fetch(url, {
@@ -140,7 +107,6 @@ const ClassManagement: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...values,
-          // Đảm bảo gửi number, không phải string
           session_id: Number(values.session_id),
           lecturer_id: Number(values.lecturer_id),
           max_students: Number(values.max_students),
@@ -165,7 +131,7 @@ const ClassManagement: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      const res = await fetch(`${API}/api/classes/${id}`, {
+      const res = await fetch(`${API}/api/admin/classes/${id}`, {
         method: "DELETE",
       });
 
@@ -196,9 +162,18 @@ const ClassManagement: React.FC = () => {
     },
     {
       title: "Học kỳ",
-      dataIndex: "session_name",
-      key: "session_name",
-      render: (s: string) => <Tag color="purple">{s || "Chưa xác định"}</Tag>,
+      dataIndex: "session_id",
+      key: "session_id",
+      render: (id: number) => {
+        const matchedSession = sessions.find(
+          (s) => Number(s.id) === Number(id),
+        );
+        return (
+          <Tag color="purple">
+            {matchedSession ? matchedSession.name : `Mã kỳ: ${id}`}
+          </Tag>
+        );
+      },
     },
     {
       title: "Giảng viên",
@@ -207,11 +182,25 @@ const ClassManagement: React.FC = () => {
       render: (name: string) => <b>{name || "Chưa gán"}</b>,
     },
     {
-      title: "Sĩ số tối đa",
-      dataIndex: "max_students",
-      key: "max_students",
+      title: "Sĩ số (Hiện tại / Tối đa)",
+      key: "class_size",
       align: "center" as const,
-      render: (n: number) => n ?? 30,
+      // FIX: Bỏ any, dùng ClassItem
+      render: (_: unknown, record: ClassItem) => {
+        const current = record.current_students || 0;
+        const max = record.max_students || 0;
+        const isFull = current >= max;
+        return (
+          <span
+            style={{
+              color: isFull ? "#cf1322" : "inherit",
+              fontWeight: isFull ? "bold" : "normal",
+            }}
+          >
+            {current} / {max} {isFull && " (Đầy)"}
+          </span>
+        );
+      },
     },
     {
       title: "Thao tác",
@@ -311,13 +300,11 @@ const ClassManagement: React.FC = () => {
           >
             <Select placeholder="Chọn học kỳ">
               {sessions.map((session) => (
-                /*
-                 * value là Number(session.id) để tránh mismatch kiểu dữ liệu
-                 * session.name — đúng với schema DB [Sessions]
-                 */
                 <Select.Option key={session.id} value={Number(session.id)}>
                   {session.name}
-                  {session.is_active && (
+                  {/* FIX: Normalize is_active — DB trả bit (0/1), check cả hai */}
+                  {(session.is_active === true ||
+                    (session.is_active as unknown as number) === 1) && (
                     <Tag color="green" style={{ marginLeft: 8, fontSize: 11 }}>
                       Đang mở
                     </Tag>
@@ -345,10 +332,6 @@ const ClassManagement: React.FC = () => {
             </Select>
           </Form.Item>
 
-          {/*
-           * max_students — cột NOT NULL trong DB với default 30
-           * Có constraint CK_Classes_MaxStudents: max_students > 0
-           */}
           <Form.Item
             name="max_students"
             label="Sĩ số tối đa"

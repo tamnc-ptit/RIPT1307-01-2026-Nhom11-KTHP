@@ -22,31 +22,19 @@ import {
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
+import {
+  SessionItem,
+  SessionFormValues,
+} from "../../../types/AdminTypes/SessionTypes";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 const API = "http://localhost:5000";
 
-/**
- * Khớp với schema DB [Sessions]:
- *   id, name, start_date, end_date, is_active, created_by, created_at
- *
- * Lưu ý: KHÔNG có trường `semester` — tên đợt lưu vào `name`
- */
-interface SessionItem {
-  id: number;
-  name: string;
-  start_date: string;
-  end_date: string;
-  is_active: boolean;
-  created_at: string;
-}
-
-interface SessionFormValues {
-  name: string;
-  timeRange: [dayjs.Dayjs, dayjs.Dayjs];
-}
+// FIX: Helper normalize is_active — DB trả bit (0/1 hoặc true/false)
+const isActive = (val: SessionItem["is_active"]): boolean =>
+  val === true || (val as unknown as number) === 1;
 
 const SessionSettings: React.FC = () => {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
@@ -57,7 +45,7 @@ const SessionSettings: React.FC = () => {
   const fetchSessions = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/sessions`);
+      const res = await fetch(`${API}/api/admin/sessions`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setSessions(Array.isArray(data) ? data : []);
@@ -77,13 +65,14 @@ const SessionSettings: React.FC = () => {
 
   const handleCloseSession = async (id: number) => {
     try {
-      const res = await fetch(`${API}/api/sessions/${id}/close`, {
+      const res = await fetch(`${API}/api/admin/sessions/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: 0 }),
       });
 
       if (res.ok) {
-        notification.success({ message: "Đã đóng đợt đồ án thủ công." });
+        notification.success({ message: "Đã đóng đợt đồ án thành công." });
         fetchSessions();
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -97,18 +86,15 @@ const SessionSettings: React.FC = () => {
   };
 
   const handleCreate = async (values: SessionFormValues) => {
-    /**
-     * Gửi đúng field `name` theo schema Sessions
-     * start_date / end_date format YYYY-MM-DD HH:mm:ss
-     */
     const payload = {
       name: values.name.trim(),
       start_date: values.timeRange[0].format("YYYY-MM-DD HH:mm:ss"),
       end_date: values.timeRange[1].format("YYYY-MM-DD HH:mm:ss"),
+      is_active: 1,
     };
 
     try {
-      const res = await fetch(`${API}/api/sessions`, {
+      const res = await fetch(`${API}/api/admin/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -117,13 +103,12 @@ const SessionSettings: React.FC = () => {
       if (res.ok) {
         notification.success({
           message: "Thành công",
-          description: `Đã tạo đợt "${payload.name}" thành công.`,
+          description: `Đã kích hoạt đợt "${payload.name}" thành công.`,
         });
         setIsModalOpen(false);
         form.resetFields();
         fetchSessions();
       } else {
-        // Xử lý lỗi trả về từ server (ví dụ: trùng tên do UQ_Sessions_Name)
         const errData = await res.json().catch(() => ({}));
         notification.error({
           message: "Tạo đợt thất bại",
@@ -163,21 +148,27 @@ const SessionSettings: React.FC = () => {
       dataIndex: "is_active",
       key: "is_active",
       align: "center",
-      render: (active: boolean) => (
-        <Tag
-          color={active ? "green" : "default"}
-          icon={active ? <ClockCircleOutlined /> : null}
-        >
-          {active ? "ĐANG MỞ" : "ĐÃ ĐÓNG"}
-        </Tag>
-      ),
+      // FIX: Dùng helper isActive() thay vì check rải rác
+      render: (active: SessionItem["is_active"]) => {
+        const active_ = isActive(active);
+        return (
+          <Tag
+            color={active_ ? "green" : "default"}
+            icon={active_ ? <ClockCircleOutlined /> : null}
+          >
+            {active_ ? "ĐANG MỞ" : "ĐÃ ĐÓNG"}
+          </Tag>
+        );
+      },
     },
     {
       title: "Thao tác",
       key: "action",
       align: "center",
-      render: (_, record) =>
-        record.is_active ? (
+      render: (_, record) => {
+        // FIX: Dùng helper isActive() thống nhất
+        const active_ = isActive(record.is_active);
+        return active_ ? (
           <Popconfirm
             title="Bạn có chắc muốn đóng đợt đồ án này sớm hơn dự kiến?"
             onConfirm={() => handleCloseSession(record.id)}
@@ -193,7 +184,8 @@ const SessionSettings: React.FC = () => {
           <Text type="secondary" style={{ fontSize: 12 }}>
             —
           </Text>
-        ),
+        );
+      },
     },
   ];
 
@@ -253,10 +245,6 @@ const SessionSettings: React.FC = () => {
         destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleCreate}>
-          {/*
-           * Field `name` — khớp với cột `name` trong bảng Sessions (DB)
-           * Có ràng buộc UQ_Sessions_Name nên tên phải duy nhất
-           */}
           <Form.Item
             name="name"
             label="Tên đợt / Học kỳ"

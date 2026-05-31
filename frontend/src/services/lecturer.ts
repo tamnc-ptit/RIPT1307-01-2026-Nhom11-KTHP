@@ -5,7 +5,7 @@ const getAuthHeader = (): Record<string, string> => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-export async function getDashboardStats(lecturerId: number) {
+export async function getLecturerDashboard(lecturerId: number) {
   return request("/api/lecturer/dashboard/stats", {
     method: "GET",
     params: { lecturerId },
@@ -38,9 +38,10 @@ export async function getLecturerClasses(lecturerId: number) {
     });
 }
 
-export async function approveThesis(id: number) {
+export async function approveThesis(id: number, lecturerNote?: string) {
     return request(`/api/lecturer/theses/${id}/approve`, {
         method: "PUT",
+        data: { lecturerNote },
         headers: getAuthHeader(),
     });
 }
@@ -188,6 +189,13 @@ export async function deleteProposal(id: number) {
   });
 }
 
+export async function getProposalRegistrations(proposalId: number) {
+  return request(`/api/lecturer/proposals/${proposalId}/registrations`, {
+    method: "GET",
+    headers: getAuthHeader(),
+  });
+}
+
 export async function getThesisDetail(thesisId: string | number) {
   return request(`/api/lecturer/theses/${thesisId}/detail`, {
     method: "GET",
@@ -216,6 +224,21 @@ export async function bulkRejectTheses(payload: { thesisIds: number[]; rejectRea
   return request("/api/lecturer/theses/bulk-reject", {
     method: "POST",
     data: payload,
+    headers: getAuthHeader(),
+  });
+}
+
+export async function getProfile() {
+  return request("/api/lecturer/profile", {
+    method: "GET",
+    headers: getAuthHeader(),
+  });
+}
+
+export async function updateProfile(data: { phone?: string; degree?: string; domain?: string }) {
+  return request("/api/lecturer/profile", {
+    method: "PUT",
+    data,
     headers: getAuthHeader(),
   });
 }

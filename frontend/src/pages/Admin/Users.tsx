@@ -12,45 +12,30 @@ import {
   message,
   Popconfirm,
   Card,
+  Upload,
+  Alert,
+  Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import type { UploadFile, RcFile } from "antd/es/upload/interface";
 import {
   EditOutlined,
   DeleteOutlined,
   SearchOutlined,
   PlusOutlined,
+  UploadOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
+import {
+  User,
+  CreateUserValues,
+  EditUserValues,
+  UserRole,
+  ImportResult,
+} from "../../types/AdminTypes/UserTypes";
+import { importStudentExcel } from "../../services/admin";
 
 const API = "http://localhost:5000";
-
-/**
- * Khớp với schema DB [Users]:
- *   id, name, email, password_hash, role, is_active,
- *   last_login, created_at, updated_at
- */
-type UserRole = "student" | "lecturer" | "admin";
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: UserRole;
-  is_active: boolean;
-  last_login: string | null;
-  created_at: string;
-}
-
-interface CreateUserValues {
-  name: string;
-  email: string;
-  password: string;
-  role: UserRole;
-}
-
-interface EditUserValues {
-  role: UserRole;
-  is_active: boolean;
-}
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -64,18 +49,23 @@ const AdminUsers: React.FC = () => {
   const [editForm] = Form.useForm<EditUserValues>();
   const [submitting, setSubmitting] = useState(false);
 
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<UploadFile | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [importSuccess, setImportSuccess] = useState<number>(0);
+
+  // FIX: Track deleting per row để tránh double-click xóa
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      /**
-       * Dùng /api/auth/users — endpoint quản lý user của admin
-       * (Tách biệt với /api/users?role=lecturer dùng cho dropdown filter)
-       */
-      const res = await fetch(`${API}/api/auth/users`);
+      const res = await fetch(`${API}/api/admin/users`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: User[] = await res.json();
       setUsers(Array.isArray(data) ? data : []);
-    } catch (err) {
+    } catch {
       message.error("Không thể tải danh sách người dùng");
     } finally {
       setLoading(false);
@@ -96,8 +86,10 @@ const AdminUsers: React.FC = () => {
   });
 
   const handleDelete = async (id: number) => {
+    if (deletingIds.has(id)) return;
+    setDeletingIds((prev) => new Set(prev).add(id));
     try {
-      const res = await fetch(`${API}/api/auth/users/${id}`, {
+      const res = await fetch(`${API}/api/admin/users/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
@@ -110,8 +102,14 @@ const AdminUsers: React.FC = () => {
             "Không thể xóa do người dùng có dữ liệu liên quan!",
         );
       }
-    } catch (err) {
+    } catch {
       message.error("Lỗi kết nối hệ thống khi xóa");
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -130,7 +128,6 @@ const AdminUsers: React.FC = () => {
     setIsModalVisible(true);
   };
 
-  /** Tạo mới user */
   const handleCreate = async (values: CreateUserValues) => {
     setSubmitting(true);
     try {
@@ -148,23 +145,18 @@ const AdminUsers: React.FC = () => {
         const errData = await res.json().catch(() => ({}));
         message.error(errData.message || "Tạo mới thất bại");
       }
-    } catch (err) {
+    } catch {
       message.error("Lỗi kết nối hệ thống");
     } finally {
       setSubmitting(false);
     }
   };
 
-  /** Cập nhật role và is_active của user */
   const handleUpdate = async (values: EditUserValues) => {
     if (!editingUser) return;
     setSubmitting(true);
     try {
-      /**
-       * Gửi cả role lẫn is_active — is_active khớp với cột DB
-       * is_active: bit NOT NULL trong schema Users
-       */
-      const res = await fetch(`${API}/api/auth/users/${editingUser.id}/role`, {
+      const res = await fetch(`${API}/api/admin/users/${editingUser.id}/role`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -181,10 +173,52 @@ const AdminUsers: React.FC = () => {
         const errData = await res.json().catch(() => ({}));
         message.error(errData.message || "Cập nhật thất bại");
       }
-    } catch (err) {
+    } catch {
       message.error("Lỗi kết nối hệ thống");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openImportModal = () => {
+    setImportFile(null);
+    setImportErrors([]);
+    setImportSuccess(0);
+    setIsImportModalOpen(true);
+  };
+
+  const handleImport = async () => {
+    if (!importFile?.originFileObj) {
+      message.warning("Vui lòng chọn file Excel trước khi import.");
+      return;
+    }
+    setImporting(true);
+    setImportErrors([]);
+    setImportSuccess(0);
+    try {
+      const result = (await importStudentExcel(
+        importFile.originFileObj as RcFile,
+      )) as ImportResult;
+
+      const imported = result?.imported ?? 0;
+      const errors: string[] = Array.isArray(result?.errors)
+        ? result.errors
+        : [];
+
+      setImportSuccess(imported);
+      setImportErrors(errors);
+
+      if (imported > 0) {
+        message.success(`Import thành công ${imported} sinh viên.`);
+        fetchUsers();
+      }
+      if (errors.length === 0 && imported > 0) {
+        setTimeout(() => setIsImportModalOpen(false), 1500);
+      }
+    } catch {
+      message.error("Lỗi hệ thống khi import file Excel!");
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -256,7 +290,13 @@ const AdminUsers: React.FC = () => {
             cancelText="Hủy"
             okButtonProps={{ danger: true }}
           >
-            <Button type="link" danger icon={<DeleteOutlined />}>
+            <Button
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              loading={deletingIds.has(record.id)}
+              disabled={deletingIds.has(record.id)}
+            >
               Xóa
             </Button>
           </Popconfirm>
@@ -270,13 +310,18 @@ const AdminUsers: React.FC = () => {
       title="Quản trị Người dùng hệ thống"
       style={{ margin: 24 }}
       extra={
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={showCreateModal}
-        >
-          Thêm người dùng
-        </Button>
+        <Space>
+          <Button icon={<UploadOutlined />} onClick={openImportModal}>
+            Import sinh viên (Excel)
+          </Button>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={showCreateModal}
+          >
+            Thêm người dùng
+          </Button>
+        </Space>
       }
     >
       <Space style={{ marginBottom: 20 }}>
@@ -311,7 +356,7 @@ const AdminUsers: React.FC = () => {
         locale={{ emptyText: "Không có người dùng nào" }}
       />
 
-      {/* ===== MODAL TẠO MỚI ===== */}
+      {/* MODAL TẠO MỚI */}
       <Modal
         title="Thêm người dùng mới"
         open={isModalVisible && !editingUser}
@@ -334,7 +379,6 @@ const AdminUsers: React.FC = () => {
           >
             <Input disabled={!!editingUser} />
           </Form.Item>
-
           <Form.Item
             name="email"
             label="Email học viện"
@@ -346,7 +390,6 @@ const AdminUsers: React.FC = () => {
           >
             <Input placeholder="vi-du@ptit.edu.vn" />
           </Form.Item>
-
           <Form.Item
             name="password"
             label="Mật khẩu tạm thời"
@@ -357,7 +400,6 @@ const AdminUsers: React.FC = () => {
           >
             <Input.Password placeholder="Nhập mật khẩu ít nhất 6 ký tự" />
           </Form.Item>
-
           <Form.Item
             name="role"
             label="Vai trò hệ thống"
@@ -372,12 +414,7 @@ const AdminUsers: React.FC = () => {
         </Form>
       </Modal>
 
-      {/* ===== MODAL CHỈNH SỬA ===== */}
-      {/*
-       * Tách thành modal riêng để tránh conflict rules giữa create / edit.
-       * Khi edit: chỉ cho đổi role và is_active.
-       * name + email disabled và KHÔNG có rules required (tránh lỗi validate).
-       */}
+      {/* MODAL CHỈNH SỬA */}
       <Modal
         title={`Chỉnh sửa: ${editingUser?.name ?? ""}`}
         open={isModalVisible && !!editingUser}
@@ -390,7 +427,6 @@ const AdminUsers: React.FC = () => {
         confirmLoading={submitting}
         destroyOnClose
       >
-        {/* Thông tin chỉ đọc — hiển thị ngoài Form, không validate */}
         <div
           style={{
             padding: "8px 12px",
@@ -406,7 +442,6 @@ const AdminUsers: React.FC = () => {
             <strong>Email:</strong> {editingUser?.email}
           </div>
         </div>
-
         <Form form={editForm} layout="vertical" onFinish={handleUpdate}>
           <Form.Item
             name="role"
@@ -419,11 +454,6 @@ const AdminUsers: React.FC = () => {
               <Select.Option value="admin">Quản trị</Select.Option>
             </Select>
           </Form.Item>
-
-          {/*
-           * is_active — cột bit NOT NULL trong schema Users
-           * Cho phép admin khoá/mở khoá tài khoản
-           */}
           <Form.Item
             name="is_active"
             label="Trạng thái tài khoản"
@@ -435,6 +465,123 @@ const AdminUsers: React.FC = () => {
             />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* MODAL IMPORT */}
+      <Modal
+        title={
+          <Space>
+            <UploadOutlined />
+            Import Sinh viên từ Excel
+          </Space>
+        }
+        open={isImportModalOpen}
+        onOk={handleImport}
+        onCancel={() => setIsImportModalOpen(false)}
+        okText="Bắt đầu Import"
+        cancelText="Đóng"
+        confirmLoading={importing}
+        okButtonProps={{ disabled: !importFile }}
+        destroyOnClose
+      >
+        <Space direction="vertical" style={{ width: "100%" }}>
+          <Alert
+            type="info"
+            showIcon
+            message="Yêu cầu định dạng file"
+            description={
+              <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                <li>File Excel (.xlsx hoặc .xls), tối đa 5MB</li>
+                <li>
+                  Cột bắt buộc: <Typography.Text code>name</Typography.Text>,{" "}
+                  <Typography.Text code>email</Typography.Text>,{" "}
+                  <Typography.Text code>student_code</Typography.Text>
+                </li>
+                <li>
+                  Cột tuỳ chọn: <Typography.Text code>phone</Typography.Text>,{" "}
+                  <Typography.Text code>department</Typography.Text>
+                </li>
+                <li>Password mặc định sẽ được tạo tự động từ server</li>
+              </ul>
+            }
+          />
+
+          <Button
+            type="link"
+            icon={<DownloadOutlined />}
+            href={`${API}/api/admin/import/students/template`}
+            target="_blank"
+            style={{ padding: 0 }}
+          >
+            Tải file mẫu (.xlsx)
+          </Button>
+
+          <Upload
+            accept=".xlsx,.xls"
+            maxCount={1}
+            beforeUpload={(file) => {
+              const isExcel =
+                file.type ===
+                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+                file.type === "application/vnd.ms-excel";
+              if (!isExcel) {
+                message.error("Chỉ chấp nhận file .xlsx hoặc .xls!");
+                return Upload.LIST_IGNORE;
+              }
+              const isUnder5MB = file.size / 1024 / 1024 < 5;
+              if (!isUnder5MB) {
+                message.error("File không được vượt quá 5MB!");
+                return Upload.LIST_IGNORE;
+              }
+              return false;
+            }}
+            fileList={importFile ? [importFile] : []}
+            onChange={({ fileList }) => {
+              setImportFile(fileList[fileList.length - 1] ?? null);
+              setImportErrors([]);
+              setImportSuccess(0);
+            }}
+            onRemove={() => {
+              setImportFile(null);
+              setImportErrors([]);
+              setImportSuccess(0);
+            }}
+          >
+            <Button icon={<UploadOutlined />}>Chọn file Excel</Button>
+          </Upload>
+
+          {importSuccess > 0 && (
+            <Alert
+              type="success"
+              showIcon
+              message={`Import thành công ${importSuccess} sinh viên.`}
+            />
+          )}
+
+          {importErrors.length > 0 && (
+            <Alert
+              type="warning"
+              showIcon
+              message={`${importErrors.length} dòng bị lỗi, đã bỏ qua:`}
+              description={
+                <ul
+                  style={{
+                    margin: "4px 0 0",
+                    paddingLeft: 18,
+                    maxHeight: 160,
+                    overflowY: "auto",
+                  }}
+                >
+                  {importErrors.map((err, i) => (
+                    <li key={i} style={{ fontSize: 12 }}>
+                      {err}
+                    </li>
+                  ))}
+                </ul>
+              }
+            />
+          )}
+        </Space>
       </Modal>
     </Card>
   );
