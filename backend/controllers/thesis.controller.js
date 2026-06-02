@@ -1,3 +1,4 @@
+// backend/controllers/thesis.controller.js
 const { poolPromise, sql } = require("../config/db");
 const thesisService = require("../services/thesis.service");
 const auditService = require("../services/audit.service");
@@ -21,22 +22,27 @@ const getAdminThesis = async (req, res) => {
   }
 };
 
-
 const createThesis = async (req, res) => {
-  const { title, student_id } = req.body;
+  // Hứng toàn bộ các trường quan trọng gửi lên từ Frontend
+  const { title, description, domain, lecturer_id, student_id, session_id } = req.body;
 
   if (!title) {
     return res.status(400).json({ message: "Thiếu tiêu đề đề tài bắt buộc" });
   }
 
+  // Chặn lỗi SQL "Cannot insert NULL into session_id"
+  if (!session_id) {
+    return res.status(400).json({ message: "Thiếu thông tin Đợt đăng ký (session_id)!" });
+  }
+
   try {
+  
     const data = await thesisService.createThesis(req.body);
     res.status(201).json(data);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 };
-
 
 const updateThesis = async (req, res) => {
   const { id } = req.params;
@@ -81,9 +87,9 @@ const deleteThesis = async (req, res) => {
     res.status(500).json({ message: "Lỗi delete", error: err.message });
   }
 };
+
 const updateThesisReviewStatus = async (req, res) => {
   const { id } = req.params;
-
   const { admin_status, reject_reason } = req.body;
 
   if (isNaN(id)) {
@@ -91,10 +97,7 @@ const updateThesisReviewStatus = async (req, res) => {
   }
 
   try {
-    console.log(
-      `>>> Admin duyệt ID Đề tài: ${id}, Trạng thái: ${admin_status}`,
-    );
-
+    console.log(`>>> Admin duyệt ID Đề tài: ${id}, Trạng thái: ${admin_status}`);
     const pool = await poolPromise;
 
     const result = await pool
@@ -102,7 +105,6 @@ const updateThesisReviewStatus = async (req, res) => {
       .input("id", sql.Int, id)
       .input("admin_status", sql.NVarChar, admin_status || null)
       .input("reject_reason", sql.NVarChar, reject_reason || null).query(`
-        -- Khai báo bảng tạm chứa cấu trúc kết quả bảng Thesis
         DECLARE @TmpReview TABLE (
           id INT,
           session_id INT,
@@ -123,7 +125,6 @@ const updateThesisReviewStatus = async (req, res) => {
           status NVARCHAR(50)
         );
 
-        -- Cập nhật trạng thái duyệt từ Admin, tự động gán approved_at nếu duyệt thành công
         UPDATE Thesis
         SET 
             admin_status = ISNULL(@admin_status, admin_status),
@@ -136,31 +137,29 @@ const updateThesisReviewStatus = async (req, res) => {
         SELECT * FROM @TmpReview;
       `);
 
-const data = result.recordset[0];
+    const data = result.recordset[0];
 
-if (!data) {
-  return res.status(404).json({ message: "Không tìm thấy đề tài để duyệt" });
-}
+    if (!data) {
+      return res.status(404).json({ message: "Không tìm thấy đề tài để duyệt" });
+    }
 
-await auditService.logAction({
-  actor_id: req.user ? req.user.id : null,
-  actor_name: req.user ? req.user.name : "Admin Tổng",
-  action: admin_status ? admin_status.toUpperCase() : "REVIEW",
-  target_table: "Thesis",
-  target_id: id,
-  old_value: { admin_status: "pending" },
-  new_value: {
-    admin_status: admin_status,
-    reject_reason: reject_reason || null,
-  },
-  ip_address: req.ip,
-});
+    await auditService.logAction({
+      actor_id: req.user ? req.user.id : null,
+      actor_name: req.user ? req.user.name : "Admin Tổng",
+      action: admin_status ? admin_status.toUpperCase() : "REVIEW",
+      target_table: "Thesis",
+      target_id: id,
+      old_value: { admin_status: "pending" },
+      new_value: {
+        admin_status: admin_status,
+        reject_reason: reject_reason || null,
+      },
+      ip_address: req.ip,
+    });
 
-res.json({ message: "Cập nhật trạng thái duyệt thành công!", data });
+    res.json({ message: "Cập nhật trạng thái duyệt thành công!", data });
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Lỗi cập nhật trạng thái duyệt", error: err.message });
+    res.status(500).json({ message: "Lỗi cập nhật trạng thái duyệt", error: err.message });
   }
 };
 

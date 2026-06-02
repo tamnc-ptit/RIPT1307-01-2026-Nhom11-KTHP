@@ -15,11 +15,18 @@ app.use((req, res, next) => {
   next();
 });
 
-
+// --- IMPORT THÊM 2 ROUTE CÒN THIẾU Ở ĐÂY ---
+const userRoutes = require("./routes/user.routes"); 
+const thesisRoutes = require("./routes/thesis.routes");
 
 app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/admin", require("./routes/admin.routes"));
 app.use("/api/lecturer", require("./routes/lecturer.routes"));
+
+// --- KHAI BÁO ĐƯỜNG DẪN CHO API USERS VÀ THESIS ---
+app.use("/api/users", userRoutes);
+app.use("/api/thesis", thesisRoutes);
+
 app.get("/", (req, res) => {
   res.send("API đang chạy...");
 });

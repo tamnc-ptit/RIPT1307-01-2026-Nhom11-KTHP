@@ -48,6 +48,7 @@ exports.getAllThesis = async (filterParams) => {
 
   return result.recordset;
 };
+
 exports.updateThesis = async (id, data) => {
   const {
     title,
@@ -100,7 +101,6 @@ exports.deleteThesis = async (id) => {
   return result.rowsAffected[0];
 };
 
-
 exports.getSupervisors = async () => {
   const pool = await poolPromise;
   const result = await pool.request().query(`
@@ -138,4 +138,42 @@ exports.getClassesByLecturer = async (lecturerId) => {
     .input("lecturerId", sql.Int, lecturerId)
     .query("SELECT * FROM Classes WHERE lecturer_id = @lecturerId");
   return result.recordset;
+};
+
+exports.createThesis = async (data) => {
+  // 👉 SỬA LỖI TẠI ĐÂY: Hứng thêm session_id từ Controller truyền sang
+  const { title, description, student_id, lecturer_id, suggestion_id, session_id } = data;
+  const pool = await poolPromise;
+
+  const checkExist = await pool
+    .request()
+    .input("student_id", sql.Int, student_id)
+    .query("SELECT id FROM Thesis WHERE student_id = @student_id AND admin_status != 'rejected'");
+
+  if (checkExist.recordset.length > 0) {
+    throw new Error("Bạn đã đăng ký một đề tài rồi. Đề tài đang chờ duyệt hoặc đã được duyệt.");
+  }
+
+  // 2. Insert dữ liệu đăng ký mới vào bảng Thesis
+  const result = await pool
+    .request()
+    .input("title", sql.NVarChar, title)
+    .input("description", sql.NVarChar, description || null)
+    .input("student_id", sql.Int, student_id)
+    .input("lecturer_id", sql.Int, lecturer_id)
+    .input("suggestion_id", sql.Int, suggestion_id || null)
+    .input("session_id", sql.Int, session_id || 1) 
+    .query(`
+      INSERT INTO Thesis (
+        title, description, student_id, lecturer_id, suggestion_id, session_id,
+        lecturer_status, admin_status, status, created_at, updated_at
+      )
+      OUTPUT INSERTED.*
+      VALUES (
+        @title, @description, @student_id, @lecturer_id, @suggestion_id, @session_id,
+        'pending', 'pending', 'pending', GETDATE(), GETDATE()
+      )
+    `);
+
+  return result.recordset[0];
 };
