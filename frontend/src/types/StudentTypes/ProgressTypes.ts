@@ -8,6 +8,7 @@ export interface ProgressPayload {
 
 export interface ProgressResponse extends ProgressPayload {
   id: number;
+  milestone_id: number;
   status: 'pending' | 'approved' | 'rejected';
   feedback?: string;
   score?: number;

@@ -1,273 +1,137 @@
 import React from 'react';
-import { Avatar, Typography, Space, Tag } from 'antd';
-import {
-  CalendarOutlined,
-  UserOutlined,
-  BookOutlined,
-} from '@ant-design/icons';
+import { useModel } from 'umi';
+import { Avatar, Space, Tag, Typography, Skeleton } from 'antd';
+import { CalendarOutlined, BookOutlined } from '@ant-design/icons';
 
-const { Text, Title } = Typography;
+import { CurrentUser } from '@/app'; 
+
+const { Title, Text } = Typography;
 
 const StudentHeader: React.FC = () => {
+  
+  const { initialState, loading } = useModel('@@initialState');
+
+  
+  if (loading) {
+    return (
+      <div
+        style={{
+          background: 'linear-gradient(90deg, #1890ff 0%, #69c0ff 100%)',
+          borderRadius: '16px',
+          padding: '24px',
+        }}
+      >
+        <Skeleton active avatar paragraph={{ rows: 1 }} />
+      </div>
+    );
+  }
+
+  const currentUser = initialState?.currentUser as CurrentUser | undefined;
+
+  // Khớp định dạng 100% các trường dữ liệu thực tế (snake_case)
+  const studentInfo = {
+    fullName: currentUser?.name || 'Đặng Thái An',
+    studentCode: currentUser?.student_code || 'B24DCCC002', 
+    className: currentUser?.class_name || 'Lớp chưa cập nhật', 
+    role: currentUser?.role === 'student' ? 'Sinh viên' : 'Sinh viên',
+    school: 'PTIT',
+  };
+
   return (
     <div
       style={{
-        position: 'relative',
-        overflow: 'hidden',
-        background:
-          'linear-gradient(135deg, #2563eb 0%, #1d4ed8 45%, #4338ca 100%)',
-        borderRadius: 24,
-        padding: '26px 30px',
-        marginBottom: 24,
-        boxShadow: '0 10px 35px rgba(37, 99, 235, 0.18)',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: 'linear-gradient(90deg, #1890ff 0%, #69c0ff 100%)',
+        borderRadius: '16px',
+        padding: '24px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        color: '#fff',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
       }}
     >
-      {/* Glow Background */}
-      <div
-        style={{
-          position: 'absolute',
-          top: -80,
-          right: -60,
-          width: 240,
-          height: 240,
-          borderRadius: '50%',
-          background: 'rgba(255,255,255,0.08)',
-          filter: 'blur(10px)',
-        }}
-      />
+      {/* Khối thông tin sinh viên động */}
+      <Space size={20} align="center">
+        <Avatar
+          size={72}
+          style={{ 
+            backgroundColor: '#fff', 
+            color: '#1890ff',
+            fontSize: '28px',
+            fontWeight: 'bold',
+            border: '2px solid rgba(255, 255, 255, 0.8)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+          }}
+        >
+          {studentInfo.fullName.charAt(0).toUpperCase()}
+        </Avatar>
+        
+        <Space direction="vertical" size={4}>
+          <Space align="center" style={{ marginBottom: 2 }}>
+            <Title 
+              level={3} 
+              style={{ color: '#fff', margin: 0, fontWeight: 600, letterSpacing: '0.5px' }}
+            >
+              {studentInfo.fullName}
+            </Title>
+            <Tag 
+              color="rgba(255, 255, 255, 0.2)" 
+              style={{ 
+                color: '#fff', 
+                border: 'none', 
+                borderRadius: '12px', 
+                padding: '0 10px',
+                fontSize: '12px',
+                fontWeight: 500
+              }}
+            >
+              {studentInfo.role}
+            </Tag>
+          </Space>
+          
+          <Space size={16} style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '14px' }}>
+            <Text style={{ color: 'inherit' }}>
+              <strong>MSV:</strong> {studentInfo.studentCode}
+            </Text>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.6)' }}>•</Text>
+            <Text style={{ color: 'inherit' }}>
+              {studentInfo.className} • {studentInfo.school}
+            </Text>
+          </Space>
+        </Space>
+      </Space>
 
-      <div
-        style={{
-          position: 'absolute',
-          bottom: -100,
-          left: -60,
-          width: 220,
-          height: 220,
-          borderRadius: '50%',
-          background: 'rgba(255,255,255,0.06)',
-          filter: 'blur(12px)',
-        }}
-      />
-
-      <div
-        style={{
-          position: 'relative',
-          zIndex: 2,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 24,
-          flexWrap: 'wrap',
-        }}
-      >
-        {/* LEFT */}
-        <div
+      {/* Khối Action Buttons bên phải */}
+      <Space size={12}>
+        <div 
           style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            backgroundColor: 'rgba(255, 255, 255, 0.15)',
             display: 'flex',
+            justifyContent: 'center',
             alignItems: 'center',
-            gap: 18,
+            cursor: 'pointer',
           }}
         >
-          <Avatar
-            size={74}
-            icon={<UserOutlined />}
-            src="https://api.dicebear.com/7.x/notionists/svg?seed=An"
-            style={{
-              border: '3px solid rgba(255,255,255,0.75)',
-              boxShadow: '0 8px 18px rgba(0,0,0,0.18)',
-              background: '#fff',
-            }}
-          />
-
-          <div>
-            <Space
-              size={10}
-              align="center"
-              style={{ marginBottom: 6 }}
-            >
-              <Title
-                level={3}
-                style={{
-                  margin: 0,
-                  color: '#fff',
-                  fontWeight: 700,
-                  lineHeight: 1,
-                }}
-              >
-                Đặng Thái An
-              </Title>
-
-              <Tag
-                style={{
-                  margin: 0,
-                  border: 'none',
-                  borderRadius: 999,
-                  background: 'rgba(255,255,255,0.18)',
-                  color: '#fff',
-                  fontWeight: 600,
-                  padding: '4px 12px',
-                  backdropFilter: 'blur(8px)',
-                }}
-              >
-                Sinh viên
-              </Tag>
-            </Space>
-
-            <Space
-              size={18}
-              wrap
-              style={{
-                marginBottom: 12,
-              }}
-            >
-              <Text
-                style={{
-                  color: 'rgba(255,255,255,0.88)',
-                  fontSize: 14,
-                }}
-              >
-                MSV: <strong>B24DCCC002</strong>
-              </Text>
-
-              <Text
-                style={{
-                  color: 'rgba(255,255,255,0.88)',
-                  fontSize: 14,
-                }}
-              >
-                CNTT • PTIT
-              </Text>
-            </Space>
-
-            {/* Stats */}
-            <div
-              style={{
-                display: 'flex',
-                gap: 14,
-                flexWrap: 'wrap',
-              }}
-            >
-              <div
-                style={{
-                  minWidth: 120,
-                  padding: '10px 14px',
-                  borderRadius: 16,
-                  background: 'rgba(255,255,255,0.12)',
-                  backdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                }}
-              >
-                <Text
-                  style={{
-                    color: 'rgba(255,255,255,0.7)',
-                    fontSize: 12,
-                    display: 'block',
-                  }}
-                >
-                  GPA hiện tại
-                </Text>
-
-                <Text
-                  strong
-                  style={{
-                    color: '#fff',
-                    fontSize: 20,
-                  }}
-                >
-                  3.5 / 4.0
-                </Text>
-              </div>
-
-              <div
-                style={{
-                  minWidth: 120,
-                  padding: '10px 14px',
-                  borderRadius: 16,
-                  background: 'rgba(255,255,255,0.12)',
-                  backdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                }}
-              >
-                <Text
-                  style={{
-                    color: 'rgba(255,255,255,0.7)',
-                    fontSize: 12,
-                    display: 'block',
-                  }}
-                >
-                  Học kỳ hiện tại
-                </Text>
-
-                <Text
-                  strong
-                  style={{
-                    color: '#fff',
-                    fontSize: 20,
-                  }}
-                >
-                  HK2
-                </Text>
-              </div>
-            </div>
-          </div>
+          <CalendarOutlined style={{ fontSize: '18px', color: '#fff' }} />
         </div>
-
-        {/* RIGHT */}
-        <div
+        <div 
           style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            backgroundColor: 'rgba(255, 255, 255, 0.15)',
             display: 'flex',
-            gap: 14,
-            flexWrap: 'wrap',
+            justifyContent: 'center',
+            alignItems: 'center',
+            cursor: 'pointer',
           }}
         >
-          <div
-            style={{
-              width: 58,
-              height: 58,
-              borderRadius: 18,
-              background: 'rgba(255,255,255,0.14)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              cursor: 'pointer',
-              transition: '0.25s',
-            }}
-          >
-            <CalendarOutlined
-              style={{
-                fontSize: 22,
-                color: '#fff',
-              }}
-            />
-          </div>
-
-          <div
-            style={{
-              width: 58,
-              height: 58,
-              borderRadius: 18,
-              background: 'rgba(255,255,255,0.14)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              cursor: 'pointer',
-              transition: '0.25s',
-            }}
-          >
-            <BookOutlined
-              style={{
-                fontSize: 22,
-                color: '#fff',
-              }}
-            />
-          </div>
+          <BookOutlined style={{ fontSize: '18px', color: '#fff' }} />
         </div>
-      </div>
+      </Space>
     </div>
   );
 };

@@ -10,7 +10,7 @@ export const getProgressByThesis = (thesisId: number) => {
     },
   });
 };
-
+ 
 export const createProgress = (data: ProgressPayload) => {
   const token = localStorage.getItem('token');
   return request<{ message: string; data: ProgressResponse }>('/api/progress', {

@@ -19,12 +19,14 @@ app.use((req, res, next) => {
 const userRoutes = require("./routes/user.routes"); 
 const thesisRoutes = require("./routes/thesis.routes");
 const progressRoutes = require("./routes/progress.routes");
+const submissionRoutes = require("./routes/submission.routes");
 
 app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/admin", require("./routes/admin.routes"));
 app.use("/api/lecturer", require("./routes/lecturer.routes"));
 app.use("/api/student", require("./routes/student.routes"));
 app.use('/uploads', express.static('public/uploads'));
+app.use("/api/submission", submissionRoutes);
 
 // --- KHAI BÁO ĐƯỜNG DẪN CHO API USERS VÀ THESIS ---
 app.use("/api/users", userRoutes);

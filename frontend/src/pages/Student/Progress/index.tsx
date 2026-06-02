@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card, Typography, Row, Col, Tag, Space, Input, Button, Progress as AntProgress,
-  Divider, message, Modal, Slider, DatePicker, Select, Form, Checkbox, List, Spin, Timeline, Upload, Popconfirm
+  Divider, Modal, Slider, DatePicker, Select, Form, Checkbox, List, Spin, Timeline, Upload, Popconfirm, Tooltip, message
 } from 'antd';
 import {
   CalendarOutlined, SendOutlined, RocketOutlined, CheckOutlined, SyncOutlined,
-  EditOutlined, PlusOutlined, ClockCircleOutlined, CloudUploadOutlined, FileTextOutlined, UploadOutlined, DeleteOutlined
+  EditOutlined, PlusOutlined, ClockCircleOutlined, CloudUploadOutlined, FileTextOutlined, UploadOutlined, DeleteOutlined, EyeOutlined
 } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
-import { request, useModel } from 'umi';
+import { request, useModel, history } from 'umi';
 import moment from 'moment';
 
 import { Milestone, MilestoneStatus } from '../../../types/LecturerTypes/MilestonesTypes';
@@ -78,7 +78,9 @@ const TaskCard: React.FC<{ task: Milestone; onUpdate: (id: number, newStatus: Mi
             <Space direction="vertical" size={6} align="end">
               <Space>
                 <Tag style={{ background: `${pri.color}18`, color: pri.color, border: `1px solid ${pri.color}40`, borderRadius: 6, margin: 0 }}>{pri.label}</Tag>
-                <Button type="text" size="small" disabled={isUpdating} icon={isUpdating ? <SyncOutlined spin style={{ color: '#1677ff' }} /> : <EditOutlined style={{ color: '#1677ff' }} />} onClick={handleOpenModal} style={{ background: '#e6f4ff', borderRadius: 6 }} />
+                <Tooltip title="Cập nhật trạng thái">
+                  <Button type="text" size="small" disabled={isUpdating} icon={isUpdating ? <SyncOutlined spin style={{ color: '#1677ff' }} /> : <EditOutlined style={{ color: '#1677ff' }} />} onClick={handleOpenModal} style={{ background: '#e6f4ff', borderRadius: 6 }} />
+                </Tooltip>
               </Space>
               <Space size={4}>
                 <CalendarOutlined style={{ fontSize: 11, color: '#8c8c8c' }} />
@@ -131,7 +133,7 @@ const ProgressSection: React.FC<{ tasks: Milestone[]; onUpdateTask: (id: number,
   };
 
   return (
-    <Card bordered={false} style={{ borderRadius: 20, boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+    <Card variant="borderless" style={{ borderRadius: 20, boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
         <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #722ed1, #9254de)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <RocketOutlined style={{ color: '#fff', fontSize: 18 }} />
@@ -179,7 +181,7 @@ const ProgressSection: React.FC<{ tasks: Milestone[]; onUpdateTask: (id: number,
   );
 };
 
-const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tasks: Milestone[] }> = ({ thesisId, studentId, tasks }) => {
+const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tasks: Milestone[]; messageApi: any }> = ({ thesisId, studentId, tasks, messageApi }) => {
   const [form] = Form.useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [progressHistory, setProgressHistory] = useState<ProgressResponse[]>([]);
@@ -195,7 +197,7 @@ const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tas
         setProgressHistory(res.data);
       }
     } catch (error) {
-      message.error('Lỗi khi tải lịch sử báo cáo!');
+      messageApi.error('Lỗi khi tải lịch sử báo cáo!');
     } finally {
       setLoadingHistory(false);
     }
@@ -203,14 +205,18 @@ const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tas
 
   useEffect(() => {
     fetchHistory();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thesisId]);
 
   const handleSubmitProgress = async () => {
     try {
       const values = await form.validateFields();
       
-      if (fileList.length === 0) {
-        message.error('Vui lòng đính kèm file báo cáo!');
+      // FIX LỖI 400: Kiểm tra kỹ file trước khi gửi
+      const fileToUpload = fileList[0]?.originFileObj || fileList[0];
+      
+      if (!fileToUpload) {
+        messageApi.error('Vui lòng đính kèm file báo cáo!');
         return;
       }
 
@@ -222,23 +228,25 @@ const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tas
       formData.append('student_id', studentId.toString());
       formData.append('file_name', values.fileName);
       formData.append('description', values.description || '');
-      formData.append('file', fileList[0].originFileObj as Blob);
+      formData.append('file', fileToUpload as Blob); // Gửi đúng file hợp lệ
 
-      // KẸP THÊM TOKEN KHI GỌI API NỘP BÀI
       const token = localStorage.getItem('token');
       await request('/api/student/progress', { 
         method: 'POST', 
         data: formData,
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { 
+          // Không tự set 'Content-Type': 'multipart/form-data', trình duyệt sẽ tự sinh boundary
+          Authorization: `Bearer ${token}` 
+        }
       });
 
-      message.success('Đã nộp báo cáo tiến độ thành công!');
+      messageApi.success('Đã nộp báo cáo tiến độ thành công!');
       form.resetFields();
       setFileList([]);
       fetchHistory(); 
     } catch (error) {
       if (error && (error as any).errorFields) return; 
-      message.error('Lỗi khi nộp báo cáo!');
+      messageApi.error('Lỗi khi nộp báo cáo!');
     } finally {
       setIsSubmitting(false);
     }
@@ -246,21 +254,20 @@ const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tas
 
   const handleDeleteSubmission = async (submissionId: number) => {
     try {
-      // KẸP THÊM TOKEN KHI GỌI API THU HỒI
       const token = localStorage.getItem('token');
       await request(`/api/student/submissions/${submissionId}`, { 
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
-      message.success('Đã thu hồi báo cáo thành công!');
+      messageApi.success('Đã thu hồi báo cáo thành công!');
       fetchHistory();
     } catch (error) {
-      message.error('Lỗi khi thu hồi báo cáo!');
+      messageApi.error('Lỗi khi thu hồi báo cáo!');
     }
   };
 
   return (
-    <Card bordered={false} style={{ borderRadius: 20, boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+    <Card variant="borderless" style={{ borderRadius: 20, boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
         <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #1677ff, #36cfc9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <FileTextOutlined style={{ color: '#fff', fontSize: 18 }} />
@@ -348,11 +355,28 @@ const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tas
                         <div style={{ marginBottom: 4 }}>
                           <Text type="secondary" style={{ fontSize: 13 }}>{item.description}</Text>
                         </div>
-                        <div>
-                          <a href={item.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>
-                            Xem tài liệu đính kèm
+                        
+                        {/* 🔌 NÚT MỚI: XEM BÁO CÁO & NHẢY SANG TRANG SUBMISSION KHI ĐƯỢC DUYỆT */}
+                        <div style={{ marginTop: 10, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                          <a href={item.file_url} target="_blank" rel="noreferrer">
+                            <Button size="small" icon={<EyeOutlined />}>Xem báo cáo</Button>
                           </a>
+
+                          {item.status === 'approved' && (
+                            <Button 
+                              type="primary" 
+                              size="small" 
+                              danger
+                              icon={<RocketOutlined />}
+                              onClick={() => {
+                                history.push(`/student/submission/${thesisId}/${item.milestone_id}`);
+                              }}
+                            >
+                              Nộp sản phẩm chính thức
+                            </Button>
+                          )}
                         </div>
+
                         {(item.status !== 'approved' && item.status !== 'rejected') && (
                           <div style={{ marginTop: 8 }}>
                             <Popconfirm
@@ -388,6 +412,7 @@ const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tas
 };
 
 const Progress: React.FC = () => {
+  const [messageApi, contextHolder] = message.useMessage();
   const [tasks, setTasks] = useState<Milestone[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
@@ -404,7 +429,6 @@ const Progress: React.FC = () => {
         if (USE_MOCK_API) {
           setTimeout(() => { setTasks(MOCK_TASKS); setLoadingInitial(false); }, 600);
         } else {
-          // KẸP THÊM TOKEN KHI FETCH DATA
           const token = localStorage.getItem('token');
           const res = await request(`/api/student/theses/${CURRENT_THESIS_ID}/milestones`, { 
             method: 'GET',
@@ -414,11 +438,12 @@ const Progress: React.FC = () => {
           setLoadingInitial(false);
         }
       } catch (error) {
-        message.error('Lỗi khi tải dữ liệu Kế hoạch');
+        messageApi.error('Lỗi khi tải dữ liệu Kế hoạch');
         setLoadingInitial(false);
       }
     };
     fetchTasks();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [CURRENT_THESIS_ID]);
 
   const handleUpdateTask = async (taskId: number, newStatus: MilestoneStatus) => {
@@ -427,11 +452,10 @@ const Progress: React.FC = () => {
       if (USE_MOCK_API) {
         setTimeout(() => {
           setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: newStatus } : t));
-          message.success('Đã cập nhật trạng thái!');
+          messageApi.success('Đã cập nhật trạng thái!');
           setUpdatingId(null);
         }, 800);
       } else {
-        // KẸP THÊM TOKEN KHI UPDATE
         const token = localStorage.getItem('token');
         await request(`/api/student/milestones/${taskId}`, { 
           method: 'PATCH', 
@@ -439,11 +463,11 @@ const Progress: React.FC = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: newStatus } : t));
-        message.success('Đã cập nhật trạng thái!');
+        messageApi.success('Đã cập nhật trạng thái!');
         setUpdatingId(null);
       }
     } catch {
-      message.error('Lỗi cập nhật!');
+      messageApi.error('Lỗi cập nhật!');
       setUpdatingId(null);
     }
   };
@@ -455,11 +479,10 @@ const Progress: React.FC = () => {
       if (USE_MOCK_API) {
         setTimeout(() => {
           setTasks((prev) => [...prev, { ...payload, id: Date.now(), created_by: CURRENT_STUDENT_ID, created_at: new Date().toISOString() }]);
-          message.success('Đã thêm công việc mới!');
+          messageApi.success('Đã thêm công việc mới!');
           setIsAdding(false);
         }, 1000);
       } else {
-        // KẸP THÊM TOKEN KHI ADD TASK
         const token = localStorage.getItem('token');
         const res = await request('/api/student/milestones', { 
           method: 'POST', 
@@ -467,17 +490,18 @@ const Progress: React.FC = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res?.data) setTasks((prev) => [...prev, res.data]);
-        message.success('Đã thêm công việc mới!');
+        messageApi.success('Đã thêm công việc mới!');
         setIsAdding(false);
       }
     } catch {
-      message.error('Lỗi khi thêm công việc!');
+      messageApi.error('Lỗi khi thêm công việc!');
       setIsAdding(false);
     }
   };
 
   return (
     <Spin spinning={loadingInitial} tip="Đang tải dữ liệu...">
+      {contextHolder}
       <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f8faff 0%, #eef4ff 50%, #f0f9ff 100%)', padding: 24, fontFamily: "'Be Vietnam Pro', 'Segoe UI', sans-serif" }}>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
@@ -497,6 +521,7 @@ const Progress: React.FC = () => {
                 thesisId={CURRENT_THESIS_ID} 
                 studentId={CURRENT_STUDENT_ID} 
                 tasks={tasks} 
+                messageApi={messageApi}
               />
             </Col>
           </Row>

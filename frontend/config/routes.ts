@@ -53,5 +53,11 @@ export default [
       { path: "/lecturer/session", name: "Học kỳ", component: "./Lecturer/SessionSettings" },
     ],
   },
+  {
+    path: '/student/submission/:thesisId/:milestoneId',
+    name: 'Nộp bài làm',
+    component: './Student/Submission',
+    hideInMenu: true, 
+  } ,
   { path: "*", component: "404" },
 ];

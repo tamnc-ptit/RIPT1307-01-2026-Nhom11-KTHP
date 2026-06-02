@@ -1,54 +1,53 @@
-import { request } from 'umi'; // Hoặc '@umijs/max' tùy cấu hình dự án của bạn
-import type { IMilestone, ISubmission, IComment } from '../types/LecturerTypes/SubmissionTypes';
+import { request } from 'umi';
 
-/**
- * 1. Lấy danh sách các mốc tiến độ (Milestones) của một đồ án
- */
-export async function getMilestonesByThesis(thesisId: number) {
-  return request<{ data: IMilestone[]; success: boolean }>(`/api/student/theses/${thesisId}/milestones`, {
-    method: 'GET',
-  });
+// Định nghĩa Enum trạng thái khớp Backend
+export enum SubmissionStatus {
+  SUBMITTED = 'submitted',
+  GRADED = 'graded',
+  LATE = 'late'
+}
+
+
+export interface ISubmission {
+  id: number;
+  milestone_id: number;
+  thesis_id: number;
+  student_id: number;
+  file_url: string;
+  file_name: string;
+  file_size?: number; 
+  score?: number;
+  status: SubmissionStatus;
+  submitted_at: string;
+  
 }
 
 /**
- * 2. Lấy danh sách lịch sử nộp bài của một mốc cụ thể
+ * Lấy lịch sử nộp bài của một Milestone
  */
-export async function getSubmissionsByMilestone(milestoneId: number) {
-  return request<{ data: ISubmission[]; success: boolean }>(`/api/student/milestones/${milestoneId}/submissions`, {
+export const getSubmissionsByMilestone = (milestoneId: number, thesisId: number) => {
+  return request<{ success: boolean; data: ISubmission[] }>(`/api/submission`, {
     method: 'GET',
+    params: {
+      milestone_id: milestoneId,
+      thesis_id: thesisId
+    }
   });
-}
+};
 
 /**
- * 3. Nộp bài (Upload file)
- * Gửi lên FormData vì có chứa file đính kèm
+ * Gửi bài nộp mới lên Server
  */
-export async function submitMilestone(
-  milestoneId: number, 
-  thesisId: number, 
-  file: File, 
-  note?: string
-) {
-  const formData = new FormData();
-  formData.append('milestone_id', milestoneId.toString());
-  formData.append('thesis_id', thesisId.toString());
-  formData.append('file', file);
-  if (note) {
-    formData.append('note', note);
-  }
-
-  return request<{ success: boolean; message: string }>(`/api/student/submissions`, {
+export const submitMilestone = (payload: {
+  milestone_id: number;
+  thesis_id: number;
+  student_id: number;
+  file_name: string;
+  file_url: string;
+  note?: string;
+}) => {
+  return request<{ success: boolean; message: string; data: ISubmission }>('/api/submission', {
     method: 'POST',
-    data: formData,
-    // Không set 'Content-Type' ở đây, trình duyệt sẽ tự động thêm multipart/form-data cùng boundary
+    data: payload
   });
-}
-
-/**
- * 4. Lấy nhận xét của giảng viên cho một bài nộp
- */
-export async function getSubmissionComments(submissionId: number) {
-  return request<{ data: IComment[]; success: boolean }>(`/api/student/submissions/${submissionId}/comments`, {
-    method: 'GET',
-  });
-}
+};
