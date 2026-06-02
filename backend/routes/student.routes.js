@@ -1,108 +1,97 @@
 const express = require("express");
 const router = express.Router();
-const progressService = require("../services/progress.service");
 
-// Import 2 "vũ khí" bảo mật và xử lý file
+// Import các Service và Middleware
+const studentService = require("../services/student.service");
+const progressService = require("../services/progress.service");
 const auth = require("../middlewares/auth");
 const upload = require("../middlewares/upload.middleware");
 
-
+// Áp dụng xác thực cho toàn bộ route sinh viên
 router.use(auth);
 
-// 2. Lấy danh sách công việc (Milestones)
+// 1. DASHBOARD: Lấy thông tin tổng quan (thesis, advisor, status)
+router.get("/dashboard", async (req, res) => {
+  try {
+    const data = await studentService.getStudentDashboard(req.user.id);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Lỗi lấy dữ liệu Dashboard", error: err.message });
+  }
+});
+
+// 2. MILESTONES: Lấy danh sách cột mốc theo đề tài
 router.get("/theses/:thesisId/milestones", async (req, res) => {
   try {
     const { thesisId } = req.params;
-    
     const data = await progressService.getMilestonesByThesis(thesisId);
-    
-    res.json({ data: data });
+    res.json({ success: true, data });
   } catch (err) {
-    console.error("Lỗi lấy Milestones:", err);
-    res.status(500).json({ message: "Lỗi Server", error: err.message });
+    res.status(500).json({ success: false, message: "Lỗi lấy Milestones", error: err.message });
   }
 });
 
-// 3. Cập nhật trạng thái công việc 
+// 3. MILESTONES: Cập nhật trạng thái
 router.patch("/milestones/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-    const { status } = req.body;
-    
-    await progressService.updateMilestoneStatus(id, status);
-    res.json({ message: "Cập nhật trạng thái thành công!" });
+    await progressService.updateMilestoneStatus(req.params.id, req.body.status);
+    res.json({ success: true, message: "Cập nhật thành công!" });
   } catch (err) {
-    console.error("Lỗi update milestone:", err);
-    res.status(500).json({ message: "Lỗi Server", error: err.message });
+    res.status(500).json({ success: false, message: "Lỗi cập nhật trạng thái", error: err.message });
   }
 });
 
-// 4. Thêm công việc mới 
+// 4. MILESTONES: Tạo mới cột mốc
 router.post("/milestones", async (req, res) => {
   try {
-    // Nhét req.user.id (giải mã từ token) vào cục data đẩy xuống DB
-    const payload = { 
-      ...req.body, 
-      created_by: req.user.id 
-    };
+    const payload = { ...req.body, created_by: req.user.id };
     const data = await progressService.createMilestone(payload);
-    
-    const formattedData = {
-      id: data.id,
-      thesis_id: data.thesis_id,
-      title: data.title,
-      description: data.description,
-      deadline: req.body.deadline, 
-      status: 'pending'
-    };
-
-    res.status(201).json({ message: "Thêm công việc thành công!", data: formattedData });
+    res.status(201).json({ success: true, message: "Thêm công việc thành công!", data });
   } catch (err) {
-    console.error("Lỗi tạo công việc mới:", err);
-    res.status(500).json({ message: "Lỗi hệ thống khi thêm công việc", error: err.message });
+    res.status(500).json({ success: false, message: "Lỗi tạo công việc", error: err.message });
   }
 });
 
-// 5. API NỘP BÁO CÁO (Upload File vật lý)
+// 5. PROGRESS: Nộp báo cáo tiến độ (Upload File)
 router.post("/progress", upload.single("file"), async (req, res) => {
   try {
-
-    const file_url = req.file ? `/uploads/${req.file.filename}` : req.body.file_url;
-    
-    if (!file_url) {
-      return res.status(400).json({ message: "Vui lòng đính kèm file báo cáo!" });
+    if (!req.file && !req.body.file_url) {
+      return res.status(400).json({ success: false, message: "Vui lòng đính kèm file báo cáo!" });
     }
 
     const payload = {
       milestone_id: req.body.milestone_id,
-      thesis_id: req.body.thesis_id || req.user.thesis_id, 
-      student_id: req.user.id, 
-      file_name: req.body.file_name,
-      description: req.body.description,
-      file_url: file_url 
+      thesis_id: req.body.thesis_id || req.user.thesis_id,
+      student_id: req.user.id,
+      file_name: req.body.file_name || req.file?.originalname,
+      description: req.body.description || "",
+      file_url: req.file ? `/uploads/${req.file.filename}` : req.body.file_url
     };
 
+    // Validate dữ liệu bắt buộc
+    if (!payload.milestone_id || !payload.thesis_id) {
+        return res.status(400).json({ success: false, message: "Thiếu thông tin cột mốc hoặc đề tài!" });
+    }
+
     const data = await progressService.createProgress(payload);
-    res.status(201).json({ message: "Nộp báo cáo thành công!", data });
+    res.status(201).json({ success: true, message: "Nộp báo cáo thành công!", data });
   } catch (err) {
-    console.error("Lỗi nộp báo cáo:", err);
-    res.status(500).json({ message: "Lỗi Server", error: err.message });
+    res.status(500).json({ success: false, message: "Lỗi Server", error: err.message });
   }
 });
+
+// 6. SUBMISSIONS: Thu hồi báo cáo
 router.delete("/submissions/:id", async (req, res) => {
   try {
-    const { id } = req.params;
-    
-    const isDeleted = await progressService.deleteSubmission(id);
-
+    const isDeleted = await progressService.deleteSubmission(req.params.id);
     if (isDeleted) {
-      res.json({ message: "Thu hồi báo cáo thành công!" });
+      res.json({ success: true, message: "Thu hồi báo cáo thành công!" });
     } else {
-      res.status(400).json({ message: "Không tìm thấy báo cáo trong Database hoặc sai tên bảng!" });
+      res.status(400).json({ success: false, message: "Không tìm thấy báo cáo hoặc không thể xóa!" });
     }
   } catch (err) {
-    console.error("Lỗi thu hồi báo cáo:", err);
-    res.status(500).json({ message: "Lỗi Server", error: err.message });
+    res.status(500).json({ success: false, message: "Lỗi thu hồi báo cáo", error: err.message });
   }
 });
+
 module.exports = router;

@@ -20,6 +20,7 @@ const userRoutes = require("./routes/user.routes");
 const thesisRoutes = require("./routes/thesis.routes");
 const progressRoutes = require("./routes/progress.routes");
 const submissionRoutes = require("./routes/submission.routes");
+const studentRoutes = require("./routes/student.routes");  
 
 app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/admin", require("./routes/admin.routes"));
