@@ -16,4 +16,4 @@ router.post("/", thesisController.createThesis);
 router.patch("/:id", thesisController.updateThesis);
 router.patch("/:id/review", thesisController.updateThesisReviewStatus);
 
-module.exports = router;
+module.exports = router; 

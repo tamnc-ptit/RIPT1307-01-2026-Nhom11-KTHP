@@ -1,6 +1,6 @@
+// backend/controllers/user.controller.js
 const { poolPromise, sql } = require("../config/db");
 
-// 🌟 ĐÃ CẬP NHẬT: Thêm cột is_active vào danh sách SELECT
 const getUsers = async (req, res) => {
   try {
     const { role, search } = req.query;
