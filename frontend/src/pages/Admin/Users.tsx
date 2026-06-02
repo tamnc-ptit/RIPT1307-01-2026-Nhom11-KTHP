@@ -377,7 +377,7 @@ const AdminUsers: React.FC = () => {
               { max: 100, message: "Tối đa 100 ký tự" },
             ]}
           >
-            <Input />
+            <Input disabled={!!editingUser} />
           </Form.Item>
           <Form.Item
             name="email"

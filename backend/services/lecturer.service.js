@@ -27,7 +27,6 @@ exports.getClasses = async (lecturerId) => {
   return result.recordset;
 };
 
-
 exports.exportClassReport = async (classId) => {
   const pool = await poolPromise;
   

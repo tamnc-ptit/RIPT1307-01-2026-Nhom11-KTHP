@@ -16,6 +16,7 @@ import {
   message,
   Tooltip,
 } from "antd";
+import { EditOutlined, DashboardOutlined } from "@ant-design/icons";
 import {
   EditOutlined,
   DashboardOutlined,

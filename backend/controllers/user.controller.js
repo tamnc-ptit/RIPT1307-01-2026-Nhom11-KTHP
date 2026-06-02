@@ -159,11 +159,36 @@ const getUsersByRole = async (req, res) => {
   }
 };
 
+const getProfile = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const pool = await poolPromise;
+    const result = await pool
+      .request()
+      .input("id", sql.Int, userId)
+      .query("SELECT id, name, email, role FROM Users WHERE id = @id");
+
+    const user = result.recordset[0];
+    if (!user) {
+      return res.status(404).json({ message: "Người dùng không tồn tại" });
+    }
+
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi khi lấy thông tin người dùng", error: err.message });
+  }
+};
+
 module.exports = {
   getUsers,
   createUser,
   bulkCreateUsers,
   updateUser,
   deleteUser,
+  getProfile,
   getUsersByRole,
 };
