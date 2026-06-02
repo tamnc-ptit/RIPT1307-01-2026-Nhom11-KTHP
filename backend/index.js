@@ -24,6 +24,7 @@ app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/admin", require("./routes/admin.routes"));
 app.use("/api/lecturer", require("./routes/lecturer.routes"));
 app.use("/api/student", require("./routes/student.routes"));
+app.use('/uploads', express.static('public/uploads'));
 
 // --- KHAI BÁO ĐƯỜNG DẪN CHO API USERS VÀ THESIS ---
 app.use("/api/users", userRoutes);

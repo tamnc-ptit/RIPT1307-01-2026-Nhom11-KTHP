@@ -102,11 +102,23 @@ const createMilestone = async (data) => {
 
   return result.recordset[0];
 };
-
+const deleteSubmission = async (submissionId, studentId) => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("id", sql.Int, parseInt(submissionId)) // Ép kiểu số cho chắc cốp
+    .query(`
+      DELETE FROM Submissions 
+      WHERE id = @id
+    `);
+  
+  return result.rowsAffected[0] > 0; 
+};
 module.exports = {
   getMilestonesByThesis, 
   getProgressByThesis,
   createProgress,
   updateMilestoneStatus,
-  createMilestone
+  createMilestone,
+  deleteSubmission
 };

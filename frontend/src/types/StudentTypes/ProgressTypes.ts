@@ -12,4 +12,5 @@ export interface ProgressResponse extends ProgressPayload {
   feedback?: string;
   score?: number;
   created_at: string;
+  submission_id?: number;
 }

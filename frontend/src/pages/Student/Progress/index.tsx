@@ -1,24 +1,23 @@
-// frontend/src/pages/Student/Progress/index.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Card, Typography, Row, Col, Tag, Space, Input, Button, Progress as AntProgress,
-  Divider, message, Modal, Slider, DatePicker, Select, Form, Checkbox, List, Spin, Timeline
+  Divider, message, Modal, Slider, DatePicker, Select, Form, Checkbox, List, Spin, Timeline, Upload, Popconfirm
 } from 'antd';
 import {
   CalendarOutlined, SendOutlined, RocketOutlined, CheckOutlined, SyncOutlined,
-  EditOutlined, PlusOutlined, ClockCircleOutlined, CloudUploadOutlined, FileTextOutlined
+  EditOutlined, PlusOutlined, ClockCircleOutlined, CloudUploadOutlined, FileTextOutlined, UploadOutlined, DeleteOutlined
 } from '@ant-design/icons';
-import { request } from 'umi';
+import type { UploadFile } from 'antd/es/upload/interface';
+import { request, useModel } from 'umi';
 import moment from 'moment';
 
 import { Milestone, MilestoneStatus } from '../../../types/LecturerTypes/MilestonesTypes';
 import StudentHeader from '../components/StudentHeader';
-import { getProgressByThesis, createProgress } from '../../../services/progress';
-import { ProgressPayload, ProgressResponse } from '../../../types/StudentTypes/ProgressTypes';
+import { getProgressByThesis } from '../../../services/progress';
+import { ProgressResponse } from '../../../types/StudentTypes/ProgressTypes';
 
 const USE_MOCK_API = false;
 
-// Mock Data Tasks
 const MOCK_TASKS: Milestone[] = [
   { id: 1, thesis_id: 1, created_by: 1, title: 'Hoàn thiện tài liệu đặc tả', description: 'Viết xong SRS và chốt với mentor', deadline: '20/05/2026', status: 'completed' as MilestoneStatus, created_at: '2026-05-10T08:00:00Z' },
   { id: 2, thesis_id: 1, created_by: 1, title: 'Thiết kế Database ERD', description: 'Hoàn thiện các bảng dữ liệu cho hệ thống', deadline: '25/05/2026', status: 'pending' as MilestoneStatus, created_at: '2026-05-10T08:00:00Z' },
@@ -28,7 +27,6 @@ const { Title, Text } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 
-// ===================== CONFIG =====================
 const statusConfig: Record<MilestoneStatus, { color: string; bg: string; icon: React.ReactNode; label: string }> = {
   completed: { color: '#52c41a', bg: '#f6ffed', icon: <CheckOutlined />, label: 'Hoàn thành' },
   pending: { color: '#1677ff', bg: '#e6f4ff', icon: <SyncOutlined spin />, label: 'Đang thực hiện' },
@@ -43,7 +41,6 @@ const priorityConfig: Record<string, { color: string; label: string }> = {
 
 const getDerivedProgress = (status: MilestoneStatus) => (status === 'completed' ? 100 : 0);
 
-// ===================== TASK CARD =====================
 const TaskCard: React.FC<{ task: Milestone; onUpdate: (id: number, newStatus: MilestoneStatus) => void; updatingId: number | null }> = ({ task, onUpdate, updatingId }) => {
   const cfg = statusConfig[task.status] || statusConfig.pending;
   const pri = priorityConfig.medium;
@@ -105,7 +102,6 @@ const TaskCard: React.FC<{ task: Milestone; onUpdate: (id: number, newStatus: Mi
   );
 };
 
-// ===================== PROGRESS SECTION (Tasks) =====================
 const ProgressSection: React.FC<{ tasks: Milestone[]; onUpdateTask: (id: number, newStatus: MilestoneStatus) => void; onAddTask: (taskData: any) => void; updatingId: number | null; isAdding: boolean }> = ({ tasks, onUpdateTask, onAddTask, updatingId, isAdding }) => {
   const [form] = Form.useForm();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -183,13 +179,13 @@ const ProgressSection: React.FC<{ tasks: Milestone[]; onUpdateTask: (id: number,
   );
 };
 
-// ===================== PROGRESS REPORT SECTION =====================
-// SỬA ĐỔI 1: Nhận thêm mảng tasks (Milestones) vào Props để làm dữ liệu cho Dropdown
 const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tasks: Milestone[] }> = ({ thesisId, studentId, tasks }) => {
   const [form] = Form.useForm();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [progressHistory, setProgressHistory] = useState<ProgressResponse[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
 
   const fetchHistory = async () => {
     try {
@@ -212,27 +208,54 @@ const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tas
   const handleSubmitProgress = async () => {
     try {
       const values = await form.validateFields();
+      
+      if (fileList.length === 0) {
+        message.error('Vui lòng đính kèm file báo cáo!');
+        return;
+      }
+
       setIsSubmitting(true);
       
-      // SỬA ĐỔI 2: Đưa thêm milestone_id đã chọn vào payload
-      const payload: any = {
-        milestone_id: values.milestone_id, 
-        thesis_id: thesisId,
-        student_id: studentId,
-        file_name: values.fileName,
-        file_url: values.fileUrl,
-        description: values.description,
-      };
+      const formData = new FormData();
+      formData.append('milestone_id', values.milestone_id);
+      formData.append('thesis_id', thesisId.toString());
+      formData.append('student_id', studentId.toString());
+      formData.append('file_name', values.fileName);
+      formData.append('description', values.description || '');
+      formData.append('file', fileList[0].originFileObj as Blob);
 
-      await createProgress(payload);
+      // KẸP THÊM TOKEN KHI GỌI API NỘP BÀI
+      const token = localStorage.getItem('token');
+      await request('/api/student/progress', { 
+        method: 'POST', 
+        data: formData,
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
       message.success('Đã nộp báo cáo tiến độ thành công!');
       form.resetFields();
-      fetchHistory(); // Tải lại Timeline
+      setFileList([]);
+      fetchHistory(); 
     } catch (error) {
-      if (error && (error as any).errorFields) return; // Validation error
+      if (error && (error as any).errorFields) return; 
       message.error('Lỗi khi nộp báo cáo!');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteSubmission = async (submissionId: number) => {
+    try {
+      // KẸP THÊM TOKEN KHI GỌI API THU HỒI
+      const token = localStorage.getItem('token');
+      await request(`/api/student/submissions/${submissionId}`, { 
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      message.success('Đã thu hồi báo cáo thành công!');
+      fetchHistory();
+    } catch (error) {
+      message.error('Lỗi khi thu hồi báo cáo!');
     }
   };
 
@@ -253,7 +276,6 @@ const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tas
           <Title level={5}>Nộp báo cáo mới</Title>
           <Form form={form} layout="vertical">
             
-            {/* SỬA ĐỔI 3: Thêm Dropdown chọn Cột mốc */}
             <Form.Item 
               name="milestone_id" 
               label="Đợt báo cáo (Cột mốc)" 
@@ -272,8 +294,18 @@ const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tas
               <Input placeholder="Ví dụ: Báo cáo Tuần 3 - Thiết kế API" disabled={isSubmitting} />
             </Form.Item>
             
-            <Form.Item name="fileUrl" label="Link tài liệu (Google Drive, GitHub...)" rules={[{ required: true, message: 'Vui lòng cung cấp link tài liệu!' }, { type: 'url', message: 'Vui lòng nhập một URL hợp lệ!' }]}>
-              <Input placeholder="https://..." disabled={isSubmitting} />
+            <Form.Item label="Đính kèm tài liệu" required>
+              <Upload 
+                maxCount={1} 
+                beforeUpload={(file) => {
+                  setFileList([file]);
+                  return false; 
+                }}
+                onRemove={() => setFileList([])}
+                fileList={fileList}
+              >
+                <Button icon={<UploadOutlined />} disabled={isSubmitting}>Chọn file (PDF, Word, ZIP)</Button>
+              </Upload>
             </Form.Item>
 
             <Form.Item name="description" label="Nội dung công việc đã làm">
@@ -321,6 +353,21 @@ const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tas
                             Xem tài liệu đính kèm
                           </a>
                         </div>
+                        {(item.status !== 'approved' && item.status !== 'rejected') && (
+                          <div style={{ marginTop: 8 }}>
+                            <Popconfirm
+                              title="Thu hồi báo cáo"
+                              description="Bạn có chắc chắn muốn thu hồi báo cáo này không?"
+                              onConfirm={() => handleDeleteSubmission(item.submission_id || item.id)}
+                              okText="Thu hồi"
+                              cancelText="Hủy"
+                            >
+                              <Button danger size="small" type="text" icon={<DeleteOutlined />}>
+                                Thu hồi
+                              </Button>
+                            </Popconfirm>
+                          </div>
+                        )}
                         {item.feedback && (
                           <div style={{ marginTop: 8, padding: '8px 12px', background: '#fafafa', borderLeft: '3px solid #d9d9d9' }}>
                             <Text strong style={{ fontSize: 13 }}>GV Nhận xét:</Text> <br />
@@ -340,15 +387,15 @@ const ProgressReportSection: React.FC<{ thesisId: number; studentId: number; tas
   );
 };
 
-// ===================== MAIN COMPONENT =====================
 const Progress: React.FC = () => {
   const [tasks, setTasks] = useState<Milestone[]>([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-
-  const CURRENT_THESIS_ID = 1; 
-  const CURRENT_STUDENT_ID = 5;
+  
+  const { initialState } = useModel('@@initialState');
+  const CURRENT_STUDENT_ID = initialState?.currentUser?.id || 5; 
+  const CURRENT_THESIS_ID = initialState?.currentUser?.thesis_id || 1;
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -357,7 +404,12 @@ const Progress: React.FC = () => {
         if (USE_MOCK_API) {
           setTimeout(() => { setTasks(MOCK_TASKS); setLoadingInitial(false); }, 600);
         } else {
-          const res = await request(`/api/student/theses/${CURRENT_THESIS_ID}/milestones`, { method: 'GET' });
+          // KẸP THÊM TOKEN KHI FETCH DATA
+          const token = localStorage.getItem('token');
+          const res = await request(`/api/student/theses/${CURRENT_THESIS_ID}/milestones`, { 
+            method: 'GET',
+            headers: { Authorization: `Bearer ${token}` }
+          });
           if (res?.data) setTasks(res.data);
           setLoadingInitial(false);
         }
@@ -367,7 +419,7 @@ const Progress: React.FC = () => {
       }
     };
     fetchTasks();
-  }, []);
+  }, [CURRENT_THESIS_ID]);
 
   const handleUpdateTask = async (taskId: number, newStatus: MilestoneStatus) => {
     try {
@@ -379,7 +431,13 @@ const Progress: React.FC = () => {
           setUpdatingId(null);
         }, 800);
       } else {
-        await request(`/api/student/milestones/${taskId}`, { method: 'PATCH', data: { status: newStatus } });
+        // KẸP THÊM TOKEN KHI UPDATE
+        const token = localStorage.getItem('token');
+        await request(`/api/student/milestones/${taskId}`, { 
+          method: 'PATCH', 
+          data: { status: newStatus },
+          headers: { Authorization: `Bearer ${token}` }
+        });
         setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: newStatus } : t));
         message.success('Đã cập nhật trạng thái!');
         setUpdatingId(null);
@@ -401,7 +459,13 @@ const Progress: React.FC = () => {
           setIsAdding(false);
         }, 1000);
       } else {
-        const res = await request('/api/student/milestones', { method: 'POST', data: payload });
+        // KẸP THÊM TOKEN KHI ADD TASK
+        const token = localStorage.getItem('token');
+        const res = await request('/api/student/milestones', { 
+          method: 'POST', 
+          data: payload,
+          headers: { Authorization: `Bearer ${token}` }
+        });
         if (res?.data) setTasks((prev) => [...prev, res.data]);
         message.success('Đã thêm công việc mới!');
         setIsAdding(false);
@@ -429,7 +493,6 @@ const Progress: React.FC = () => {
             </Col>
             
             <Col xs={24} xl={14}>
-              {/* SỬA ĐỔI 4: Truyền tasks từ Main Component sang cho ProgressReportSection */}
               <ProgressReportSection 
                 thesisId={CURRENT_THESIS_ID} 
                 studentId={CURRENT_STUDENT_ID} 

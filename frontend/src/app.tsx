@@ -13,6 +13,7 @@ export interface CurrentUser {
   student_code?: string;
   class_name?: string;
   class_id?: number;
+  thesis_id?: number;
 }
 export interface InitialState {
   currentUser?: CurrentUser;
