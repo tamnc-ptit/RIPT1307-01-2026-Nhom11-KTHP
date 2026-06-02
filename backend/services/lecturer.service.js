@@ -18,6 +18,33 @@ exports.verifyMilestoneOwnership = async (milestoneId, lecturerId) => {
   return res.recordset.length > 0;
 };
 
+exports.getProfile = async (userId) => {
+  const pool = await poolPromise;
+  const profileRes = await pool
+    .request()
+    .input("userId", sql.Int, userId)
+    .query("SELECT id, name, email, role, phone, degree, domain, max_quota FROM Users WHERE id = @userId");
+
+  const lecturer = profileRes.recordset[0];
+  if (!lecturer) return null;
+
+  const quotaRes = await pool
+    .request()
+    .input("userId", sql.Int, userId)
+    .query(`
+      SELECT COUNT(DISTINCT student_id) AS count
+      FROM Thesis
+      WHERE lecturer_id = @userId
+        AND lecturer_status = 'approved'
+    `);
+
+  return {
+    ...lecturer,
+    quota: quotaRes.recordset[0]?.count ?? 0,
+    maxQuota: lecturer.max_quota ?? 5,
+  };
+};
+
 exports.getClasses = async (lecturerId) => {
   const pool = await poolPromise;
   const result = await pool

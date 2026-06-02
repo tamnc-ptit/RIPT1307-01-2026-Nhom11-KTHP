@@ -1,8 +1,9 @@
 // src/app.ts
 import { history } from "umi";
-import { Button, Popconfirm } from "antd";
-import { LogoutOutlined } from "@ant-design/icons";
-import React from "react";
+import { Button, Popconfirm, Badge, Tooltip } from "antd";
+import { LogoutOutlined, BellOutlined } from "@ant-design/icons";
+import React, { useEffect, useState } from "react";
+import { getNotifications } from "@/services/lecturer/notifications";
 
 
 export interface CurrentUser {
@@ -40,6 +41,41 @@ export async function getInitialState(): Promise<InitialState> {
   };
 }
 
+const NotificationIndicator: React.FC = () => {
+  const [count, setCount] = useState<number>(0);
+  const [loading, setLoading] = useState(false);
+
+  const loadCount = async () => {
+    setLoading(true);
+    try {
+      const notifications = await getNotifications();
+      setCount(Array.isArray(notifications) ? notifications.filter((item: any) => !item.is_read).length : 0);
+    } catch {
+      setCount(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCount();
+  }, []);
+
+  return (
+    <Tooltip title="Thông báo chưa đọc">
+      <Badge count={count} size="small">
+        <Button
+          type="default"
+          shape="circle"
+          icon={<BellOutlined />}
+          loading={loading}
+          onClick={() => history.push("/lecturer/notifications")}
+        />
+      </Badge>
+    </Tooltip>
+  );
+};
+
 /**
  * Cấu hình Layout
  */
@@ -66,6 +102,7 @@ export const layout = ({
           paddingRight: "16px",
         }}
       >
+        {initialState?.currentUser?.role === "lecturer" && <NotificationIndicator />}
         <span style={{ color: "rgba(0, 0, 0, 0.85)", fontWeight: 500 }}>
           {initialState?.currentUser?.name}
         </span>

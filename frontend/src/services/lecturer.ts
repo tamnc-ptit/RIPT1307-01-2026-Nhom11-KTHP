@@ -1,9 +1,6 @@
 import { request } from "umi";
+import { getAuthHeader } from "@/services/api";
 
-const getAuthHeader = (): Record<string, string> => {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
 
 export async function getLecturerDashboard(lecturerId: number) {
   return request("/api/lecturer/dashboard/stats", {
@@ -242,3 +239,5 @@ export async function updateProfile(data: { phone?: string; degree?: string; dom
     headers: getAuthHeader(),
   });
 }
+
+// --- Notifications ---

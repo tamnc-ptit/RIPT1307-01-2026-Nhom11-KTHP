@@ -1,4 +1,7 @@
 const lecturerService = require("../services/lecturer.service");
+const lecturerThesisService = require("../services/lecturerThesis.service");
+const notificationService = require("../services/notification.service");
+const auditService = require("../services/audit.service");
 const { poolPromise, sql } = require("../config/db");
 
 exports.getDashboardStats = async (req, res) => {
@@ -170,32 +173,20 @@ exports.updateMilestoneFeedback = async (req, res) => {
   try {
     const result = await milestoneService.updateMilestoneFeedback(id, req.body);
 
-    // Gửi thông báo chấm điểm
-    const pool = await poolPromise;
-    const milestoneInfo = await pool
-      .request()
-      .input("id", sql.Int, id)
-      .query(`
-        SELECT m.thesis_id, m.title, t.student_id, t.title AS thesis_title
-        FROM Milestones m
-        JOIN Thesis t ON m.thesis_id = t.id
-        WHERE m.id = @id
-      `);
-
-    if (milestoneInfo.recordset[0]) {
-      const { student_id, title, thesis_title } = milestoneInfo.recordset[0];
+    const milestoneInfo = await lecturerThesisService.getMilestoneNotificationInfo(id);
+    if (milestoneInfo) {
+      const { student_id, milestone_title, thesis_title } = milestoneInfo;
       const scoreText = req.body.score ? ` - Điểm: ${req.body.score}` : "";
-      await lecturerService.createNotification({
+      await notificationService.createNotification({
         user_id: student_id,
         type: "submission_graded",
         title: "Bài nộp đã được chấm",
-        message: `Mốc "${title}" của đề tài "${thesis_title}" đã được Giảng viên chấm điểm${scoreText}.`,
+        message: `Mốc "${milestone_title}" của đề tài "${thesis_title}" đã được Giảng viên chấm điểm${scoreText}.`,
         ref_type: "milestone",
         ref_id: parseInt(id)
       });
 
-      // Audit log
-      await lecturerService.logAudit({
+      await auditService.logAction({
         actor_id: lecturerId,
         actor_name: req.user?.name || req.user?.email,
         action: "GRADE",
@@ -336,34 +327,11 @@ exports.getProfile = async (req, res) => {
   }
 
   try {
-    const pool = await poolPromise;
-    const profileRes = await pool
-      .request()
-      .input("userId", sql.Int, userId)
-      .query("SELECT id, name, email, role, phone, degree, domain, max_quota FROM Users WHERE id = @userId");
-
-    const lecturer = profileRes.recordset[0];
-    if (!lecturer) {
+    const profile = await lecturerService.getProfile(userId);
+    if (!profile) {
       return res.status(404).json({ message: "Không tìm thấy thông tin giảng viên" });
     }
-
-    const quotaRes = await pool
-      .request()
-      .input("userId", sql.Int, userId)
-      .query(`
-        SELECT COUNT(DISTINCT student_id) as count 
-        FROM Thesis 
-        WHERE lecturer_id = @userId 
-          AND lecturer_status = 'approved'
-      `);
-    
-    const quota = quotaRes.recordset[0].count;
-
-    res.json({
-      ...lecturer,
-      quota,
-      maxQuota: lecturer.max_quota ?? 5
-    });
+    res.json(profile);
   } catch (err) {
     res.status(500).json({ message: "Lỗi Server khi tải hồ sơ", error: err.message });
   }

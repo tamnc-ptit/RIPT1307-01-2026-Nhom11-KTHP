@@ -194,4 +194,21 @@ exports.markAsRead = async (id, userId) => {
   return { success: true };
 };
 
+exports.createNotification = async (data) => {
+  const { user_id, type, title, message, ref_type, ref_id } = data;
+  const pool = await poolPromise;
+  await pool
+    .request()
+    .input("user_id", sql.Int, user_id)
+    .input("type", sql.NVarChar, type)
+    .input("title", sql.NVarChar, title)
+    .input("message", sql.NVarChar, message || null)
+    .input("ref_type", sql.NVarChar, ref_type || null)
+    .input("ref_id", sql.Int, ref_id || null)
+    .query(`
+      INSERT INTO Notifications (user_id, type, title, message, ref_type, ref_id, is_read, created_at)
+      VALUES (@user_id, @type, @title, @message, @ref_type, @ref_id, 0, GETDATE())
+    `);
+};
+
 module.exports = exports;

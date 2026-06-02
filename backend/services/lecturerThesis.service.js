@@ -11,6 +11,29 @@ exports.verifyThesisOwnership = async (thesisId, lecturerId) => {
   return res.recordset.length > 0;
 };
 
+exports.getThesisNotificationInfo = async (thesisId) => {
+  const pool = await poolPromise;
+  const res = await pool
+    .request()
+    .input("id", sql.Int, thesisId)
+    .query("SELECT student_id, title FROM Thesis WHERE id = @id");
+  return res.recordset[0] || null;
+};
+
+exports.getMilestoneNotificationInfo = async (milestoneId) => {
+  const pool = await poolPromise;
+  const res = await pool
+    .request()
+    .input("id", sql.Int, milestoneId)
+    .query(`
+      SELECT m.thesis_id, m.title AS milestone_title, t.student_id, t.title AS thesis_title
+      FROM Milestones m
+      JOIN Thesis t ON m.thesis_id = t.id
+      WHERE m.id = @id
+    `);
+  return res.recordset[0] || null;
+};
+
 exports.approveThesis = async (thesisId, lecturerNote) => {
   const pool = await poolPromise;
   const transaction = new sql.Transaction(pool);

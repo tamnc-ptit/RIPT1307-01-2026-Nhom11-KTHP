@@ -52,6 +52,7 @@ export default [
       { path: "/lecturer/milestones", name: "Chấm điểm & Tiến độ", component: "./Lecturer/Milestones", icon: "ClockCircleOutlined" },
       { path: "/lecturer/session", name: "Học kỳ", component: "./Lecturer/SessionSettings" },
       { path: "/lecturer/profile", name: "Hồ sơ cá nhân", component: "./Lecturer/Profile", icon: "UserOutlined" },
+      { path: "/lecturer/notifications", name: "Thông báo", component: "./Lecturer/Notifications", icon: "NotificationOutlined" },
     ],
   },
   { path: "*", component: "404" },
