@@ -45,7 +45,6 @@ export default [
     icon: "DashboardOutlined",
     access: "isLecturer",
     routes: [
-      { path: "/lecturer/dashboard", name: "Bảng điều khiển", component: "./Lecturer/LecturerView", icon: "DashboardOutlined" },
       { path: "/lecturer/thesis-management", name: "Quản lý đề tài", component: "./Lecturer/ThesisLecturer", icon: "FileTextOutlined" },
       { path: "/lecturer/class-groups", name: "Lớp & Nhóm hướng dẫn", component: "./Lecturer/ClassGroups", icon: "TeamOutlined" },
       { path: "/lecturer/templates", name: "Quy trình mẫu", component: "./Lecturer/MilestoneTemplates", icon: "SisternodeOutlined" },
