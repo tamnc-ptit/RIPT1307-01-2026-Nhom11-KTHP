@@ -14,16 +14,22 @@ import {
   Popconfirm,
   Typography,
   Row,
-  Col
+  Col,
+  Drawer,
+  Tabs,
+  Empty,
+  Avatar,
+  List
 } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
+import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, TeamOutlined } from "@ant-design/icons";
 import { useModel } from "umi";
 import {
   getMyProposals,
   createProposal,
   updateProposal,
   deleteProposal,
-  getSessions
+  getSessions,
+  getProposalRegistrations
 } from "@/services/lecturer";
 
 const { Title, Text } = Typography;
@@ -36,8 +42,22 @@ interface Proposal {
   description: string;
   max_groups: number;
   status: string;
+  lecturer_note?: string;
+  registration_count?: number;
   session_id?: number;
   session_name?: string;
+  created_at: string;
+}
+
+interface Registration {
+  id: number;
+  title: string;
+  student_id: number;
+  student_name: string;
+  email: string;
+  phone?: string;
+  lecturer_status: string;
+  admin_status: string;
   created_at: string;
 }
 
@@ -48,6 +68,10 @@ const MyProposals: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
+  const [registrationDrawerOpen, setRegistrationDrawerOpen] = useState(false);
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [registrationLoading, setRegistrationLoading] = useState(false);
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
 
   const { initialState } = useModel("@@initialState");
   const lecturerId = initialState?.currentUser?.id;
@@ -88,7 +112,8 @@ const MyProposals: React.FC = () => {
         description: record.description,
         max_groups: record.max_groups,
         status: record.status,
-        session_id: record.session_id
+        session_id: record.session_id,
+        lecturer_note: record.lecturer_note
       });
     } else {
       setEditingId(null);
@@ -100,6 +125,25 @@ const MyProposals: React.FC = () => {
       }
     }
     setIsModalOpen(true);
+  };
+
+  const fetchRegistrations = async (proposalId: number) => {
+    setRegistrationLoading(true);
+    try {
+      const res = await getProposalRegistrations(proposalId);
+      setRegistrations(res || []);
+    } catch (error) {
+      message.error("Lỗi khi tải danh sách đăng ký");
+      setRegistrations([]);
+    } finally {
+      setRegistrationLoading(false);
+    }
+  };
+
+  const openRegistrationDrawer = (proposal: Proposal) => {
+    setSelectedProposal(proposal);
+    setRegistrationDrawerOpen(true);
+    fetchRegistrations(proposal.id);
   };
 
   const handleSubmit = async (values: any) => {
@@ -145,6 +189,17 @@ const MyProposals: React.FC = () => {
       render: (text: string) => text || "-"
     },
     {
+      title: "Đăng ký",
+      key: "registrations",
+      width: 120,
+      align: "center" as const,
+      render: (_: any, record: Proposal) => (
+        <Tag color="cyan" style={{ cursor: "pointer" }} onClick={() => openRegistrationDrawer(record)}>
+          <TeamOutlined /> {record.registration_count || 0}/{record.max_groups}
+        </Tag>
+      )
+    },
+    {
       title: "Số nhóm tối đa",
       dataIndex: "max_groups",
       key: "max_groups",
@@ -176,6 +231,7 @@ const MyProposals: React.FC = () => {
             type="text"
             icon={<EditOutlined style={{ color: "#1890ff" }} />}
             onClick={() => openModal(record)}
+            title="Chỉnh sửa"
           />
           <Popconfirm
             title="Xóa đề tài đề xuất này?"
@@ -183,7 +239,7 @@ const MyProposals: React.FC = () => {
             okText="Xóa"
             cancelText="Hủy"
           >
-            <Button danger type="text" icon={<DeleteOutlined />} />
+            <Button danger type="text" icon={<DeleteOutlined />} title="Xóa" />
           </Popconfirm>
         </Space>
       )
@@ -237,6 +293,7 @@ const MyProposals: React.FC = () => {
         okText={editingId ? "Cập nhật" : "Đăng đề tài"}
         cancelText="Hủy"
         okButtonProps={{ style: { background: "#1e3c72", borderColor: "#1e3c72" } }}
+        width={700}
       >
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item name="title" label="Tên đề tài" rules={[{ required: true, message: "Vui lòng nhập tên đề tài" }]}>
@@ -264,6 +321,10 @@ const MyProposals: React.FC = () => {
             <TextArea rows={4} placeholder="Mô tả yêu cầu, công nghệ, kết quả mong đợi..." />
           </Form.Item>
 
+          <Form.Item name="lecturer_note" label="Ghi chú/Nhận xét trước khi duyệt">
+            <TextArea rows={3} placeholder="Nhận xét từ giảng viên cho admin, điều kiện đặc biệt, yêu cầu..." />
+          </Form.Item>
+
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="max_groups" label="Số nhóm tối đa" initialValue={1}>
@@ -282,6 +343,53 @@ const MyProposals: React.FC = () => {
           </Row>
         </Form>
       </Modal>
+
+      <Drawer
+        title={`Danh sách Đăng ký: ${selectedProposal?.title || ""}`}
+        placement="right"
+        onClose={() => {
+          setRegistrationDrawerOpen(false);
+          setSelectedProposal(null);
+        }}
+        open={registrationDrawerOpen}
+        width={500}
+      >
+        {registrations.length === 0 ? (
+          <Empty description="Chưa có sinh viên nào đăng ký đề tài này" />
+        ) : (
+          <List
+            loading={registrationLoading}
+            dataSource={registrations}
+            renderItem={(reg: Registration) => (
+              <List.Item>
+                <List.Item.Meta
+                  avatar={<Avatar icon={<UserOutlined />} style={{ backgroundColor: "#1e3c72" }} />}
+                  title={
+                    <div>
+                      <Text strong>{reg.student_name}</Text>
+                      <div style={{ fontSize: "12px", color: "#666" }}>MSSV: {reg.student_id}</div>
+                    </div>
+                  }
+                  description={
+                    <div style={{ fontSize: "12px" }}>
+                      <div>📧 {reg.email}</div>
+                      {reg.phone && <div>📞 {reg.phone}</div>}
+                      <div style={{ marginTop: "8px" }}>
+                        <Tag color={reg.lecturer_status === "approved" ? "green" : "orange"}>
+                          GV: {reg.lecturer_status?.toUpperCase()}
+                        </Tag>
+                        <Tag color={reg.admin_status === "approved" ? "green" : "orange"} style={{ marginLeft: "4px" }}>
+                          Admin: {reg.admin_status?.toUpperCase()}
+                        </Tag>
+                      </div>
+                    </div>
+                  }
+                />
+              </List.Item>
+            )}
+          />
+        )}
+      </Drawer>
     </div>
   );
 };

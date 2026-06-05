@@ -87,3 +87,16 @@ exports.deleteProposal = async (req, res) => {
     res.status(403).json({ message: err.message || "Lỗi xóa đề xuất" });
   }
 };
+
+exports.getProposalRegistrations = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== "lecturer") {
+      return res.status(403).json({ message: "Chỉ giảng viên mới được truy cập" });
+    }
+    const { proposalId } = req.params;
+    const data = await proposalService.getProposalRegistrations(proposalId);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi lấy danh sách đăng ký", error: err.message });
+  }
+};

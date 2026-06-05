@@ -18,6 +18,33 @@ exports.verifyMilestoneOwnership = async (milestoneId, lecturerId) => {
   return res.recordset.length > 0;
 };
 
+exports.getProfile = async (userId) => {
+  const pool = await poolPromise;
+  const profileRes = await pool
+    .request()
+    .input("userId", sql.Int, userId)
+    .query("SELECT id, name, email, role, phone, degree, domain, max_quota FROM Users WHERE id = @userId");
+
+  const lecturer = profileRes.recordset[0];
+  if (!lecturer) return null;
+
+  const quotaRes = await pool
+    .request()
+    .input("userId", sql.Int, userId)
+    .query(`
+      SELECT COUNT(DISTINCT student_id) AS count
+      FROM Thesis
+      WHERE lecturer_id = @userId
+        AND lecturer_status = 'approved'
+    `);
+
+  return {
+    ...lecturer,
+    quota: quotaRes.recordset[0]?.count ?? 0,
+    maxQuota: lecturer.max_quota ?? 5,
+  };
+};
+
 exports.getClasses = async (lecturerId) => {
   const pool = await poolPromise;
   const result = await pool
@@ -25,200 +52,6 @@ exports.getClasses = async (lecturerId) => {
     .input("lecturerId", sql.Int, lecturerId)
     .query("SELECT * FROM Classes WHERE lecturer_id = @lecturerId");
   return result.recordset;
-};
-
-exports.getDashboardStats = async (lecturerId) => {
-  const pool = await poolPromise;
-  
-
-  
-  const result = await pool.request()
-    .input("lecturerId", sql.Int, lecturerId)
-    .query(`
-      SELECT COUNT(DISTINCT student_id) as count 
-      FROM Thesis 
-      WHERE lecturer_id = @lecturerId 
-        AND lecturer_status = 'approved'
-    `);
-  const totalStudents = guidedRes.recordset[0].count;
-
-  // 2. Số đề tài đang chờ GV duyệt
-  const pendingRes = await pool
-    .request()
-    .input("lecturerId", sql.Int, lecturerId)
-    .query(`
-      SELECT COUNT(*) as count 
-      FROM Thesis 
-      WHERE lecturer_id = @lecturerId 
-        AND lecturer_status = 'pending'
-    `);
-  const pendingApprovals = pendingRes.recordset[0].count;
-
-  // 3. Số báo cáo mới nộp (chưa chấm) - status = 'submitted'
-  const newSubmissionsRes = await pool
-    .request()
-    .input("lecturerId", sql.Int, lecturerId)
-    .query(`
-      SELECT COUNT(s.id) as count 
-      FROM Submissions s
-      JOIN Milestones m ON s.milestone_id = m.id
-      JOIN Thesis t ON m.thesis_id = t.id
-      WHERE t.lecturer_id = @lecturerId 
-        AND s.status = 'submitted'
-    `);
-  const newReports = newSubmissionsRes.recordset[0].count;
-
-  // 4. Số đề tài đã hoàn thành (có final_score hoặc status = 'completed')
-  const completedRes = await pool
-    .request()
-    .input("lecturerId", sql.Int, lecturerId)
-    .query(`
-      SELECT COUNT(*) as count 
-      FROM Thesis 
-      WHERE lecturer_id = @lecturerId 
-        AND lecturer_status = 'approved'
-        AND (final_score IS NOT NULL OR status = 'completed')
-    `);
-  const completedThesis = completedRes.recordset[0].count;
-
-  return {
-    totalStudents,
-    pendingApprovals,
-    newReports,
-    completedThesis
-  };
-};
-
-exports.getRiskFlags = async (lecturerId) => {
-  const pool = await poolPromise;
-  
-
-  
-  const risks = await pool.request()
-    .input("lecturerId", sql.Int, lecturerId)
-    .query(`
-      SELECT 
-        t.id as thesisId, 
-        t.title, 
-        u.name as studentName, 
-        N'Không có hoạt động trong 30 ngày' as flagType,
-        t.updated_at as lastActivity
-      FROM Thesis t
-      JOIN Users u ON t.student_id = u.id
-      WHERE t.lecturer_id = @lecturerId 
-        AND t.lecturer_status = 'approved' 
-        AND t.updated_at < DATEADD(day, -30, GETDATE())
-    `);
-
-  // 2. Milestone đang trễ hạn (pending + deadline đã qua)
-  const lateRes = await pool
-    .request()
-    .input("lecturerId", sql.Int, lecturerId)
-    .query(`
-      SELECT 
-        t.id as thesisId, 
-        t.title, 
-        u.name as studentName, 
-        N'Trễ hạn mốc: ' + m.title as flagType,
-        m.deadline as lastActivity
-      FROM Thesis t
-      JOIN Users u ON t.student_id = u.id
-      JOIN Milestones m ON m.thesis_id = t.id
-      WHERE t.lecturer_id = @lecturerId 
-        AND t.lecturer_status = 'approved'
-        AND m.status = 'pending' 
-        AND m.deadline < GETDATE()
-    `);
-
-  // Gộp và loại trùng (nếu 1 sinh viên có cả 2 loại rủi ro)
-  const allRisks = [...inactiveRes.recordset, ...lateRes.recordset];
-  const uniqueRisks = allRisks.reduce((acc, risk) => {
-    const existing = acc.find(r => r.thesisId === risk.thesisId);
-    if (!existing) {
-      acc.push(risk);
-    } else if (risk.flagType.includes('Trễ hạn')) {
-      // Ưu tiên cảnh báo trễ hạn hơn
-      existing.flagType = risk.flagType;
-    }
-    return acc;
-  }, []);
-
-  return uniqueRisks;
-};
-
-exports.approveThesis = async (thesisId) => {
-  const pool = await poolPromise;
-  const transaction = new sql.Transaction(pool);
-  
-  try {
-    await transaction.begin();
-    
-    // 1. Cập nhật trạng thái duyệt của giảng viên
-    const requestUpdate = new sql.Request(transaction);
-    await requestUpdate
-      .input("thesisId", sql.Int, thesisId)
-      .query("UPDATE Thesis SET lecturer_status = 'approved', approved_at = GETDATE(), updated_at = GETDATE() WHERE id = @thesisId");
-      
-    // 2. Lấy class_id và lecturer_id
-    const requestGet = new sql.Request(transaction);
-    const getRes = await requestGet
-      .input("thesisId", sql.Int, thesisId)
-      .query("SELECT class_id, lecturer_id FROM Thesis WHERE id = @thesisId");
-    
-    if (getRes.recordset[0]) {
-      const { class_id, lecturer_id } = getRes.recordset[0];
-      
-      // 3. Sao chép quy trình mẫu của lớp vào mốc tiến độ thực tế của đề tài
-      if (class_id) {
-        const requestInsert = new sql.Request(transaction);
-        await requestInsert
-          .input("thesisId", sql.Int, thesisId)
-          .input("lecturerId", sql.Int, lecturer_id)
-          .input("classId", sql.Int, class_id)
-          .query(`
-            INSERT INTO Milestones (thesis_id, created_by, title, description, deadline, status, created_at)
-            SELECT @thesisId, @lecturerId, title, description, deadline, 'pending', GETDATE()
-            FROM MilestoneTemplates
-            WHERE class_id = @classId
-          `);
-      }
-    }
-    
-    await transaction.commit();
-    return { success: true };
-  } catch (err) {
-    await transaction.rollback();
-    throw err;
-  }
-};
-
-exports.rejectThesis = async (thesisId, rejectReason) => {
-  const pool = await poolPromise;
-  await pool
-    .request()
-    .input("id", sql.Int, thesisId)
-    .input("reason", sql.NVarChar, rejectReason)
-    .query("UPDATE Thesis SET lecturer_status = 'rejected', reject_reason = @reason, updated_at = GETDATE() WHERE id = @id");
-  return { success: true };
-};
-
-exports.finalizeThesis = async (thesisId, finalScore) => {
-  const pool = await poolPromise;
-  await pool
-    .request()
-    .input("id", sql.Int, thesisId)
-    .input("finalScore", sql.Float, finalScore)
-    .query(`
-      UPDATE Thesis 
-      SET 
-        final_score = @finalScore,
-        status = 'completed',
-        lecturer_status = 'approved',
-        admin_status = 'approved',
-        updated_at = GETDATE()
-      WHERE id = @id
-    `);
-  return { success: true };
 };
 
 exports.exportClassReport = async (classId) => {
@@ -236,14 +69,24 @@ exports.exportClassReport = async (classId) => {
     .query(`
       SELECT 
         u.name AS studentName,
-        t.title AS topicName,
+        t.topicName,
         t.lecturer_note,
         t.lecturer_status,
         t.admin_status,
         t.final_score
       FROM ClassStudents cs
       JOIN Users u ON cs.student_id = u.id
-      LEFT JOIN Thesis t ON t.student_id = u.id AND t.class_id = cs.class_id
+      OUTER APPLY (
+        SELECT TOP 1
+          t2.title AS topicName,
+          t2.lecturer_note,
+          t2.lecturer_status,
+          t2.admin_status,
+          t2.final_score
+        FROM Thesis t2
+        WHERE t2.student_id = u.id
+        ORDER BY CASE WHEN t2.class_id = cs.class_id THEN 0 ELSE 1 END, t2.id DESC
+      ) t
       WHERE cs.class_id = @classId
     `);
 
@@ -293,7 +136,7 @@ exports.exportClassReport = async (classId) => {
     .query(`
       SELECT 
         u.name AS studentName,
-        t.title AS topicName,
+        t.topicName,
         m.title AS milestoneTitle,
         m.deadline,
         s.submitted_at,
@@ -301,9 +144,16 @@ exports.exportClassReport = async (classId) => {
         m.status AS milestoneStatus
       FROM ClassStudents cs
       JOIN Users u ON cs.student_id = u.id
-      LEFT JOIN Thesis t ON t.student_id = u.id AND t.class_id = cs.class_id
-      LEFT JOIN Milestones m ON m.thesis_id = t.id
-      LEFT JOIN Submissions s ON s.milestone_id = m.id AND s.thesis_id = t.id
+      OUTER APPLY (
+        SELECT TOP 1
+          t2.title AS topicName,
+          t2.id AS thesisId
+        FROM Thesis t2
+        WHERE t2.student_id = u.id
+        ORDER BY CASE WHEN t2.class_id = cs.class_id THEN 0 ELSE 1 END, t2.id DESC
+      ) t
+      LEFT JOIN Milestones m ON m.thesis_id = t.thesisId
+      LEFT JOIN Submissions s ON s.milestone_id = m.id AND s.thesis_id = t.thesisId
       WHERE cs.class_id = @classId
       ORDER BY u.name, m.deadline
     `);
@@ -398,317 +248,6 @@ exports.deleteSession = async (id) => {
   }
 };
 
-exports.getTemplates = async (classId) => {
-  const pool = await poolPromise;
-  const result = await pool
-    .request()
-    .input("classId", sql.Int, classId)
-    .query("SELECT * FROM MilestoneTemplates WHERE class_id = @classId ORDER BY order_no ASC");
-  return result.recordset;
-};
-
-exports.createTemplate = async (data) => {
-  const { class_id, created_by, title, description, deadline, order_no } = data;
-  const pool = await poolPromise;
-  
-  const result = await pool
-    .request()
-    .input("class_id", sql.Int, class_id)
-    .input("created_by", sql.Int, created_by)
-    .input("title", sql.NVarChar, title)
-    .input("description", sql.NVarChar, description || null)
-    .input("deadline", sql.DateTime, deadline)
-    .input("order_no", sql.Int, order_no || 1)
-    .query(`
-      INSERT INTO MilestoneTemplates (class_id, created_by, title, description, deadline, order_no, created_at)
-      OUTPUT INSERTED.*
-      VALUES (@class_id, @created_by, @title, @description, @deadline, @order_no, GETDATE())
-    `);
-  return result.recordset[0];
-};
-
-exports.updateTemplate = async (id, data) => {
-  const { class_id, title, description, deadline, order_no } = data;
-  const pool = await poolPromise;
-  
-  const result = await pool
-    .request()
-    .input("id", sql.Int, id)
-    .input("class_id", sql.Int, class_id || null)
-    .input("title", sql.NVarChar, title || null)
-    .input("description", sql.NVarChar, description || null)
-    .input("deadline", sql.DateTime, deadline || null)
-    .input("order_no", sql.Int, order_no || null)
-    .query(`
-      UPDATE MilestoneTemplates
-      SET 
-        class_id = ISNULL(@class_id, class_id),
-        title = ISNULL(@title, title),
-        description = ISNULL(@description, description),
-        deadline = ISNULL(@deadline, deadline),
-        order_no = ISNULL(@order_no, order_no)
-      OUTPUT INSERTED.*
-      WHERE id = @id
-    `);
-  return result.recordset[0];
-};
-
-exports.deleteTemplate = async (id) => {
-  const pool = await poolPromise;
-  await pool
-    .request()
-    .input("id", sql.Int, id)
-    .query("DELETE FROM MilestoneTemplates WHERE id = @id");
-  return { success: true };
-};
-
-exports.getClassStudents = async (classId) => {
-  const pool = await poolPromise;
-  const result = await pool
-    .request()
-    .input("classId", sql.Int, classId)
-    .query(`
-      SELECT 
-        u.id AS studentId,
-        u.name AS studentName,
-        t.id AS thesisId,
-        t.title AS topicName,
-        t.lecturer_status,
-        t.admin_status,
-        t.lecturer_note,
-        t.final_score
-      FROM ClassStudents cs
-      JOIN Users u ON cs.student_id = u.id
-      LEFT JOIN Thesis t ON t.student_id = u.id AND t.class_id = cs.class_id
-      WHERE cs.class_id = @classId
-    `);
-  return result.recordset.map(row => {
-    // Ưu tiên final_score thật, fallback lecturer_note cũ
-    let finalScore = row.final_score ?? null;
-    if (finalScore === null && row.lecturer_note && row.lecturer_note.startsWith("final_score=")) {
-      finalScore = parseFloat(row.lecturer_note.split("=")[1]);
-    }
-    return {
-      ...row,
-      finalScore
-    };
-  });
-};
-
-// ==================== LECTURER PROPOSALS (TopicSuggestions) ====================
-
-exports.getMyProposals = async (lecturerId) => {
-  const pool = await poolPromise;
-  const result = await pool
-    .request()
-    .input("lecturerId", sql.Int, lecturerId)
-    .query(`
-      SELECT 
-        ts.id,
-        ts.session_id,
-        ts.title,
-        ts.description,
-        ts.max_groups,
-        ts.status,
-        ts.created_at,
-        ts.updated_at,
-        s.name AS session_name
-      FROM TopicSuggestions ts
-      LEFT JOIN Sessions s ON ts.session_id = s.id
-      WHERE ts.lecturer_id = @lecturerId
-      ORDER BY ts.created_at DESC
-    `);
-  return result.recordset;
-};
-
-exports.createProposal = async (data) => {
-  const { session_id, lecturer_id, title, description, max_groups } = data;
-  const pool = await poolPromise;
-
-  const result = await pool
-    .request()
-    .input("session_id", sql.Int, session_id || null)
-    .input("lecturer_id", sql.Int, lecturer_id)
-    .input("title", sql.NVarChar, title)
-    .input("description", sql.NVarChar, description || null)
-    .input("max_groups", sql.Int, max_groups || 1)
-    .query(`
-      INSERT INTO TopicSuggestions (session_id, lecturer_id, title, description, max_groups, status, created_at, updated_at)
-      OUTPUT INSERTED.*
-      VALUES (@session_id, @lecturer_id, @title, @description, @max_groups, 'open', GETDATE(), GETDATE())
-    `);
-  return result.recordset[0];
-};
-
-exports.updateProposal = async (id, data, lecturerId) => {
-  const { title, description, max_groups, status, session_id } = data;
-  const pool = await poolPromise;
-
-  // Verify ownership
-  const ownerCheck = await pool
-    .request()
-    .input("id", sql.Int, id)
-    .input("lecturerId", sql.Int, lecturerId)
-    .query("SELECT id FROM TopicSuggestions WHERE id = @id AND lecturer_id = @lecturerId");
-
-  if (ownerCheck.recordset.length === 0) {
-    throw new Error("Bạn không có quyền sửa đề tài đề xuất này");
-  }
-
-  const result = await pool
-    .request()
-    .input("id", sql.Int, id)
-    .input("title", sql.NVarChar, title || null)
-    .input("description", sql.NVarChar, description || null)
-    .input("max_groups", sql.Int, max_groups || null)
-    .input("status", sql.NVarChar, status || null)
-    .input("session_id", sql.Int, session_id || null)
-    .query(`
-      UPDATE TopicSuggestions
-      SET 
-        title = ISNULL(@title, title),
-        description = ISNULL(@description, description),
-        max_groups = ISNULL(@max_groups, max_groups),
-        status = ISNULL(@status, status),
-        session_id = ISNULL(@session_id, session_id),
-        updated_at = GETDATE()
-      OUTPUT INSERTED.*
-      WHERE id = @id
-    `);
-  return result.recordset[0];
-};
-
-exports.deleteProposal = async (id, lecturerId) => {
-  const pool = await poolPromise;
-
-  // Verify ownership
-  const ownerCheck = await pool
-    .request()
-    .input("id", sql.Int, id)
-    .input("lecturerId", sql.Int, lecturerId)
-    .query("SELECT id FROM TopicSuggestions WHERE id = @id AND lecturer_id = @lecturerId");
-
-  if (ownerCheck.recordset.length === 0) {
-    throw new Error("Bạn không có quyền xóa đề tài đề xuất này");
-  }
-
-  // Prevent delete if already used in a Thesis
-  const usedCheck = await pool
-    .request()
-    .input("id", sql.Int, id)
-    .query("SELECT TOP 1 id FROM Thesis WHERE suggestion_id = @id");
-
-  if (usedCheck.recordset.length > 0) {
-    throw new Error("Không thể xóa vì đề tài này đã có sinh viên đăng ký");
-  }
-
-  await pool
-    .request()
-    .input("id", sql.Int, id)
-    .query("DELETE FROM TopicSuggestions WHERE id = @id");
-
-  return { success: true };
-};
-
-// ==================== THESIS DETAIL FOR LECTURER ====================
-exports.getThesisDetail = async (thesisId, lecturerId) => {
-  const pool = await poolPromise;
-
-  // 1. Verify ownership
-  const ownerRes = await pool
-    .request()
-    .input("thesisId", sql.Int, thesisId)
-    .input("lecturerId", sql.Int, lecturerId)
-    .query("SELECT id FROM Thesis WHERE id = @thesisId AND lecturer_id = @lecturerId");
-
-  if (ownerRes.recordset.length === 0) {
-    throw new Error("Bạn không có quyền xem đề tài này");
-  }
-
-  // 2. Get basic thesis info
-  const thesisRes = await pool
-    .request()
-    .input("thesisId", sql.Int, thesisId)
-    .query(`
-      SELECT 
-        t.*,
-        u.name AS studentName,
-        u.email AS studentEmail,
-        c.class_name,
-        s.name AS session_name
-      FROM Thesis t
-      JOIN Users u ON t.student_id = u.id
-      LEFT JOIN Classes c ON t.class_id = c.id
-      LEFT JOIN Sessions s ON t.session_id = s.id
-      WHERE t.id = @thesisId
-    `);
-
-  const thesis = thesisRes.recordset[0];
-
-  // 3. Get all milestones with submissions
-  const milestonesRes = await pool
-    .request()
-    .input("thesisId", sql.Int, thesisId)
-    .query(`
-      SELECT 
-        m.id,
-        m.title,
-        m.description,
-        m.deadline,
-        m.status,
-        m.created_at,
-        s.id AS submission_id,
-        s.file_url,
-        s.file_name,
-        s.submitted_at,
-        s.score AS submission_score,
-        s.status AS submission_status,
-        s.note AS submission_note
-      FROM Milestones m
-      LEFT JOIN Submissions s ON s.milestone_id = m.id AND s.thesis_id = m.thesis_id
-      WHERE m.thesis_id = @thesisId
-      ORDER BY m.deadline ASC
-    `);
-
-  // 4. Get all comments for this thesis (grouped by submission)
-  const commentsRes = await pool
-    .request()
-    .input("thesisId", sql.Int, thesisId)
-    .query(`
-      SELECT 
-        c.id,
-        c.submission_id,
-        c.content,
-        c.created_at,
-        u.name AS commenter_name,
-        u.role AS commenter_role
-      FROM Comments c
-      JOIN Submissions sub ON c.submission_id = sub.id
-      JOIN Users u ON c.user_id = u.id
-      WHERE sub.thesis_id = @thesisId
-      ORDER BY c.created_at DESC
-    `);
-
-  // Group comments by submission_id
-  const commentsBySubmission = {};
-  commentsRes.recordset.forEach((comment) => {
-    if (!commentsBySubmission[comment.submission_id]) {
-      commentsBySubmission[comment.submission_id] = [];
-    }
-    commentsBySubmission[comment.submission_id].push(comment);
-  });
-
-  // Attach comments to milestones
-  const milestonesWithData = milestonesRes.recordset.map((m) => ({
-    ...m,
-    comments: m.submission_id ? (commentsBySubmission[m.submission_id] || []) : []
-  }));
-
-  return {
-    thesis,
-    milestones: milestonesWithData
-  };
-};
 
 // ==================== NOTIFICATION HELPER (for Lecturer actions) ====================
 exports.createNotification = async (data) => {

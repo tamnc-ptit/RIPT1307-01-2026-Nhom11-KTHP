@@ -41,8 +41,10 @@ const ThesisLecturer: React.FC = () => {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
   const [selectedThesisId, setSelectedThesisId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [lecturerNote, setLecturerNote] = useState("");
   const [finalScore, setFinalScore] = useState<number>(0);
   const [addForm] = Form.useForm();
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -90,25 +92,21 @@ const ThesisLecturer: React.FC = () => {
   };
 
   const handleApprove = (record: ThesisItem) => {
-    confirm({
-      title: 'Xác nhận duyệt đề tài?',
-      icon: <ExclamationCircleOutlined style={{ color: '#52c41a' }} />,
-      content: (
-        <div>
-          <p><strong>Đề tài:</strong> {record.title}</p>
-          <p style={{ color: 'gray', fontSize: '12px' }}>* Hệ thống sẽ tự động sao chép quy trình mẫu của lớp vào tiến độ đề tài.</p>
-        </div>
-      ),
-      onOk: async () => {
-        try {
-          await approveThesis(record.id);
-          message.success("Đã duyệt đề tài thành công!");
-          fetchTheses();
-        } catch (error) {
-          message.error("Duyệt đề tài thất bại");
-        }
-      },
-    });
+    setSelectedThesisId(record.id);
+    setLecturerNote("");
+    setIsApproveModalOpen(true);
+  };
+
+  const submitApprove = async () => {
+    try {
+      await approveThesis(selectedThesisId!, lecturerNote);
+      message.success("Đã duyệt đề tài thành công!");
+      setIsApproveModalOpen(false);
+      setLecturerNote("");
+      fetchTheses();
+    } catch (error) {
+      message.error("Duyệt đề tài thất bại");
+    }
   };
 
   const handleReject = (id: number) => {
@@ -197,6 +195,7 @@ const ThesisLecturer: React.FC = () => {
 
   const handleBulkReject = () => {
     if (selectedRowKeys.length === 0) return message.warning("Chọn ít nhất 1 đề tài");
+    setSelectedThesisId(null);
     setIsRejectModalOpen(true); // reuse reject modal, but for bulk
   };
 
@@ -230,15 +229,18 @@ const ThesisLecturer: React.FC = () => {
     },
     {
       title: 'Lớp',
-      dataIndex: 'class_id',
-      key: 'class_id',
-      render: (classId: number) => classId ? `Lớp ${classId}` : '-'
+      dataIndex: 'class_name',
+      key: 'class_name',
+      render: (className: string, record: any) => className || (record.class_id ? `Lớp ${record.class_id}` : '-')
     },
     {
       title: 'Điểm',
       dataIndex: 'final_score',
       key: 'final_score',
-      render: (score: number) => score !== null ? <Tag color="cyan" style={{ fontWeight: 'bold' }}>{score}</Tag> : '-'
+      render: (score: number, record: any) => {
+        const finalScore = score !== null && score !== undefined ? score : record.finalScore;
+        return finalScore !== null && finalScore !== undefined ? <Tag color="cyan" style={{ fontWeight: 'bold' }}>{finalScore}</Tag> : '-';
+      }
     },
     {
       title: 'Trạng thái',
@@ -423,11 +425,34 @@ const ThesisLecturer: React.FC = () => {
           style={{ borderRadius: '8px', overflow: 'hidden' }}
         />
 
+        {/* Modal nhập nhận xét khi duyệt đề tài */}
+        <Modal
+          title="Duyệt Đăng ký Đề tài"
+          open={isApproveModalOpen}
+          onOk={submitApprove}
+          onCancel={() => setIsApproveModalOpen(false)}
+          okText="Duyệt đề tài"
+          cancelText="Hủy"
+          okButtonProps={{ style: { borderRadius: '6px', background: '#52c41a', borderColor: '#52c41a' } }}
+          cancelButtonProps={{ style: { borderRadius: '6px' } }}
+        >
+          <div style={{ marginBottom: 12 }}>
+            <Text type="secondary">Ý kiến nhận xét/ghi chú gửi kèm khi duyệt đề tài này (Không bắt buộc):</Text>
+          </div>
+          <Input.TextArea
+            rows={4}
+            placeholder="Ví dụ: Đề tài tốt, cần chú trọng tính thực nghiệm..."
+            value={lecturerNote}
+            onChange={e => setLecturerNote(e.target.value)}
+            style={{ borderRadius: '6px' }}
+          />
+        </Modal>
+
         {/* Modal nhập lý do từ chối */}
         <Modal
           title="Từ chối Đăng ký Đề tài"
           open={isRejectModalOpen}
-          onOk={submitReject}
+          onOk={() => (selectedThesisId ? submitReject() : submitBulkReject())}
           onCancel={() => setIsRejectModalOpen(false)}
           okText="Gửi từ chối"
           cancelText="Hủy"

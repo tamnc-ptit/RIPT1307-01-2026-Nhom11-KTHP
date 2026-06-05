@@ -22,14 +22,24 @@ app.use((req, res, next) => {
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // --- 2. ROUTES ---
+// API dùng chung
 app.use("/api/auth", require("./routes/auth.routes"));
-app.use("/api/admin", require("./routes/admin.routes"));
-app.use("/api/lecturer", require("./routes/lecturer.routes"));
-app.use("/api/student", require("./routes/student.routes"));
 app.use("/api/users", require("./routes/user.routes"));
+
+// API quản lý (Admin / Giảng viên)
+app.use("/api/admin", require("./routes/admin.routes"));
+app.use("/api/admin/thesis", require("./routes/thesis.routes")); // Route thêm từ nhánh main
+app.use("/api/lecturer", require("./routes/lecturer.routes"));
+
+// API Đồ án, Nộp bài, Tiến độ (Chung & Sinh viên)
+app.use("/api/student", require("./routes/student.routes"));
 app.use("/api/thesis", require("./routes/thesis.routes"));
+app.use("/api/milestones", require("./routes/milestone.routes"));
+app.use("/api/submissions", require("./routes/submission.routes")); // Dùng tên chuẩn "submissions" (có s)
 app.use("/api/progress", require("./routes/progress.routes"));
-app.use("/api/submission", require("./routes/submission.routes"));
+
+app.use("/api/topics", require("./routes/topic.routes"));
+app.use("/api/notifications", require("./routes/notification.routes"));
 
 app.get("/", (req, res) => {
   res.send("API đang chạy...");

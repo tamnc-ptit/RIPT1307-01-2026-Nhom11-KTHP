@@ -38,7 +38,6 @@ exports.getAllThesis = async (filterParams) => {
       LEFT JOIN Sessions se ON t.session_id = se.id 
       WHERE (@keyword IS NULL OR t.title LIKE '%' + @keyword + '%')
         AND (@lecturerId IS NULL OR t.lecturer_id = @lecturerId)
-        -- 🚀 THÊM CÁC ĐIỀU KIỆN LỌC DƯỚI ĐÂY VÀO SQL:
         AND (@adminStatus IS NULL OR t.admin_status = @adminStatus)
         AND (@lecturerStatus IS NULL OR t.lecturer_status = @lecturerStatus)
         AND (@classId IS NULL OR t.class_id = @classId)
@@ -49,16 +48,74 @@ exports.getAllThesis = async (filterParams) => {
   return result.recordset;
 };
 
+
+exports.createThesis = async (data) => {
+  const {
+    title, description, student_id, lecturer_id, suggestion_id, class_id,
+    session_id, status, lecturer_status, admin_status, reject_reason, final_score,
+  } = data;
+
+  const pool = await poolPromise;
+
+  // 1. Logic của BẠN: Kiểm tra sinh viên đã đăng ký chưa
+  if (student_id) {
+    const checkExist = await pool
+      .request()
+      .input("student_id", sql.Int, student_id)
+      .query("SELECT id FROM Thesis WHERE student_id = @student_id AND admin_status != 'rejected'");
+
+    if (checkExist.recordset.length > 0) {
+      throw new Error("Bạn đã đăng ký một đề tài rồi. Đề tài đang chờ duyệt hoặc đã được duyệt.");
+    }
+  }
+
+  // 2. Logic của ĐỒNG ĐỘI: Tự động lấy session_id nếu bị thiếu
+  let resolvedSessionId = session_id;
+  if (!resolvedSessionId) {
+    const sessionRes = await pool
+      .request()
+      .query("SELECT TOP 1 id FROM Sessions WHERE is_active = 1 ORDER BY created_at DESC");
+    if (sessionRes.recordset && sessionRes.recordset.length > 0) {
+      resolvedSessionId = sessionRes.recordset[0].id;
+    } else {
+      throw new Error("Không có đợt đồ án đang mở. Vui lòng tạo hoặc kích hoạt một 'Session' trước khi thêm đề tài.");
+    }
+  }
+
+  // 3. Thực thi Insert dữ liệu
+  const result = await pool
+    .request()
+    .input("title", sql.NVarChar, title || null)
+    .input("description", sql.NVarChar, description || null)
+    .input("student_id", sql.Int, student_id || null)
+    .input("lecturer_id", sql.Int, lecturer_id || null)
+    .input("suggestion_id", sql.Int, suggestion_id || null)
+    .input("class_id", sql.Int, class_id || null)
+    .input("session_id", sql.Int, resolvedSessionId)
+    .input("status", sql.NVarChar, status || "pending")
+    .input("lecturer_status", sql.NVarChar, lecturer_status || "pending")
+    .input("admin_status", sql.NVarChar, admin_status || "pending")
+    .input("reject_reason", sql.NVarChar, reject_reason || null)
+    .input("final_score", sql.Float, final_score || null)
+    .query(`
+      INSERT INTO Thesis (
+        title, description, student_id, lecturer_id, suggestion_id, class_id, session_id,
+        status, lecturer_status, admin_status, reject_reason, final_score, created_at, updated_at
+      )
+      OUTPUT INSERTED.*
+      VALUES (
+        @title, @description, @student_id, @lecturer_id, @suggestion_id, @class_id, @session_id,
+        @status, @lecturer_status, @admin_status, @reject_reason, @final_score, GETDATE(), GETDATE()
+      );
+    `);
+
+  return result.recordset[0];
+};
+
 exports.updateThesis = async (id, data) => {
   const {
-    title,
-    description,
-    student_id,
-    lecturer_id,
-    status,
-    rejectReason,
-    finalScore,
-    class_id,
+    title, description, student_id, lecturer_id, status,
+    rejectReason, finalScore, class_id,
   } = data;
   const pool = await poolPromise;
 
@@ -138,42 +195,4 @@ exports.getClassesByLecturer = async (lecturerId) => {
     .input("lecturerId", sql.Int, lecturerId)
     .query("SELECT * FROM Classes WHERE lecturer_id = @lecturerId");
   return result.recordset;
-};
-
-exports.createThesis = async (data) => {
-  // 👉 SỬA LỖI TẠI ĐÂY: Hứng thêm session_id từ Controller truyền sang
-  const { title, description, student_id, lecturer_id, suggestion_id, session_id } = data;
-  const pool = await poolPromise;
-
-  const checkExist = await pool
-    .request()
-    .input("student_id", sql.Int, student_id)
-    .query("SELECT id FROM Thesis WHERE student_id = @student_id AND admin_status != 'rejected'");
-
-  if (checkExist.recordset.length > 0) {
-    throw new Error("Bạn đã đăng ký một đề tài rồi. Đề tài đang chờ duyệt hoặc đã được duyệt.");
-  }
-
-  // 2. Insert dữ liệu đăng ký mới vào bảng Thesis
-  const result = await pool
-    .request()
-    .input("title", sql.NVarChar, title)
-    .input("description", sql.NVarChar, description || null)
-    .input("student_id", sql.Int, student_id)
-    .input("lecturer_id", sql.Int, lecturer_id)
-    .input("suggestion_id", sql.Int, suggestion_id || null)
-    .input("session_id", sql.Int, session_id || 1) 
-    .query(`
-      INSERT INTO Thesis (
-        title, description, student_id, lecturer_id, suggestion_id, session_id,
-        lecturer_status, admin_status, status, created_at, updated_at
-      )
-      OUTPUT INSERTED.*
-      VALUES (
-        @title, @description, @student_id, @lecturer_id, @suggestion_id, @session_id,
-        'pending', 'pending', 'pending', GETDATE(), GETDATE()
-      )
-    `);
-
-  return result.recordset[0];
 };

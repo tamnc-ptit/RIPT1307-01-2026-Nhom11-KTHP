@@ -118,17 +118,65 @@ exports.createClass = async (classData) => {
   return result.rowsAffected[0];
 };
 exports.getLecturerClasses = async (lecturerId) => {
-  try {
-    const pool = await poolPromise;
-    const result = await pool
-      .request()
-      .input("lecturerId", sql.Int, lecturerId)
-      .query(`
-        SELECT * FROM Classes 
-        WHERE lecturer_id = @lecturerId
-      `);
-    return result.recordset; 
-  } catch (err) {
-    throw new Error("Lỗi truy vấn lấy lớp của giảng viên: " + err.message);
-  }
+   try {
+     const pool = await poolPromise;
+     const result = await pool
+       .request()
+       .input("lecturerId", sql.Int, lecturerId)
+       .query(`
+         SELECT * FROM Classes 
+         WHERE lecturer_id = @lecturerId
+       `);
+     return result.recordset; 
+   } catch (err) {
+     throw new Error("Lỗi truy vấn lấy lớp của giảng viên: " + err.message);
+   }
+};
+
+exports.getLecturerClassStudents = async (classId) => {
+   const pool = await poolPromise;
+   const result = await pool
+     .request()
+     .input("classId", sql.Int, classId)
+     .query(`
+       SELECT 
+         u.id AS id,
+         u.id AS studentId,
+         u.name AS name,
+         u.name AS studentName,
+         u.email,
+         u.role,
+         t.thesisId,
+         t.topicName,
+         t.lecturer_status,
+         t.admin_status,
+         t.lecturer_note,
+         t.final_score
+       FROM ClassStudents cs
+       JOIN Users u ON cs.student_id = u.id
+       OUTER APPLY (
+         SELECT TOP 1
+           t2.id AS thesisId,
+           t2.title AS topicName,
+           t2.lecturer_status,
+           t2.admin_status,
+           t2.lecturer_note,
+           t2.final_score
+         FROM Thesis t2
+         WHERE t2.student_id = u.id
+         ORDER BY CASE WHEN t2.class_id = cs.class_id THEN 0 ELSE 1 END, t2.id DESC
+       ) t
+       WHERE cs.class_id = @classId
+     `);
+
+   return result.recordset.map(row => {
+     let finalScore = row.final_score ?? null;
+     if (finalScore === null && row.lecturer_note && row.lecturer_note.startsWith("final_score=")) {
+       finalScore = parseFloat(row.lecturer_note.split("=")[1]);
+     }
+     return {
+       ...row,
+       finalScore
+     };
+   });
 };

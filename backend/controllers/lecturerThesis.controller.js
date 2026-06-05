@@ -1,11 +1,13 @@
 const lecturerThesisService = require("../services/lecturerThesis.service");
 const lecturerService = require("../services/lecturer.service");
 const milestoneService = require("../services/milestone.service");
-const { poolPromise, sql } = require("../config/db");
+const notificationService = require("../services/notification.service");
+const auditService = require("../services/audit.service");
 
 
 exports.approveThesis = async (req, res) => {
   const { id } = req.params;
+  const { lecturerNote } = req.body;
   const lecturerId = req.user?.id;
 
   const isOwner = await lecturerThesisService.verifyThesisOwnership(id, lecturerId);
@@ -14,32 +16,26 @@ exports.approveThesis = async (req, res) => {
   }
 
   try {
-    const result = await lecturerThesisService.approveThesis(id);
+    const result = await lecturerThesisService.approveThesis(id, lecturerNote);
 
-    const pool = await poolPromise;
-    const thesisInfo = await pool
-      .request()
-      .input("id", sql.Int, id)
-      .query("SELECT student_id, title FROM Thesis WHERE id = @id");
-
-    if (thesisInfo.recordset[0]) {
-      const { student_id, title } = thesisInfo.recordset[0];
-      await lecturerService.createNotification({
-        user_id: student_id,
+    const thesisInfo = await lecturerThesisService.getThesisNotificationInfo(id);
+    if (thesisInfo) {
+      await notificationService.createNotification({
+        user_id: thesisInfo.student_id,
         type: "thesis_approved",
         title: "Đề tài đã được duyệt",
-        message: `Đề tài "${title}" đã được Giảng viên duyệt. Vui lòng chuẩn bị nộp tiến độ theo quy trình.`,
+        message: `Đề tài "${thesisInfo.title}" đã được Giảng viên duyệt. Vui lòng chuẩn bị nộp tiến độ theo quy trình.`,
         ref_type: "thesis",
         ref_id: parseInt(id)
       });
 
-      await lecturerService.logAudit({
+      await auditService.logAction({
         actor_id: lecturerId,
         actor_name: req.user?.name || req.user?.email,
         action: "APPROVE",
         target_table: "Thesis",
         target_id: parseInt(id),
-        new_value: { lecturer_status: "approved" }
+        new_value: { lecturer_status: "approved", lecturer_note: lecturerNote }
       });
     }
 
@@ -64,15 +60,11 @@ exports.rejectThesis = async (req, res) => {
   try {
     const result = await lecturerThesisService.rejectThesis(id, rejectReason);
 
-    const pool = await poolPromise;
-    const thesisInfo = await pool
-      .request()
-      .input("id", sql.Int, id)
-      .query("SELECT student_id, title FROM Thesis WHERE id = @id");
-
-    if (thesisInfo.recordset[0]) {
-      const { student_id, title } = thesisInfo.recordset[0];
-      await lecturerService.createNotification({
+    const thesisInfo = await lecturerThesisService.getThesisNotificationInfo(id);
+      
+    if (thesisInfo) {
+      const { student_id, title } = thesisInfo;
+      await notificationService.createNotification({
         user_id: student_id,
         type: "thesis_rejected",
         title: "Đề tài bị từ chối",
@@ -81,7 +73,7 @@ exports.rejectThesis = async (req, res) => {
         ref_id: parseInt(id)
       });
 
-      await lecturerService.logAudit({
+      await auditService.logAction({
         actor_id: lecturerId,
         actor_name: req.user?.name || req.user?.email,
         action: "REJECT",
@@ -112,24 +104,18 @@ exports.finalizeThesis = async (req, res) => {
   try {
     const result = await lecturerThesisService.finalizeThesis(id, finalScore);
 
-    const pool = await poolPromise;
-    const thesisInfo = await pool
-      .request()
-      .input("id", sql.Int, id)
-      .query("SELECT student_id, title FROM Thesis WHERE id = @id");
-
-    if (thesisInfo.recordset[0]) {
-      const { student_id, title } = thesisInfo.recordset[0];
-      await lecturerService.createNotification({
-        user_id: student_id,
+    const thesisInfo = await lecturerThesisService.getThesisNotificationInfo(id);
+    if (thesisInfo) {
+      await notificationService.createNotification({
+        user_id: thesisInfo.student_id,
         type: "thesis_finalized",
         title: "Đồ án đã hoàn thành",
-        message: `Đề tài "${title}" đã được Giảng viên kết thúc và chấm điểm tổng kết: ${finalScore}.`,
+        message: `Đề tài "${thesisInfo.title}" đã được Giảng viên kết thúc và chấm điểm tổng kết: ${finalScore}.`,
         ref_type: "thesis",
         ref_id: parseInt(id)
       });
 
-      await lecturerService.logAudit({
+      await auditService.logAction({
         actor_id: lecturerId,
         actor_name: req.user?.name || req.user?.email,
         action: "FINALIZE",
@@ -223,26 +209,30 @@ exports.bulkApproveTheses = async (req, res) => {
 
   try {
     const results = [];
-    for (const id of thesisIds) {
+    for (const rawId of thesisIds) {
+      const id = parseInt(rawId);
+      if (isNaN(id)) {
+        results.push({ id: rawId, success: false, error: "ID không hợp lệ" });
+        continue;
+      }
+
       const isOwner = await lecturerThesisService.verifyThesisOwnership(id, lecturerId);
       if (isOwner) {
         await lecturerThesisService.approveThesis(id);
 
-        const pool = await poolPromise;
-        const info = await pool.request().input("id", sql.Int, id).query("SELECT student_id, title FROM Thesis WHERE id = @id");
-        if (info.recordset[0]) {
-          const { student_id, title } = info.recordset[0];
-          await lecturerService.createNotification({
-            user_id: student_id,
+        const info = await lecturerThesisService.getThesisNotificationInfo(id);
+        if (info && info.student_id) {
+          await notificationService.createNotification({
+            user_id: info.student_id,
             type: "thesis_approved",
             title: "Đề tài đã được duyệt",
-            message: `Đề tài "${title}" đã được duyệt (bulk action).`,
+            message: `Đề tài "${info.title}" đã được duyệt (bulk action).`,
             ref_type: "thesis",
             ref_id: id
           });
         }
 
-        await lecturerService.logAudit({
+        await auditService.logAction({
           actor_id: lecturerId,
           actor_name: req.user?.name || req.user?.email,
           action: "BULK_APPROVE",
@@ -273,26 +263,30 @@ exports.bulkRejectTheses = async (req, res) => {
 
   try {
     const results = [];
-    for (const id of thesisIds) {
+    for (const rawId of thesisIds) {
+      const id = parseInt(rawId);
+      if (isNaN(id)) {
+        results.push({ id: rawId, success: false, error: "ID không hợp lệ" });
+        continue;
+      }
+
       const isOwner = await lecturerThesisService.verifyThesisOwnership(id, lecturerId);
       if (isOwner) {
         await lecturerThesisService.rejectThesis(id, rejectReason);
 
-        const pool = await poolPromise;
-        const info = await pool.request().input("id", sql.Int, id).query("SELECT student_id, title FROM Thesis WHERE id = @id");
-        if (info.recordset[0]) {
-          const { student_id, title } = info.recordset[0];
-          await lecturerService.createNotification({
-            user_id: student_id,
+        const info = await lecturerThesisService.getThesisNotificationInfo(id);
+        if (info && info.student_id) {
+          await notificationService.createNotification({
+            user_id: info.student_id,
             type: "thesis_rejected",
             title: "Đề tài bị từ chối",
-            message: `Đề tài "${title}" đã bị từ chối (bulk). Lý do: ${rejectReason}`,
+            message: `Đề tài "${info.title}" đã bị từ chối (bulk). Lý do: ${rejectReason}`,
             ref_type: "thesis",
             ref_id: id
           });
         }
 
-        await lecturerService.logAudit({
+        await auditService.logAction({
           actor_id: lecturerId,
           actor_name: req.user?.name || req.user?.email,
           action: "BULK_REJECT",

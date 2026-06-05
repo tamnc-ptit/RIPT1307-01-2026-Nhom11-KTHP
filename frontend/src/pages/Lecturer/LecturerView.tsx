@@ -24,12 +24,16 @@ interface ThesisTopic {
   classCode: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
   submittedAt: string;
+  progress?: number;
 }
 
 interface SummaryStats {
   totalStudents: number;
   pendingTheses: number;
   newSubmissions: number;
+  completedThesis?: number;
+  rejectedThesis?: number;
+  averageProgress?: number;
 }
 
 interface RiskFlag {
@@ -41,6 +45,7 @@ const LecturerDashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [stats, setStats] = useState<SummaryStats | null>(null);
   const [topics, setTopics] = useState<ThesisTopic[]>([]);
+  const [allTheses, setAllTheses] = useState<any[]>([]);
   const [risks, setRisks] = useState<RiskFlag[]>([]);
   
   const { initialState } = useModel("@@initialState");
@@ -66,7 +71,9 @@ const LecturerDashboard: React.FC = () => {
         totalStudents: statsRes.totalStudents || 0,
         pendingTheses: statsRes.pendingApprovals || 0,
         newSubmissions: statsRes.newReports || 0,
-        completedThesis: statsRes.completedThesis || 0
+        completedThesis: statsRes.completedThesis || 0,
+        rejectedThesis: statsRes.rejectedThesis || 0,
+        averageProgress: statsRes.averageProgress || 0
       });
 
       setRisks(risksRes.map((r: any) => ({
@@ -74,13 +81,16 @@ const LecturerDashboard: React.FC = () => {
         riskType: r.flagType
       })));
       
+      setAllTheses(thesisRes.items || []);
+      
       setTopics((thesisRes.items || []).slice(0, 5).map((t: any) => ({
         id: t.id.toString(),
         title: t.title,
         studentGroup: t.studentName || 'Chưa có sinh viên',
         classCode: t.class_id ? `Lớp ${t.class_id}` : 'Đề tài đề xuất',
         status: t.status.toUpperCase(),
-        submittedAt: t.created_at
+        submittedAt: t.created_at,
+        progress: t.progress || 0
       })));
 
     } catch (error) {
@@ -161,6 +171,36 @@ const LecturerDashboard: React.FC = () => {
     },
   ];
 
+  const pendingCount = stats?.pendingTheses || 0;
+  const completedCount = stats?.completedThesis || 0;
+  const rejectedCount = stats?.rejectedThesis || 0;
+  const activeCount = Math.max(0, (stats?.totalStudents || 0) - completedCount);
+
+  const chartData = [
+    { name: "Đang thực hiện", count: activeCount, color: "#52c41a" },
+    { name: "Chờ duyệt", count: pendingCount, color: "#faad14" },
+    { name: "Hoàn thành", count: completedCount, color: "#1890ff" },
+    { name: "Bị từ chối", count: rejectedCount, color: "#f5222d" },
+  ];
+
+  const totalCharts = chartData.reduce((acc, curr) => acc + curr.count, 0);
+
+  let accumulatedPercent = 0;
+  const slices = chartData.map((slice) => {
+    const percent = totalCharts > 0 ? (slice.count / totalCharts) * 100 : 0;
+    const strokeDashoffset = 314.159 - (percent / 100) * 314.159;
+    const rotation = (accumulatedPercent / 100) * 360;
+    accumulatedPercent += percent;
+    return {
+      ...slice,
+      percent,
+      strokeDashoffset,
+      rotation,
+    };
+  });
+
+  const studentTheses = allTheses.filter(t => t.lecturer_status === 'approved');
+
   return (
     <div style={{ padding: '32px', background: '#f5f7fa', minHeight: '100vh', fontFamily: 'Outfit, sans-serif' }}>
       <Space direction="vertical" size="large" style={{ display: 'flex' }}>
@@ -235,6 +275,117 @@ const LecturerDashboard: React.FC = () => {
                 prefix={<CheckCircleOutlined style={{ color: '#52c41a', marginRight: '8px' }} />}
                 valueStyle={{ color: '#52c41a', fontWeight: 'bold' }}
               />
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Charts Row */}
+        <Row gutter={[20, 20]}>
+          {/* Doughnut Chart */}
+          <Col xs={24} md={10}>
+            <Card 
+              title={<span style={{ fontWeight: 'bold', fontSize: '18px', color: '#1e3c72' }}>📊 Phân bố Trạng thái Đề tài</span>}
+              style={{ borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}
+            >
+              {totalCharts === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '220px' }}>
+                  <Empty description="Không có dữ liệu đề tài" />
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', flexWrap: 'wrap', minHeight: '220px' }}>
+                  <div style={{ position: 'relative', width: '130px', height: '130px' }}>
+                    <svg width="100%" height="100%" viewBox="0 0 140 140">
+                      <circle cx="70" cy="70" r="50" fill="transparent" stroke="#f0f2f5" strokeWidth="16" />
+                      {slices.map((slice, i) => (
+                        slice.count > 0 && (
+                          <circle
+                            key={i}
+                            cx="70"
+                            cy="70"
+                            r="50"
+                            fill="transparent"
+                            stroke={slice.color}
+                            strokeWidth="16"
+                            strokeDasharray="314.159"
+                            strokeDashoffset={slice.strokeDashoffset}
+                            transform={`rotate(${slice.rotation - 90} 70 70)`}
+                            style={{
+                              transition: 'all 0.5s ease',
+                            }}
+                          />
+                        )
+                      ))}
+                    </svg>
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      textAlign: 'center',
+                      pointerEvents: 'none'
+                    }}>
+                      <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#2c3e50' }}>{totalCharts}</div>
+                      <div style={{ fontSize: '10px', color: '#8c8c8c' }}>Đề tài</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {slices.map((slice, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                        <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: slice.color }}></span>
+                        <span style={{ fontWeight: '500', color: '#595959', minWidth: '85px' }}>{slice.name}:</span>
+                        <span style={{ fontWeight: 'bold', color: '#2c3e50' }}>{slice.count}</span>
+                        <span style={{ color: '#8c8c8c', fontSize: '10px' }}>({Math.round(slice.percent)}%)</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+          </Col>
+
+          {/* Milestone Progress Bar Chart */}
+          <Col xs={24} md={14}>
+            <Card 
+              title={<span style={{ fontWeight: 'bold', fontSize: '18px', color: '#1e3c72' }}>📈 Tiến độ thực tế của Sinh viên</span>}
+              style={{ borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}
+            >
+              {studentTheses.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '220px' }}>
+                  <Empty description="Không có sinh viên nào đang thực hiện đề tài" />
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', height: '220px', overflowY: 'auto', paddingRight: '8px' }}>
+                  {studentTheses.map((item, idx) => {
+                    const progress = item.progress || 0;
+                    let barColor = '#1890ff';
+                    if (progress >= 80) barColor = '#52c41a';
+                    else if (progress <= 30) barColor = '#ff4d4f';
+                    else barColor = '#faad14';
+                    
+                    return (
+                      <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '85%' }}>
+                            <Text strong style={{ color: '#2c3e50' }}>{item.studentName || 'Sinh viên'}</Text>
+                            <Text type="secondary" style={{ marginLeft: '8px', fontSize: '11px' }}>- {item.title}</Text>
+                          </div>
+                          <Text strong style={{ color: barColor }}>{progress}%</Text>
+                        </div>
+                        <div style={{ width: '100%', height: '6px', borderRadius: '3px', background: '#e8e8e8', overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${progress}%`,
+                            height: '100%',
+                            borderRadius: '3px',
+                            background: barColor,
+                            transition: 'width 0.8s ease-out',
+                          }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </Card>
           </Col>
         </Row>

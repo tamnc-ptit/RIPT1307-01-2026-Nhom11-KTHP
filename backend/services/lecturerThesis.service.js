@@ -11,7 +11,30 @@ exports.verifyThesisOwnership = async (thesisId, lecturerId) => {
   return res.recordset.length > 0;
 };
 
-exports.approveThesis = async (thesisId) => {
+exports.getThesisNotificationInfo = async (thesisId) => {
+  const pool = await poolPromise;
+  const res = await pool
+    .request()
+    .input("id", sql.Int, thesisId)
+    .query("SELECT student_id, title FROM Thesis WHERE id = @id");
+  return res.recordset[0] || null;
+};
+
+exports.getMilestoneNotificationInfo = async (milestoneId) => {
+  const pool = await poolPromise;
+  const res = await pool
+    .request()
+    .input("id", sql.Int, milestoneId)
+    .query(`
+      SELECT m.thesis_id, m.title AS milestone_title, t.student_id, t.title AS thesis_title
+      FROM Milestones m
+      JOIN Thesis t ON m.thesis_id = t.id
+      WHERE m.id = @id
+    `);
+  return res.recordset[0] || null;
+};
+
+exports.approveThesis = async (thesisId, lecturerNote) => {
   const pool = await poolPromise;
   const transaction = new sql.Transaction(pool);
   
@@ -21,7 +44,8 @@ exports.approveThesis = async (thesisId) => {
     const requestUpdate = new sql.Request(transaction);
     await requestUpdate
       .input("thesisId", sql.Int, thesisId)
-      .query("UPDATE Thesis SET lecturer_status = 'approved', approved_at = GETDATE(), updated_at = GETDATE() WHERE id = @thesisId");
+      .input("lecturerNote", sql.NVarChar, lecturerNote || null)
+      .query("UPDATE Thesis SET lecturer_status = 'approved', lecturer_note = @lecturerNote, approved_at = GETDATE(), updated_at = GETDATE() WHERE id = @thesisId");
       
     const requestGet = new sql.Request(transaction);
     const getRes = await requestGet
@@ -223,9 +247,11 @@ exports.getLecturerTheses = async (params) => {
       t.id,
       t.title,
       t.description,
+      t.class_id,
       t.lecturer_status,
       t.admin_status,
       t.final_score,
+      t.lecturer_note,
       t.created_at,
       t.updated_at,
       u.name AS studentName,
@@ -254,9 +280,16 @@ exports.getLecturerTheses = async (params) => {
     else if (row.final_score !== null) displayStatus = 'Completed';
     else if (row.lecturer_status === 'approved') displayStatus = 'Approved';
 
+    let finalScore = row.final_score ?? null;
+    if (finalScore === null && row.lecturer_note && row.lecturer_note.startsWith("final_score=")) {
+      finalScore = parseFloat(row.lecturer_note.split("=")[1]);
+    }
+
     return {
       ...row,
       status: displayStatus,
+      final_score: finalScore,
+      finalScore: finalScore,
       progress: row.total_milestones > 0 
         ? Math.round((row.completed_milestones / row.total_milestones) * 100) 
         : 0

@@ -30,7 +30,11 @@ import {
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
-const API = "http://localhost:8000";
+const API = "http://localhost:5000";
+
+// FIX: Helper normalize is_active — DB trả bit (0/1 hoặc true/false)
+const isActive = (val: SessionItem["is_active"]): boolean =>
+  val === true || (val as unknown as number) === 1;
 
 const SessionSettings: React.FC = () => {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
@@ -86,7 +90,7 @@ const SessionSettings: React.FC = () => {
       name: values.name.trim(),
       start_date: values.timeRange[0].format("YYYY-MM-DD HH:mm:ss"),
       end_date: values.timeRange[1].format("YYYY-MM-DD HH:mm:ss"),
-      is_active: 1, 
+      is_active: 1,
     };
 
     try {
@@ -144,15 +148,15 @@ const SessionSettings: React.FC = () => {
       dataIndex: "is_active",
       key: "is_active",
       align: "center",
-
-      render: (active: any) => {
-        const isCurrentActive = active === true || active === 1;
+      // FIX: Dùng helper isActive() thay vì check rải rác
+      render: (active: SessionItem["is_active"]) => {
+        const active_ = isActive(active);
         return (
           <Tag
-            color={isCurrentActive ? "green" : "default"}
-            icon={isCurrentActive ? <ClockCircleOutlined /> : null}
+            color={active_ ? "green" : "default"}
+            icon={active_ ? <ClockCircleOutlined /> : null}
           >
-            {isCurrentActive ? "ĐANG MỞ" : "ĐÃ ĐÓNG"}
+            {active_ ? "ĐANG MỞ" : "ĐÃ ĐÓNG"}
           </Tag>
         );
       },
@@ -162,9 +166,9 @@ const SessionSettings: React.FC = () => {
       key: "action",
       align: "center",
       render: (_, record) => {
-        const isCurrentActive =
-          record.is_active === true || record.is_active === 1;
-        return isCurrentActive ? (
+        // FIX: Dùng helper isActive() thống nhất
+        const active_ = isActive(record.is_active);
+        return active_ ? (
           <Popconfirm
             title="Bạn có chắc muốn đóng đợt đồ án này sớm hơn dự kiến?"
             onConfirm={() => handleCloseSession(record.id)}
