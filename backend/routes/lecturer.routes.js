@@ -6,6 +6,7 @@ const classController = require("../controllers/class.controller")
 const lecturerThesisController = require("../controllers/lecturerThesis.controller");
 const proposalController = require("../controllers/proposal.controller");
 const templateController = require("../controllers/template.controller");
+const commentController = require("../controllers/comment.controller");
 const auth = require("../middlewares/auth");
 
 router.use(auth); // Áp dụng auth middleware cho toàn bộ các route dưới đây
@@ -60,5 +61,16 @@ router.post("/templates", templateController.createTemplate);
   // Bulk actions for lecturer
   router.post("/theses/bulk-approve", lecturerThesisController.bulkApproveTheses);
   router.post("/theses/bulk-reject", lecturerThesisController.bulkRejectTheses);
+
+  // Comments - Forum/Discussion for lecturer
+  router.get("/comments/submission/:submissionId", commentController.getCommentsBySubmission);
+  router.get("/comments/thesis/:thesisId", commentController.getCommentsByThesis);
+  router.get("/comments/class/:classId", commentController.getCommentsByClass);
+  router.get("/comments/class/:classId/anchor", commentController.getClassAnchor);
+  router.get("/comments/:id", commentController.getCommentById);
+  router.post("/comments/submission/:submissionId", commentController.createComment);
+  router.post("/comments/class/:classId", commentController.createCommentForClass);
+  router.put("/comments/:id", commentController.updateComment);
+  router.delete("/comments/:id", commentController.deleteComment);
 
   module.exports = router;

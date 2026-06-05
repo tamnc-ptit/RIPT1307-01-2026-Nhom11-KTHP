@@ -1,4 +1,6 @@
 const submissionService = require("../services/submission.service");
+const notificationService = require("../services/notification.service");
+const { poolPromise, sql } = require("../config/db");
 const path = require("path");
 const fs = require("fs");
 
@@ -80,6 +82,37 @@ exports.createSubmission = async (req, res) => {
       },
       req.file
     );
+
+    // 🔔 Send notification to lecturer when student submits
+    try {
+      const pool = await poolPromise;
+      const thesisRes = await pool
+        .request()
+        .input("thesisId", sql.Int, parseInt(thesisId))
+        .query("SELECT lecturer_id, title, student_id FROM Thesis WHERE id = @thesisId");
+      
+      if (thesisRes.recordset.length > 0) {
+        const thesis = thesisRes.recordset[0];
+        const studentRes = await pool
+          .request()
+          .input("studentId", sql.Int, parseInt(studentId))
+          .query("SELECT name FROM Users WHERE id = @studentId");
+        
+        const studentName = studentRes.recordset[0]?.name || "Sinh viên";
+
+        await notificationService.createNotification({
+          user_id: thesis.lecturer_id,
+          type: 'submission_received',
+          title: `Sinh viên nộp bài`,
+          message: `${studentName} đã nộp bài cho đề tài "${thesis.title}"`,
+          ref_type: 'Submission',
+          ref_id: submission.id
+        });
+      }
+    } catch (notifErr) {
+      console.error("Lỗi gửi notification:", notifErr.message);
+      // Không dừng quá trình nộp bài nếu notification lỗi
+    }
 
     const baseUrl = process.env.BASE_URL || "http://localhost:3000";
     res.status(201).json({

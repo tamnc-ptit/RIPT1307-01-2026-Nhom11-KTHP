@@ -1,6 +1,7 @@
 const { poolPromise, sql } = require("../config/db");
 const thesisService = require("../services/thesis.service");
 const auditService = require("../services/audit.service");
+const notificationService = require("../services/notification.service");
 
 const getAdminThesis = async (req, res) => {
   try {
@@ -155,6 +156,26 @@ await auditService.logAction({
   },
   ip_address: req.ip,
 });
+
+// 🔔 Send notification to lecturer when thesis is approved or rejected
+if (admin_status && data.lecturer_id) {
+  const notificationTitle = admin_status === 'approved' 
+    ? `Đề tài "${data.title}" đã được phê duyệt`
+    : `Đề tài "${data.title}" đã bị từ chối`;
+  
+  const notificationMessage = admin_status === 'approved'
+    ? `Đề tài của bạn "${data.title}" đã được Admin phê duyệt thành công. Bạn có thể bắt đầu hướng dẫn sinh viên.`
+    : `Đề tài của bạn "${data.title}" đã bị từ chối. Lý do: ${reject_reason || 'Không có'}`;
+
+  await notificationService.createNotification({
+    user_id: data.lecturer_id,
+    type: admin_status === 'approved' ? 'thesis_approved' : 'thesis_rejected',
+    title: notificationTitle,
+    message: notificationMessage,
+    ref_type: 'Thesis',
+    ref_id: id
+  });
+}
 
 res.json({ message: "Cập nhật trạng thái duyệt thành công!", data });
   } catch (err) {

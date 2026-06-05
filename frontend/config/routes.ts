@@ -49,6 +49,7 @@ export default [
       { path: "/lecturer/class-groups", name: "Lớp & Nhóm hướng dẫn", component: "./Lecturer/ClassGroups", icon: "TeamOutlined" },
       { path: "/lecturer/templates", name: "Quy trình mẫu", component: "./Lecturer/MilestoneTemplates", icon: "SisternodeOutlined" },
       { path: "/lecturer/milestones", name: "Chấm điểm & Tiến độ", component: "./Lecturer/Milestones", icon: "ClockCircleOutlined" },
+      { path: "/lecturer/class-discussion", name: "Diễn đàn lớp", component: "./Lecturer/ClassDiscussion", icon: "MessageOutlined" },
       { path: "/lecturer/session", name: "Học kỳ", component: "./Lecturer/SessionSettings" },
       { path: "/lecturer/profile", name: "Hồ sơ cá nhân", component: "./Lecturer/Profile", icon: "UserOutlined" },
       { path: "/lecturer/notifications", name: "Thông báo", component: "./Lecturer/Notifications", icon: "NotificationOutlined" },

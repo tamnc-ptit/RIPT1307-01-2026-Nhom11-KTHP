@@ -11,11 +11,13 @@ import {
   message,
   Descriptions,
   Divider,
-  Space
+  Space,
+  Tabs
 } from "antd";
 import { useParams, history } from "umi";
-import { ArrowLeftOutlined, FileTextOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, FileTextOutlined, CommentOutlined } from "@ant-design/icons";
 import { getThesisDetail } from "@/services/lecturer";
+import CommentForum from "./CommentForum";
 
 const { Title, Text } = Typography;
 
@@ -23,6 +25,7 @@ const ThesisDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
+  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
 
   const fetchDetail = async () => {
     if (!id) return;
@@ -96,6 +99,20 @@ const ThesisDetail: React.FC = () => {
         const color = status === "completed" ? "success" : status === "overdue" ? "error" : "warning";
         return <Tag color={color}>{status?.toUpperCase()}</Tag>;
       }
+    },
+    {
+      title: "Hành động",
+      key: "action",
+      render: (_: any, record: any) => (
+        <Button
+          type="primary"
+          size="small"
+          icon={<CommentOutlined />}
+          onClick={() => setExpandedKeys([record.id])}
+        >
+          Bình luận
+        </Button>
+      )
     }
   ];
 
@@ -160,19 +177,45 @@ const ThesisDetail: React.FC = () => {
           rowKey="id"
           pagination={false}
           expandable={{
+            expandedRowKeys: expandedKeys,
+            onExpandedRowsChange: (keys) => setExpandedKeys(keys as React.Key[]),
             expandedRowRender: (record: any) => (
-              <div style={{ paddingLeft: 40 }}>
-                <Text strong>Nhận xét từ Giảng viên:</Text>
-                {record.comments && record.comments.length > 0 ? (
-                  record.comments.map((c: any, idx: number) => (
-                    <div key={idx} style={{ margin: "8px 0", padding: 8, background: "#fafafa", borderRadius: 6 }}>
-                      <Text strong>{c.commenter_name}</Text> ({c.commenter_role}) — {new Date(c.created_at).toLocaleString("vi-VN")}
-                      <div>{c.content}</div>
-                    </div>
-                  ))
-                ) : (
-                  <Text type="secondary">Chưa có nhận xét.</Text>
-                )}
+              <div style={{ paddingLeft: 40, paddingTop: 20 }}>
+                <Tabs
+                  items={[
+                    {
+                      key: "comments",
+                      label: "💬 Thảo luận",
+                      children: (
+                        <CommentForum
+                          submissionId={record.id}
+                          submissionFile={record.file_name || "file.pdf"}
+                          studentName={thesis.studentName}
+                          milestoneTitle={record.title}
+                        />
+                      )
+                    },
+                    {
+                      key: "feedback",
+                      label: "📝 Lịch sử Nhận xét",
+                      children: (
+                        <div>
+                          <Text strong>Nhận xét từ Giảng viên:</Text>
+                          {record.comments && record.comments.length > 0 ? (
+                            record.comments.map((c: any, idx: number) => (
+                              <div key={idx} style={{ margin: "8px 0", padding: 8, background: "#fafafa", borderRadius: 6 }}>
+                                <Text strong>{c.commenter_name}</Text> ({c.commenter_role}) — {new Date(c.created_at).toLocaleString("vi-VN")}
+                                <div>{c.content}</div>
+                              </div>
+                            ))
+                          ) : (
+                            <Text type="secondary">Chưa có nhận xét.</Text>
+                          )}
+                        </div>
+                      )
+                    }
+                  ]}
+                />
               </div>
             )
           }}
