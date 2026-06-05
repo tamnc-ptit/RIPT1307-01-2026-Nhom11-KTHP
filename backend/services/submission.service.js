@@ -1,7 +1,29 @@
 const { poolPromise, sql } = require("../config/db");
 const fs = require("fs");
 
-// GET /api/submissions?thesis_id=1&milestone_id=2&student_id=3
+/**
+ * 1. Lấy lịch sử nộp bài của sinh viên theo Milestone 
+ */
+exports.getSubmissionsByMilestone = async (milestoneId, thesisId) => {
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("milestone_id", sql.Int, milestoneId)
+    .input("thesis_id", sql.Int, thesisId)
+    .query(`
+      SELECT 
+        id, milestone_id, thesis_id, student_id, file_name, file_url, 
+        note, score, status, submitted_at
+      FROM Submissions
+      WHERE milestone_id = @milestone_id AND thesis_id = @thesis_id
+      ORDER BY submitted_at DESC
+    `);
+  return result.recordset;
+};
+
+/**
+ * 2. Lấy danh sách nộp bài phức tạp
+ */
 exports.getSubmissionsByThesis = async (thesisId, filters = {}) => {
   const { milestoneId, studentId } = filters;
   const pool = await poolPromise;
@@ -13,18 +35,8 @@ exports.getSubmissionsByThesis = async (thesisId, filters = {}) => {
     .input("studentId",   sql.Int, studentId   || null)
     .query(`
       SELECT
-        s.id,
-        s.milestone_id,
-        s.thesis_id,
-        s.student_id,
-        s.file_name,
-        s.file_url,
-        s.file_size,
-        s.note,
-        s.score,
-        s.status,
-        s.submitted_at,
-        s.graded_at,
+        s.id, s.milestone_id, s.thesis_id, s.student_id, s.file_name, s.file_url, s.file_size,
+        s.note, s.score, s.status, s.submitted_at, s.graded_at,
         m.title       AS milestone_title,
         m.deadline    AS milestone_deadline,
         m.status      AS milestone_status,
@@ -42,7 +54,9 @@ exports.getSubmissionsByThesis = async (thesisId, filters = {}) => {
   return result.recordset;
 };
 
-// GET /api/submissions/:id
+/**
+ * 3. Lấy chi tiết 1 bài nộp (Code nhánh main)
+ */
 exports.getSubmissionById = async (id) => {
   const pool = await poolPromise;
   const result = await pool
@@ -64,11 +78,16 @@ exports.getSubmissionById = async (id) => {
   return result.recordset[0] || null;
 };
 
-// POST /api/submissions  (sau khi multer đã lưu file)
-exports.createSubmission = async (
-  { milestoneId, thesisId, studentId, note },
-  file
-) => {
+/**
+ * 4. TẠO MỚI BÀI NỘP (GỘP HOÀN HẢO 2 LUỒNG)
+ */
+exports.createSubmission = async (data, file) => {
+  
+  const milestoneId = data.milestoneId || data.milestone_id;
+  const thesisId = data.thesisId || data.thesis_id;
+  const studentId = data.studentId || data.student_id;
+  const note = data.note;
+
   const pool = await poolPromise;
 
   // Kiểm tra milestone thuộc đúng thesis và còn active
@@ -91,30 +110,40 @@ exports.createSubmission = async (
     throw new Error("Milestone đã đóng, không thể nộp bài");
   }
 
-  const fileUrl = file.path.replace(/\\/g, "/");
+  // Phân luồng: 
+  let fileUrl = data.file_url || data.fileUrl;
+  let fileName = data.file_name || data.fileName;
+  let fileSize = data.file_size || data.fileSize || 0;
+
+  if (file) {
+    fileUrl = file.path.replace(/\\/g, "/");
+    fileName = file.originalname;
+    fileSize = file.size;
+  }
 
   const result = await pool
     .request()
     .input("milestoneId", sql.Int,      milestoneId)
     .input("thesisId",    sql.Int,      thesisId)
     .input("studentId",   sql.Int,      studentId)
-    .input("fileUrl",     sql.NVarChar, fileUrl)
-    .input("fileName",    sql.NVarChar, file.originalname)
-    .input("fileSize",    sql.BigInt,   file.size)          // BigInt khớp với DB
+    .input("fileUrl",     sql.NVarChar, fileUrl || "")
+    .input("fileName",    sql.NVarChar, fileName || "Báo cáo")
+    .input("fileSize",    sql.BigInt,   fileSize)          
     .input("note",        sql.NVarChar, note || null)
     .query(`
       INSERT INTO Submissions
-        (milestone_id, thesis_id, student_id, file_url, file_name, file_size, note, status)
+        (milestone_id, thesis_id, student_id, file_url, file_name, file_size, note, status, submitted_at)
+      OUTPUT INSERTED.*
       VALUES
-        (@milestoneId, @thesisId, @studentId, @fileUrl, @fileName, @fileSize, @note, 'submitted')
-
-      SELECT * FROM Submissions WHERE id = SCOPE_IDENTITY();
+        (@milestoneId, @thesisId, @studentId, @fileUrl, @fileName, @fileSize, @note, 'submitted', GETDATE());
     `);
 
   return result.recordset[0];
 };
 
-// DELETE /api/submissions/:id
+/**
+ * 5. XÓA BÀI NỘP (CÓ CHẶN LỖI XÓA LINK HTTP)
+ */
 exports.deleteSubmission = async (id) => {
   const pool = await poolPromise;
 
@@ -128,7 +157,9 @@ exports.deleteSubmission = async (id) => {
   }
 
   const { file_url } = existing.recordset[0];
-  if (file_url && fs.existsSync(file_url)) {
+  
+  
+  if (file_url && !file_url.startsWith("http") && fs.existsSync(file_url)) {
     fs.unlinkSync(file_url);
   }
 

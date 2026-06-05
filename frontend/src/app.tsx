@@ -1,11 +1,10 @@
-// src/app.ts
 import { history } from "umi";
-import { Button, Popconfirm, Badge, Tooltip } from "antd";
+import { Button, Popconfirm, App, Badge, Tooltip } from "antd";
 import { LogoutOutlined, BellOutlined } from "@ant-design/icons";
 import React, { useEffect, useState } from "react";
 import { getNotifications } from "@/services/lecturer/notifications";
 
-
+// --- Định nghĩa Types ---
 export interface CurrentUser {
   id: number;
   name: string;
@@ -14,10 +13,16 @@ export interface CurrentUser {
   student_code?: string;
   class_name?: string;
   class_id?: number;
+  thesis_id?: number;
 }
 export interface InitialState {
   currentUser?: CurrentUser;
   settings?: Record<string, unknown>;
+}
+
+// Bọc ứng dụng trong App component để các message/modal/notification có thể truy cập context
+export function rootContainer(container: React.ReactNode) {
+  return <App>{container}</App>;
 }
 
 export async function getInitialState(): Promise<InitialState> {
@@ -92,7 +97,6 @@ export const layout = ({
     title: "Thesis Workspace",
     layout: "side" as const,
 
-    // Tùy chỉnh phần Header bên phải
     rightContentRender: () => (
       <div
         style={{

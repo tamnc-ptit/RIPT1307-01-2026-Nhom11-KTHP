@@ -55,5 +55,11 @@ export default [
       { path: "/lecturer/notifications", name: "Thông báo", component: "./Lecturer/Notifications", icon: "NotificationOutlined" },
     ],
   },
+  {
+    path: '/student/submission/:thesisId/:milestoneId',
+    name: 'Nộp bài làm',
+    component: './Student/Submission',
+    hideInMenu: true, 
+  } ,
   { path: "*", component: "404" },
 ];

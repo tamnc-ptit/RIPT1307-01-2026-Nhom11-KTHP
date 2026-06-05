@@ -4,7 +4,6 @@ const { poolPromise, sql } = require("../config/db");
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_key";
 
-
 exports.register = async (req, res) => {
   const { name, email, password, role } = req.body;
 
@@ -42,10 +41,8 @@ exports.register = async (req, res) => {
   }
 };
 
-
 exports.login = async (req, res) => {
   const { email, password } = req.body;
-
 
   const isStudent = email.endsWith("@student.ptit.edu.vn");
   const isLecturerOrAdmin = email.endsWith("@ptit.edu.vn") && !isStudent;
@@ -65,7 +62,6 @@ exports.login = async (req, res) => {
 
     const user = result.recordset[0];
 
-  
     if (!user) {
       return res.status(404).json({ message: "Tài khoản không tồn tại!" });
     }
@@ -73,13 +69,11 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: "Tài khoản của bạn đã bị khóa!" });
     }
 
-  
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ message: "Sai mật khẩu!" });
     }
 
-   
     const token = jwt.sign(
       { id: user.id, role: user.role, email: user.email },
       JWT_SECRET,
@@ -97,7 +91,6 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: "Lỗi hệ thống", error: err.message });
   }
 };
-
 
 exports.getAllUsers = async (req, res) => {
   try {
@@ -146,7 +139,7 @@ exports.updateUserFull = async (req, res) => {
 
     try {
         const pool = await poolPromise;
-       
+        
         const checkUser = await pool.request()
             .input("id", sql.Int, id)
             .query("SELECT id FROM Users WHERE id = @id");
@@ -155,7 +148,6 @@ exports.updateUserFull = async (req, res) => {
             return res.status(404).json({ message: "Không tìm thấy người dùng này!" });
         }
 
-      
         await pool.request()
             .input("id", sql.Int, id)
             .input("name", sql.NVarChar, name)    
@@ -175,7 +167,6 @@ exports.updateUserFull = async (req, res) => {
         res.status(500).json({ message: "Lỗi hệ thống khi cập nhật", error: err.message });
     }
 };
-
 
 exports.deleteUser = async (req, res) => {
     const { id } = req.params;

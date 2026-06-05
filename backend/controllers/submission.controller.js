@@ -4,7 +4,6 @@ const { poolPromise, sql } = require("../config/db");
 const path = require("path");
 const fs = require("fs");
 
-// Map extension → content-type (thay cho mime_type vì DB không lưu)
 const MIME_MAP = {
   ".pdf":  "application/pdf",
   ".doc":  "application/msword",
@@ -48,9 +47,7 @@ exports.getSubmissions = async (req, res) => {
 exports.getSubmissionById = async (req, res) => {
   try {
     const submission = await submissionService.getSubmissionById(parseInt(req.params.id));
-    /*if (!submission) {
-      return res.status(404).json({ message: "Không tìm thấy submission" });
-    }*/
+    
 
     const baseUrl = process.env.BASE_URL || "http://localhost:3000";
     res.json({ ...submission, file_url: `${baseUrl}/${submission.file_url}` });
@@ -149,7 +146,7 @@ exports.downloadFile = async (req, res) => {
       return res.status(404).json({ message: "File không còn tồn tại trên server" });
     }
 
-    // Lấy content-type từ extension vì DB không lưu mime_type
+
     const ext = path.extname(submission.file_name).toLowerCase();
     const contentType = MIME_MAP[ext] || "application/octet-stream";
 

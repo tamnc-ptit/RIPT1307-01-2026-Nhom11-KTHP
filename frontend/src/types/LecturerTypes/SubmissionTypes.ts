@@ -23,12 +23,14 @@ export interface ISubmission {
   id: number;
   milestone_id: number;
   thesis_id: number;
+  student_id: number;     
   file_url: string;
   file_name: string;
-  file_size: number;
+  file_size?: number;     
   note?: string;
   score?: number;
   status: SubmissionStatus;
+  feedback?: string;      
   submitted_at: string;
   graded_at?: string;
 }
