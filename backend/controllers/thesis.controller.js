@@ -23,21 +23,27 @@ const getAdminThesis = async (req, res) => {
 };
 
 const createThesis = async (req, res) => {
-  // Hứng toàn bộ các trường quan trọng gửi lên từ Frontend
-  const { title, description, domain, lecturer_id, student_id, session_id } = req.body;
+ 
+  const current_student_id = req.user ? req.user.id : req.body.student_id; 
+
+  const { title, description, domain, lecturer_id, session_id } = req.body;
 
   if (!title) {
     return res.status(400).json({ message: "Thiếu tiêu đề đề tài bắt buộc" });
   }
 
-  // Chặn lỗi SQL "Cannot insert NULL into session_id"
   if (!session_id) {
     return res.status(400).json({ message: "Thiếu thông tin Đợt đăng ký (session_id)!" });
   }
 
   try {
-  
-    const data = await thesisService.createThesis(req.body);
+   
+    const payload = {
+      ...req.body,
+      student_id: current_student_id
+    };
+
+    const data = await thesisService.createThesis(payload);
     res.status(201).json(data);
   } catch (err) {
     res.status(400).json({ message: err.message });

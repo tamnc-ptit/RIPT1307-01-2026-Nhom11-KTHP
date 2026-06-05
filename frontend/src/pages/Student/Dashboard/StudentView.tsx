@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, Row, Col, Typography, Tag, Button, Alert, Spin, message } from "antd";
 import { BookOutlined, MailOutlined, RocketOutlined } from "@ant-design/icons";
-import { history, request } from "umi"; // Đã import thêm request
+import { history, request } from "umi";
 
 import { IStudentDashboardInfo } from "../../../types/StudentTypes/StudentDashboardTypes";
 
@@ -15,10 +15,15 @@ const StudentView: React.FC = () => {
     const fetchDashboardInfo = async () => {
       setLoading(true);
       try {
-        // Gọi API thật từ Backend
-        // Đảm bảo bạn đã có endpoint /api/student/dashboard ở Backend
+        // Lấy token từ localStorage
+        const token = localStorage.getItem('token');
+        
+        // Kẹp token vào headers để đi qua cổng bảo vệ
         const res = await request<{ data: IStudentDashboardInfo }>('/api/student/dashboard', {
           method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
         
         if (res && res.data) {
@@ -88,7 +93,7 @@ const StudentView: React.FC = () => {
                 icon={<BookOutlined />}
                 block
                 size="large"
-                onClick={() => history.push("/thesis")}
+                onClick={() => history.push("http://localhost:8000/student/registration")}
               >
                 Đăng ký đề tài
               </Button>

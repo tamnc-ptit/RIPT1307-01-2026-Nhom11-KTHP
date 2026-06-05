@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Typography, Tag, Modal, Form, message, Spin } from 'antd';
 import { FormOutlined, CheckCircleFilled, ExclamationCircleOutlined, SyncOutlined, SearchOutlined } from '@ant-design/icons';
-import { useModel } from 'umi';
+import { useModel, request } from 'umi';
 import { LecturerERD, TopicSuggestionERD, ThesisStatus } from '../../../types/StudentTypes/RegistrationTypes';
 import { thesisRegistrationService } from '../../../services/thesis';
 
@@ -37,6 +37,24 @@ const ThesisRegistrationPage: React.FC = () => {
     const fetchData = async () => {
       try {
         setLoadingInitial(true);
+        const token = localStorage.getItem('token');
+
+        // 1. Kiểm tra trạng thái đăng ký thực tế từ Backend (chỉ gọi khi có token)
+        let actualStatus: ThesisStatus = 'not_registered';
+        if (token) {
+          try {
+            const dashboardRes = await request('/api/student/dashboard', {
+              method: 'GET',
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            actualStatus = dashboardRes?.data?.status || dashboardRes?.status || 'not_registered';
+            setStatus(actualStatus);
+          } catch (err) {
+            console.error("Lỗi khi kiểm tra trạng thái đề tài:", err);
+          }
+        }
+
+        // 2. Tải danh sách giảng viên và gợi ý
         const lecturers = await thesisRegistrationService.getLecturers();
         const firstLecturer = lecturers[0]; 
     
@@ -49,8 +67,9 @@ const ThesisRegistrationPage: React.FC = () => {
             form.setFieldsValue({ lecturer_id: firstLecturer.id });
         }
 
+        // 3. Chỉ điền bản nháp nếu sinh viên THỰC SỰ chưa đăng ký
         const draftData = localStorage.getItem('thesis_registration_draft');
-        if (draftData && status === 'not_registered') {
+        if (draftData && actualStatus === 'not_registered') {
           const parsedData = JSON.parse(draftData);
           form.setFieldsValue({ ...parsedData, lecturer_id: firstLecturer?.id });
         }
@@ -63,7 +82,7 @@ const ThesisRegistrationPage: React.FC = () => {
     };
 
     fetchData();
-  }, [form, status]);
+  }, [form]);
 
   const handleSaveDraft = () => {
     localStorage.setItem('thesis_registration_draft', JSON.stringify(form.getFieldsValue()));
@@ -84,15 +103,24 @@ const ThesisRegistrationPage: React.FC = () => {
   const handleFormSubmit = (values: any) => {
     console.log(">>> Dữ liệu form lấy được:", values);
 
+    // Lấy ID tài khoản thực tế đang đăng nhập hệ thống
+    const studentId = currentUser?.id;
+
+    if (!studentId) {
+      message.error("Lỗi: Không tìm thấy thông tin tài khoản! Vui lòng Đăng xuất và Đăng nhập lại.");
+      return;
+    }
+
     Modal.confirm({
       title: 'Xác nhận nộp phiếu',
       content: 'Không thể sửa đổi thông tin sau khi nộp. Bạn có chắc chắn muốn gửi yêu cầu?',
       onOk: async () => {
         setIsSubmitting(true);
         try {
+          // Gửi dữ liệu đi kèm ID chính xác của sinh viên hiện tại
           const payload = { 
               ...values, 
-              student_id: currentUser?.id || 1,
+              student_id: studentId,
               session_id: 1 
           };
           
