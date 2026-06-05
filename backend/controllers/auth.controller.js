@@ -29,9 +29,11 @@ exports.register = async (req, res) => {
       .input("name", sql.NVarChar, name)
       .input("email", sql.NVarChar, email)
       .input("password_hash", sql.NVarChar, hashedPassword)
-      .input("role", sql.NVarChar, role || "student").query(`
-        INSERT INTO Users (name, email, password_hash, role, is_active)
-        VALUES (@name, @email, @password_hash, @role, 1)
+      .input("role", sql.NVarChar, role || "student")
+      .input("created_at", sql.DateTime, new Date())
+      .input("updated_at", sql.DateTime, new Date()).query(`
+        INSERT INTO Users (name, email, password_hash, role, is_active, created_at, updated_at)
+        VALUES (@name, @email, @password_hash, @role, 1, @created_at, @updated_at)
       `);
 
     res.status(201).json({ message: "Đăng ký thành công!" });
