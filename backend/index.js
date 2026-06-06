@@ -7,10 +7,17 @@ dotenv.config();
 const app = express();
 
 // --- 1. MIDDLEWARES ---
-app.use(cors({
-  origin: 'http://localhost:8000',
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:8000",
+      "https://guileless-blancmange-410d86.netlify.app",
+      "https://deploy-preview-20--guileless-blancmange-410d86.netlify.app",
+    ],
+    credentials: true,
+  }),
+);
+
 app.use(express.json());
 
 // Middleware log request
@@ -18,7 +25,6 @@ app.use((req, res, next) => {
   console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
   next();
 });
-
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // --- 2. ROUTES ---
@@ -47,6 +53,6 @@ app.get("/", (req, res) => {
 
 // --- 3. START SERVER ---
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server is running on port ${PORT}`);
 });
