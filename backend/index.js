@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const path = require('path');
+const path = require("path");
 
 dotenv.config();
 const app = express();
@@ -25,7 +25,7 @@ app.use((req, res, next) => {
   console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
   next();
 });
-app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
 // --- 2. ROUTES ---
 // API dùng chung
@@ -53,6 +53,9 @@ app.get("/", (req, res) => {
 
 // --- 3. START SERVER ---
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, "0.0.0.0", () => {
+
+app.use(cors());
+
+app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
