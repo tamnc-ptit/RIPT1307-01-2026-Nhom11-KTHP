@@ -11,7 +11,6 @@ const StudentHeader: React.FC = () => {
   
   const { initialState, loading } = useModel('@@initialState');
 
-  
   if (loading) {
     return (
       <div
@@ -28,11 +27,12 @@ const StudentHeader: React.FC = () => {
 
   const currentUser = initialState?.currentUser as CurrentUser | undefined;
 
-  // Khớp định dạng 100% các trường dữ liệu thực tế (snake_case)
+  // Đã sửa lại các giá trị fallback để nếu chưa có data, nó sẽ báo "Chưa cập nhật"
+  // thay vì tự động điền mã sinh viên và tên cũ của bạn.
   const studentInfo = {
-    fullName: currentUser?.name || 'Đặng Thái An',
-    studentCode: currentUser?.student_code || 'B24DCCC002', 
-    className: currentUser?.class_name || 'Lớp chưa cập nhật', 
+    fullName: currentUser?.name || 'Chưa cập nhật tên',
+    studentCode: currentUser?.student_code || 'Chưa cập nhật mã SV', 
+    className: currentUser?.class_name || 'Chưa cập nhật lớp', 
     role: currentUser?.role === 'student' ? 'Sinh viên' : 'Sinh viên',
     school: 'PTIT',
   };
