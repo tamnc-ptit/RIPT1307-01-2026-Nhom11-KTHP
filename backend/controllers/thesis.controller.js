@@ -24,20 +24,28 @@ const getAdminThesis = async (req, res) => {
 };
 
 const createThesis = async (req, res) => {
- 
-  const current_student_id = req.user ? req.user.id : req.body.student_id; 
+  const current_student_id = req.user ? req.user.id : req.body.student_id;
+  const { title, lecturer_id } = req.body;
 
-  const { title, description, domain, lecturer_id } = req.body;
+  if (!current_student_id) {
+    return res.status(400).json({
+      message:
+        "Chỉ sinh viên mới được đăng ký đề tài. Đề tài mẫu của giảng viên phải lưu trong TopicSuggestions.",
+    });
+  }
 
   if (!title) {
     return res.status(400).json({ message: "Thiếu tiêu đề đề tài bắt buộc" });
   }
 
+  if (!lecturer_id) {
+    return res.status(400).json({ message: "Thiếu thông tin giảng viên hướng dẫn (lecturer_id)!" });
+  }
+
   try {
-   
     const payload = {
       ...req.body,
-      student_id: current_student_id
+      student_id: current_student_id,
     };
 
     const data = await thesisService.createThesis(payload);

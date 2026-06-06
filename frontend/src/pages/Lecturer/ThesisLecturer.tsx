@@ -12,7 +12,6 @@ import {
   Row,
   Tooltip,
   Col,
-  Form,
   Select
 } from "antd";
 import {
@@ -40,13 +39,11 @@ const ThesisLecturer: React.FC = () => {
   const [searchText, setSearchText] = useState("");
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [isFinalizeModalOpen, setIsFinalizeModalOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
   const [selectedThesisId, setSelectedThesisId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [lecturerNote, setLecturerNote] = useState("");
   const [finalScore, setFinalScore] = useState<number>(0);
-  const [addForm] = Form.useForm();
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
   const { initialState } = useModel("@@initialState");
@@ -74,22 +71,6 @@ const ThesisLecturer: React.FC = () => {
       fetchTheses();
     }
   }, [lecturerId]);
-
-  const handleAddSubmit = async (values: any) => {
-    try {
-      const { addThesis } = await import('@/services/thesis');
-      await addThesis({
-        ...values,
-        lecturer_id: lecturerId,
-      });
-      message.success("Đã đăng đề tài đề xuất mới!");
-      setIsAddModalOpen(false);
-      addForm.resetFields();
-      fetchTheses();
-    } catch (error) {
-      message.error("Lỗi đăng đề tài");
-    }
-  };
 
   const handleApprove = (record: ThesisItem) => {
     setSelectedThesisId(record.id);
@@ -366,7 +347,7 @@ const ThesisLecturer: React.FC = () => {
                 <Button 
                   type="primary" 
                   icon={<PlusOutlined />} 
-                  onClick={() => setIsAddModalOpen(true)}
+                  onClick={() => history.push("/lecturer/proposals")}
                   style={{ borderRadius: '8px', background: '#1e3c72', borderColor: '#1e3c72' }}
                 >
                   Đăng đề tài đề xuất
@@ -495,30 +476,6 @@ const ThesisLecturer: React.FC = () => {
             placeholder="Ví dụ: 8.5"
             style={{ borderRadius: '6px' }}
           />
-        </Modal>
-
-        {/* Modal Đăng đề xuất mới */}
-        <Modal
-          title="Đăng đề tài đề xuất mới"
-          open={isAddModalOpen}
-          onOk={() => addForm.submit()}
-          onCancel={() => setIsAddModalOpen(false)}
-          okText="Đăng đề tài"
-          cancelText="Hủy"
-          okButtonProps={{ style: { borderRadius: '6px', background: '#1e3c72', borderColor: '#1e3c72' } }}
-          cancelButtonProps={{ style: { borderRadius: '6px' } }}
-        >
-          <Form form={addForm} layout="vertical" onFinish={handleAddSubmit}>
-            <Form.Item name="title" label="Tên đề tài" rules={[{ required: true, message: 'Vui lòng nhập tên đề tài!' }]}>
-              <Input placeholder="Ví dụ: Hệ thống quản lý thực tập tốt nghiệp" style={{ borderRadius: '6px' }} />
-            </Form.Item>
-            <Form.Item name="description" label="Mô tả yêu cầu">
-              <Input.TextArea rows={4} placeholder="Mô tả tóm tắt nội dung và yêu cầu..." style={{ borderRadius: '6px' }} />
-            </Form.Item>
-            <Form.Item name="class_id" label="Gán vào Lớp tín chỉ (Tùy chọn)">
-              <Input type="number" placeholder="Nhập ID lớp học nếu có" style={{ borderRadius: '6px' }} />
-            </Form.Item>
-          </Form>
         </Modal>
       </Card>
     </div>

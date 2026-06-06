@@ -113,7 +113,6 @@ const MyProposals: React.FC = () => {
         max_groups: record.max_groups,
         status: record.status,
         session_id: record.session_id,
-        lecturer_note: record.lecturer_note
       });
     } else {
       setEditingId(null);
@@ -319,10 +318,6 @@ const MyProposals: React.FC = () => {
 
           <Form.Item name="description" label="Mô tả chi tiết">
             <TextArea rows={4} placeholder="Mô tả yêu cầu, công nghệ, kết quả mong đợi..." />
-          </Form.Item>
-
-          <Form.Item name="lecturer_note" label="Ghi chú/Nhận xét trước khi duyệt">
-            <TextArea rows={3} placeholder="Nhận xét từ giảng viên cho admin, điều kiện đặc biệt, yêu cầu..." />
           </Form.Item>
 
           <Row gutter={16}>

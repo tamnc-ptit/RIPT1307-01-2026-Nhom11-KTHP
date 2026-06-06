@@ -116,23 +116,49 @@ exports.updateMilestoneFeedback = async (id, data) => {
 };
 
 exports.createMilestone = async (data) => {
-  const { thesis_id, name, title, description, deadline, created_by } = data;
+  const thesisId = parseInt(data.thesisId ?? data.thesis_id, 10);
+  const createdBy = parseInt(data.createdBy ?? data.created_by, 10);
+  const title = data.title || data.name;
+  const { description, deadline, status } = data;
   const pool = await poolPromise;
-  const finalTitle = title || name;
-  const finalCreatedBy = created_by || 2;
+
+  if (!thesisId || Number.isNaN(thesisId)) {
+    throw new Error("Thiếu thesis_id");
+  }
+  if (!title) {
+    throw new Error("Thiếu tiêu đề milestone");
+  }
+  if (!createdBy || Number.isNaN(createdBy)) {
+    throw new Error("Thiếu thông tin người tạo");
+  }
+
+  const thesisCheck = await pool
+    .request()
+    .input("thesisId", sql.Int, thesisId)
+    .query("SELECT id FROM Thesis WHERE id = @thesisId");
+
+  if (thesisCheck.recordset.length === 0) {
+    throw new Error("Không tìm thấy thesis");
+  }
+
+  const parsedDeadline = deadline
+    ? new Date(typeof deadline === "string" && !deadline.includes("T") ? `${deadline}T00:00:00` : deadline)
+    : null;
 
   const result = await pool
     .request()
-    .input("thesis_id", sql.Int, thesis_id)
-    .input("created_by", sql.Int, finalCreatedBy)
-    .input("title", sql.NVarChar, finalTitle)
+    .input("thesisId", sql.Int, thesisId)
+    .input("createdBy", sql.Int, createdBy)
+    .input("title", sql.NVarChar, title)
     .input("description", sql.NVarChar, description || null)
-    .input("deadline", sql.DateTime, deadline ? new Date(deadline + "T00:00:00") : null)
+    .input("deadline", sql.DateTime, parsedDeadline)
+    .input("status", sql.NVarChar, status || "pending")
     .query(`
       INSERT INTO Milestones (thesis_id, created_by, title, description, deadline, status, created_at)
       OUTPUT INSERTED.*
-      VALUES (@thesis_id, @created_by, @title, @description, @deadline, 'pending', GETDATE())
+      VALUES (@thesisId, @createdBy, @title, @description, @deadline, @status, GETDATE())
     `);
+
   return result.recordset[0];
 };
 
@@ -142,36 +168,6 @@ exports.getMilestoneById = async (id) => {
       .input("id", sql.Int, id)
       .query("SELECT * FROM Milestones WHERE id = @id");
     return result.recordset[0];
-};
-
-exports.createMilestone = async ({ thesisId, createdBy, title, description, deadline, status }) => {
-  const pool = await poolPromise;
- 
-  // Kiểm tra thesis tồn tại
-  const thesisCheck = await pool
-    .request()
-    .input("thesisId", sql.Int, thesisId)
-    .query("SELECT id FROM Thesis WHERE id = @thesisId");
- 
-  if (thesisCheck.recordset.length === 0) {
-    throw new Error("Không tìm thấy thesis");
-  }
- 
-  const result = await pool
-    .request()
-    .input("thesisId",    sql.Int,      thesisId)
-    .input("createdBy",   sql.Int,      createdBy)
-    .input("title",       sql.NVarChar, title)
-    .input("description", sql.NVarChar, description || null)
-    .input("deadline",    sql.DateTime, deadline ? new Date(deadline) : null)
-    .input("status",      sql.NVarChar, status || "pending")
-    .query(`
-      INSERT INTO Milestones (thesis_id, created_by, title, description, deadline, status)
-      OUTPUT INSERTED.*
-      VALUES (@thesisId, @createdBy, @title, @description, @deadline, @status)
-    `);
- 
-  return result.recordset[0];
 };
 
 exports.deleteMilestone = async (id) => {

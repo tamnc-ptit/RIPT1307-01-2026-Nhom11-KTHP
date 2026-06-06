@@ -93,8 +93,7 @@ const ThesisRegistrationPage: React.FC = () => {
     form.setFieldsValue({
       title: topic.title,
       description: topic.description,
-      domain: topic.domain,
-      lecturer_id: myLecturer?.id, 
+      lecturer_id: topic.lecturer_id || myLecturer?.id,
       suggestion_id: topic.id,
       session_id: topic.session_id,
     });

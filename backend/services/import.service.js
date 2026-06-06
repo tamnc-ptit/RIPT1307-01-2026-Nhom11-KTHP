@@ -69,9 +69,9 @@ exports.importAndAutoAssignClasses = async (fileBuffer) => {
       await profileRequest
         .input("user_id", sql.Int, newUserId)
         .input("student_code", sql.NVarChar, studentCode).query(`
-    INSERT INTO UserProfiles (user_id, student_code)
-    VALUES (@user_id, @student_code)
-  `);
+          INSERT INTO UserProfiles (user_id, student_code, updated_at)
+          VALUES (@user_id, @student_code, GETDATE())
+        `);
 
       while (
         availableClasses[currentClassIndex] &&

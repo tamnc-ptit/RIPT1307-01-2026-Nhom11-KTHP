@@ -195,6 +195,20 @@ async function ensureClassForumSubmission(classId) {
       .query("SELECT lecturer_id FROM Classes WHERE id = @classId");
     const lecturerId = cRes.recordset[0].lecturer_id;
 
+    const studentRes = await pool
+      .request()
+      .input("classId", sql.Int, classId)
+      .query(`
+        SELECT TOP 1 student_id
+        FROM ClassStudents
+        WHERE class_id = @classId
+        ORDER BY joined_at ASC
+      `);
+    const studentId = studentRes.recordset[0]?.student_id;
+    if (!studentId) {
+      throw new Error("Lớp chưa có sinh viên, không thể khởi tạo diễn đàn.");
+    }
+
     const title = `DIEN_DAN_CHUNG_LOP_${classId}`;
 
     const insertTh = await pool
@@ -202,11 +216,12 @@ async function ensureClassForumSubmission(classId) {
       .input("sessionId", sql.Int, sessionId)
       .input("classId", sql.Int, classId)
       .input("lecturerId", sql.Int, lecturerId)
+      .input("studentId", sql.Int, studentId)
       .input("title", sql.NVarChar(255), title)
       .input("now", sql.DateTime, now)
       .query(`
-        INSERT INTO Thesis (session_id, class_id, lecturer_id, title, lecturer_status, admin_status, created_at, updated_at, status)
-        VALUES (@sessionId, @classId, @lecturerId, @title, 'approved', 'approved', @now, @now, 'forum')
+        INSERT INTO Thesis (session_id, class_id, lecturer_id, student_id, title, lecturer_status, admin_status, created_at, updated_at, status)
+        VALUES (@sessionId, @classId, @lecturerId, @studentId, @title, 'approved', 'approved', @now, @now, 'forum')
         SELECT SCOPE_IDENTITY() AS id
       `);
 

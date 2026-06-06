@@ -206,7 +206,10 @@ exports.getLecturerTheses = async (params) => {
 
   const offset = (page - 1) * pageSize;
 
-  let whereClause = `t.lecturer_id = @lecturerId`;
+  let whereClause = `t.lecturer_id = @lecturerId
+    AND t.student_id IS NOT NULL
+    AND (t.status IS NULL OR t.status <> 'forum')
+    AND t.title NOT LIKE 'DIEN_DAN_CHUNG_LOP_%'`;
   const request = pool.request()
     .input("lecturerId", sql.Int, lecturerId)
     .input("keyword", sql.NVarChar, keyword || null)

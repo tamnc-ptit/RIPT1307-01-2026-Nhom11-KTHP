@@ -1,33 +1,17 @@
 import { request } from 'umi';
 
-// ── Import Type cho Giảng viên / Admin ──
 import type { ThesisItem } from "@/types/LecturerTypes/ThesisTypes";
+import { IRegistrationSubmitPayload } from '../types/StudentTypes/RegistrationTypes';
 
-// ── Import Type cho Sinh viên ──
-import { 
-
-  IRegistrationSubmitPayload 
-} from '../types/StudentTypes/RegistrationTypes';
-
-// Helper lấy Token
 const getAuthHeader = (): Record<string, string> => {
   const token = localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-// ===================== 1. API CƠ BẢN (Dành cho Giảng viên & Admin) =====================
 export async function getThesisList(params?: any) {
   return request<ThesisItem[]>("/api/thesis", { 
     method: "GET", 
     params,
-    headers: getAuthHeader(),
-  });
-}
-
-export async function addThesis(data: Partial<ThesisItem>) {
-  return request("/api/thesis", { 
-    method: "POST", 
-    data,
     headers: getAuthHeader(),
   });
 }
@@ -47,9 +31,7 @@ export const deleteThesis = (id: number) => {
   });
 };
 
-// ===================== 2. THESIS REGISTRATION SERVICES (Dành cho Sinh viên) =====================
 export const thesisRegistrationService = {
-  // Lấy danh sách giảng viên từ backend (Endpoint /api/users?role=lecturer)
   getLecturers: async (): Promise<any[]> => {
     return request('/api/users', { 
       method: 'GET', 
@@ -58,24 +40,32 @@ export const thesisRegistrationService = {
     });
   },
 
-  // Lấy các đề tài giảng viên đang mở
+  // Đề tài mẫu từ TopicSuggestions (chưa có sinh viên nhận)
   getSuggestedTopics: async (lecturerId?: number): Promise<any[]> => {
-    return request('/api/thesis', {
+    return request('/api/topics', {
       method: 'GET',
-      params: { 
+      params: {
         lecturerId,
-        admin_status: 'approved' // Chỉ lấy những đề tài đã được admin duyệt
+        status: 'open',
       },
       headers: getAuthHeader()
     });
   },
 
-  // Nộp form đăng ký
+  // Sinh viên đăng ký → tạo bản ghi trong Thesis
   submitRegistration: async (payload: Partial<IRegistrationSubmitPayload> & { student_id?: number }) => {
     return request('/api/thesis', {
       method: 'POST',
       data: payload,
       headers: getAuthHeader(),
     });
-  }
+  },
+
+  registerSuggestedTopic: async (suggestionId: number, payload?: Record<string, unknown>) => {
+    return request(`/api/topics/${suggestionId}/register`, {
+      method: 'POST',
+      data: payload || {},
+      headers: getAuthHeader(),
+    });
+  },
 };

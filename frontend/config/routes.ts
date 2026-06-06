@@ -49,6 +49,7 @@ export default [
     access: "isLecturer",
     routes: [
       { path: "/lecturer/thesis-management", name: "Quản lý đề tài", component: "./Lecturer/ThesisLecturer", icon: "FileTextOutlined" },
+      { path: "/lecturer/proposals", name: "Đề tài đề xuất", component: "./Lecturer/MyProposals", icon: "BulbOutlined" },
       { path: "/lecturer/class-groups", name: "Lớp & Nhóm hướng dẫn", component: "./Lecturer/ClassGroups", icon: "TeamOutlined" },
       { path: "/lecturer/templates", name: "Quy trình mẫu", component: "./Lecturer/MilestoneTemplates", icon: "SisternodeOutlined" },
       { path: "/lecturer/milestones", name: "Chấm điểm & Tiến độ", component: "./Lecturer/Milestones", icon: "ClockCircleOutlined" },

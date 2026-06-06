@@ -10,11 +10,18 @@ const getStudentDashboard = async (studentId) => {
       SELECT 
         t.id AS thesisId, 
         t.title AS thesisTitle,
-        u.name AS advisorName, -- Bảng Users dùng cột 'name'
-        t.status AS status
+        u.name AS advisorName,
+        t.lecturer_status,
+        t.admin_status,
+        CASE
+          WHEN t.admin_status = 'rejected' OR t.lecturer_status = 'rejected' THEN 'rejected'
+          WHEN t.admin_status = 'approved' AND t.lecturer_status = 'approved' THEN 'approved'
+          ELSE 'pending'
+        END AS status
       FROM Thesis t
       LEFT JOIN Users u ON t.lecturer_id = u.id
       WHERE t.student_id = @studentId
+      ORDER BY t.created_at DESC
     `);
 
   // Nếu sinh viên chưa có đề tài
