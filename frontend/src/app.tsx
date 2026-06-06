@@ -10,8 +10,10 @@ export interface CurrentUser {
   name: string;
   email: string;
   role: "student" | "lecturer" | "admin";
+  // Đã bổ sung các trường cần thiết để Header đọc được
   student_code?: string;
   class_name?: string;
+  phone?: string;
   class_id?: number;
   thesis_id?: number;
 }

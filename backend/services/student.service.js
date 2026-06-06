@@ -45,18 +45,20 @@ const getStudentDashboard = async (studentId) => {
 const getProfile = async (userId) => {
   const pool = await poolPromise;
   
-  
   const profileResult = await pool.request()
   .input("userId", sql.Int, userId)
   .query(`
     SELECT 
-      u.id, u.name, u.email, u.role, u.phone, 
+      u.id, u.name, u.email, u.role, 
+      up.phone, -- Đã sửa: Lấy phone từ bảng UserProfiles
+      up.student_code, -- Đã sửa: Lấy mã SV từ UserProfiles
       c.class_name, 
       c.id AS class_id,
       t.id AS thesis_id, 
       t.title AS thesis_title,
       l.name AS lecturer_name
     FROM Users u
+    LEFT JOIN UserProfiles up ON u.id = up.user_id -- Đã sửa: JOIN với bảng UserProfiles
     LEFT JOIN ClassStudents cs ON u.id = cs.student_id
     LEFT JOIN Classes c ON cs.class_id = c.id
     LEFT JOIN Thesis t ON u.id = t.student_id
@@ -67,9 +69,9 @@ const getProfile = async (userId) => {
   const profile = profileResult.recordset[0];
   if (!profile) return null;
 
-  
-  let studentCode = 'Chưa cập nhật';
-  if (profile.email) {
+  // Lấy mã sinh viên từ DB trước, nếu null thì mới cắt từ email
+  let studentCode = profile.student_code || 'Chưa cập nhật';
+  if (studentCode === 'Chưa cập nhật' && profile.email) {
     studentCode = profile.email.split('@')[0].toUpperCase();
   }
 
@@ -95,8 +97,8 @@ const getProfile = async (userId) => {
   return {
     ...profile,
     student_code: studentCode,
-  phone: profile.phone || '', 
-  progress_percentage: progressPercentage
+    phone: profile.phone || '', 
+    progress_percentage: progressPercentage
   };
 };
 
@@ -105,19 +107,20 @@ const updateProfile = async (userId, data) => {
   const pool = await poolPromise;
   const { phone } = data;
 
- 
   try {
     await pool.request()
       .input("userId", sql.Int, userId)
       .input("phone", sql.NVarChar, phone || null)
       .query(`
-        UPDATE Users 
+        -- Đã sửa: Update vào bảng UserProfiles thay vì Users
+        UPDATE UserProfiles 
         SET phone = @phone, updated_at = GETDATE() 
-        WHERE id = @userId
+        WHERE user_id = @userId
       `);
   } catch (err) {
-  
-    console.log("Cảnh báo: Bảng Users chưa có cột phone. Vui lòng thêm cột này vào Database.");
+    
+    console.error("Lỗi khi cập nhật số điện thoại vào bảng UserProfiles:", err);
+    throw err; 
   }
     
   return { success: true };

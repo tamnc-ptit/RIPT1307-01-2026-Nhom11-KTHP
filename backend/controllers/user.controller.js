@@ -170,7 +170,15 @@ const getProfile = async (req, res) => {
     const result = await pool
       .request()
       .input("id", sql.Int, userId)
-      .query("SELECT id, name, email, role FROM Users WHERE id = @id");
+      .query(`
+        SELECT 
+          u.id, u.name, u.email, u.role,
+          up.student_code, -- Bổ sung lấy mã sinh viên
+          up.phone         -- Lấy luôn cả phone cho chắc
+        FROM Users u
+        LEFT JOIN UserProfiles up ON u.id = up.user_id
+        WHERE u.id = @id
+      `);
 
     const user = result.recordset[0];
     if (!user) {
