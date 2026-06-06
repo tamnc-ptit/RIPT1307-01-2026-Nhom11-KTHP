@@ -4,26 +4,37 @@ import { LogoutOutlined, BellOutlined } from "@ant-design/icons";
 import React, { useEffect, useState } from "react";
 import { getNotifications } from "@/services/lecturer/notifications";
 
-// --- Định nghĩa Types ---
 export interface CurrentUser {
   id: number;
   name: string;
   email: string;
   role: "student" | "lecturer" | "admin";
-  // Đã bổ sung các trường cần thiết để Header đọc được
   student_code?: string;
   class_name?: string;
   phone?: string;
   class_id?: number;
   thesis_id?: number;
 }
+
 export interface InitialState {
   currentUser?: CurrentUser;
   settings?: Record<string, unknown>;
 }
 
-// Bọc ứng dụng trong App component để các message/modal/notification có thể truy cập context
-export function rootContainer(container: React.ReactNode) {
+export interface NotificationItem {
+  id: number;
+  title: string;
+  message?: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+interface RequestOptions {
+  headers?: Record<string, string>;
+  [key: string]: unknown;
+}
+
+export function rootContainer(container: React.ReactNode): React.ReactNode {
   return <App>{container}</App>;
 }
 
@@ -32,7 +43,7 @@ export async function getInitialState(): Promise<InitialState> {
 
   if (userStr) {
     try {
-      const currentUser: CurrentUser = JSON.parse(userStr);
+      const currentUser: CurrentUser = JSON.parse(userStr) as CurrentUser;
       return {
         currentUser,
         settings: {},
@@ -48,15 +59,50 @@ export async function getInitialState(): Promise<InitialState> {
   };
 }
 
+const isProduction = process.env.NODE_ENV === "production";
+const API_URL = isProduction
+  ? process.env.UMI_APP_API_URL ||
+    "https://thesis-backend-pgf4.onrender.com"
+  : "http://localhost:5000/api";
+
+export const request = {
+  timeout: 30000,
+  prefix: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+  requestInterceptors: [
+    (url: string, options: RequestOptions) => {
+      const token = localStorage.getItem("token");
+      const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+      return {
+        url,
+        options: {
+          ...options,
+          interceptors: true,
+          headers: { ...options.headers, ...authHeader },
+        },
+      };
+    },
+  ],
+};
+
 const NotificationIndicator: React.FC = () => {
   const [count, setCount] = useState<number>(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const loadCount = async () => {
+  const loadCount = async (): Promise<void> => {
     setLoading(true);
     try {
       const notifications = await getNotifications();
-      setCount(Array.isArray(notifications) ? notifications.filter((item: any) => !item.is_read).length : 0);
+      if (Array.isArray(notifications)) {
+        const unreadCount = (notifications as NotificationItem[]).filter(
+          (item) => !item.is_read,
+        ).length;
+        setCount(unreadCount);
+      } else {
+        setCount(0);
+      }
     } catch {
       setCount(0);
     } finally {
@@ -65,7 +111,7 @@ const NotificationIndicator: React.FC = () => {
   };
 
   useEffect(() => {
-    loadCount();
+    void loadCount();
   }, []);
 
   return (
@@ -83,9 +129,7 @@ const NotificationIndicator: React.FC = () => {
   );
 };
 
-/**
- * Cấu hình Layout
- */
+
 export const layout = ({
   initialState,
   setInitialState,
@@ -99,7 +143,7 @@ export const layout = ({
     title: "Thesis Workspace",
     layout: "side" as const,
 
-    rightContentRender: () => (
+    rightContentRender: (): React.ReactNode => (
       <div
         style={{
           display: "flex",
@@ -108,14 +152,16 @@ export const layout = ({
           paddingRight: "16px",
         }}
       >
-        {initialState?.currentUser?.role === "lecturer" && <NotificationIndicator />}
+        {initialState?.currentUser?.role === "lecturer" && (
+          <NotificationIndicator />
+        )}
         <span style={{ color: "rgba(0, 0, 0, 0.85)", fontWeight: 500 }}>
           {initialState?.currentUser?.name}
         </span>
 
         <Popconfirm
           title="Xác nhận đăng xuất?"
-          onConfirm={async () => {
+          onConfirm={async (): Promise<void> => {
             localStorage.removeItem("user");
             localStorage.removeItem("token");
             await setInitialState((s) => ({ ...s, currentUser: undefined }));
