@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Card,
   Typography,
@@ -40,6 +40,7 @@ import {
   CommentOutlined,
 } from "@ant-design/icons";
 import type { UploadFile } from "antd/es/upload/interface";
+import type { RadioChangeEvent } from "antd";
 import { request, useModel, history } from "umi";
 import moment from "moment";
 
@@ -57,10 +58,39 @@ import {
   getCommentsBySubmission,
   postComment,
 } from "../../../services/comment";
+import type { MessageInstance } from "antd/es/message/interface";
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
+
+// --- Định nghĩa các Interface dữ liệu rõ ràng ---
+interface TodoItem {
+  id: number;
+  text: string;
+  done: boolean;
+}
+
+interface BackendCommentItem {
+  id: number;
+  sender_name: string;
+  content: string;
+  created_at: string;
+}
+
+interface CommentModalProps {
+  submissionId: number | null;
+  open: boolean;
+  onClose: () => void;
+  messageApi: MessageInstance;
+}
+
+interface ProgressReportSectionProps {
+  thesisId: number;
+  studentId: number;
+  tasks: Milestone[];
+  messageApi: MessageInstance;
+}
 
 const statusConfig: Record<
   MilestoneStatus,
@@ -92,12 +122,14 @@ const priorityConfig: Record<string, { color: string; label: string }> = {
   low: { color: "#52c41a", label: "Thấp" },
 };
 
-const getDerivedProgress = (status: MilestoneStatus) =>
+const getDerivedProgress = (status: MilestoneStatus): number =>
   status === "completed" ? 100 : 0;
 
 const API_BASE = process.env.REACT_APP_API_URL || "";
-// TaskCard
 
+// ==========================================
+// 1. Component TaskCard
+// ==========================================
 const TaskCard: React.FC<{
   task: Milestone;
   onUpdate: (id: number, newStatus: MilestoneStatus) => void;
@@ -105,16 +137,16 @@ const TaskCard: React.FC<{
 }> = ({ task, onUpdate, updatingId }) => {
   const cfg = statusConfig[task.status] || statusConfig.pending;
   const pri = priorityConfig.medium;
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editProgress, setEditProgress] = useState(
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [editProgress, setEditProgress] = useState<number>(
     getDerivedProgress(task.status),
   );
 
-  const handleOpenModal = () => {
+  const handleOpenModal = (): void => {
     setEditProgress(getDerivedProgress(task.status));
     setIsModalOpen(true);
   };
-  const handleConfirmUpdate = () => {
+  const handleConfirmUpdate = (): void => {
     onUpdate(task.id, editProgress === 100 ? "completed" : "pending");
     setIsModalOpen(false);
   };
@@ -141,7 +173,7 @@ const TaskCard: React.FC<{
           opacity: isUpdating ? 0.6 : 1,
         }}
       >
-        {task.status === "pending" && (
+        {(task.status === "pending" || task.status === "overdue") && (
           <div
             style={{
               position: "absolute",
@@ -258,7 +290,7 @@ const TaskCard: React.FC<{
                 max={100}
                 step={100}
                 value={editProgress}
-                onChange={setEditProgress}
+                onChange={(val: number) => setEditProgress(val)}
               />
             </Col>
             <Col span={6}>
@@ -283,23 +315,22 @@ const TaskCard: React.FC<{
   );
 };
 
-// ProgressSection
-
+// ==========================================
+// 2. Component ProgressSection
+// ==========================================
 const ProgressSection: React.FC<{
   tasks: Milestone[];
   onUpdateTask: (id: number, newStatus: MilestoneStatus) => void;
   updatingId: number | null;
 }> = ({ tasks, onUpdateTask, updatingId }) => {
-  const [todos, setTodos] = useState<
-    { id: number; text: string; done: boolean }[]
-  >([]);
-  const [todoInput, setTodoInput] = useState("");
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [todoInput, setTodoInput] = useState<string>("");
 
   const completedCount = tasks.filter((t) => t.status === "completed").length;
   const inProgressCount = tasks.filter((t) => t.status === "pending").length;
   const overdueCount = tasks.filter((t) => t.status === "overdue").length;
 
-  const handleAddTodo = () => {
+  const handleAddTodo = (): void => {
     if (!todoInput.trim()) return;
     setTodos([
       ...todos,
@@ -308,7 +339,7 @@ const ProgressSection: React.FC<{
     setTodoInput("");
   };
 
-  const toggleTodo = (id: number) =>
+  const toggleTodo = (id: number): void =>
     setTodos(todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
 
   return (
@@ -390,7 +421,7 @@ const ProgressSection: React.FC<{
         size="small"
         dataSource={todos}
         locale={{ emptyText: "Chưa có ghi chú nào được thêm." }}
-        renderItem={(item) => (
+        renderItem={(item: TodoItem) => (
           <List.Item style={{ borderBottom: "none", padding: "6px 0" }}>
             <Checkbox checked={item.done} onChange={() => toggleTodo(item.id)}>
               <Text delete={item.done}>{item.text}</Text>
@@ -419,27 +450,28 @@ const ProgressSection: React.FC<{
   );
 };
 
-// ProgressReportSection
+// ==========================================
+// 3. Component CommentModal
+// ==========================================
+const CommentModal: React.FC<CommentModalProps> = ({
+  submissionId,
+  open,
+  onClose,
+  messageApi,
+}) => {
+  const [comments, setComments] = useState<BackendCommentItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [content, setContent] = useState<string>("");
 
-const CommentModal: React.FC<{
-  submissionId: number | null;
-  open: boolean;
-  onClose: () => void;
-  messageApi: any;
-}> = ({ submissionId, open, onClose, messageApi }) => {
-  const [comments, setComments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [content, setContent] = useState("");
-
-  const fetchComments = async () => {
+  const fetchComments = async (): Promise<void> => {
     if (!submissionId) return;
     setLoading(true);
     try {
       const res = await getCommentsBySubmission(submissionId);
-      setComments(Array.isArray(res) ? res : []);
-    } catch (error) {
-      messageApi.error("Không thể tải comment!");
+      setComments(Array.isArray(res) ? (res as BackendCommentItem[]) : []);
+    } catch {
+      void messageApi.error("Không thể tải comment!");
     } finally {
       setLoading(false);
     }
@@ -447,20 +479,20 @@ const CommentModal: React.FC<{
 
   useEffect(() => {
     if (open && submissionId) {
-      fetchComments();
+      void fetchComments();
     }
   }, [open, submissionId]);
 
-  const handleSend = async () => {
+  const handleSend = async (): Promise<void> => {
     if (!content.trim() || !submissionId) return;
     setSubmitting(true);
     try {
       await postComment(submissionId, content);
       setContent("");
-      messageApi.success("Đã gửi comment!");
-      fetchComments(); // Refresh danh sách sau khi gửi
-    } catch (error) {
-      messageApi.error("Gửi comment thất bại!");
+      void messageApi.success("Đã gửi comment!");
+      void fetchComments();
+    } catch {
+      void messageApi.error("Gửi comment thất bại!");
     } finally {
       setSubmitting(false);
     }
@@ -481,7 +513,7 @@ const CommentModal: React.FC<{
           <List
             dataSource={comments}
             locale={{ emptyText: "Chưa có bình luận nào." }}
-            renderItem={(item: any) => (
+            renderItem={(item: BackendCommentItem) => (
               <List.Item style={{ border: "none", padding: "8px 0" }}>
                 <List.Item.Meta
                   title={
@@ -496,6 +528,7 @@ const CommentModal: React.FC<{
                         padding: "8px",
                         borderRadius: 8,
                         fontSize: 13,
+                        color: "#262626",
                       }}
                     >
                       {item.content}
@@ -511,12 +544,16 @@ const CommentModal: React.FC<{
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Nhập nội dung trao đổi..."
-            onPressEnter={handleSend}
+            onPressEnter={() => {
+              void handleSend();
+            }}
             disabled={submitting}
           />
           <Button
             type="primary"
-            onClick={handleSend}
+            onClick={() => {
+              void handleSend();
+            }}
             loading={submitting}
             icon={<SendOutlined />}
           >
@@ -528,63 +565,71 @@ const CommentModal: React.FC<{
   );
 };
 
-// 2. Component chính ProgressReportSection
-const ProgressReportSection: React.FC<{
-  thesisId: number;
-  studentId: number;
-  tasks: Milestone[];
-  messageApi: any;
-}> = ({ thesisId, studentId, tasks, messageApi }) => {
-  const [form] = Form.useForm();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+// ==========================================
+// 4. Component ProgressReportSection
+// ==========================================
+interface FormFields {
+  milestone_id: number;
+  fileName: string;
+  file_url?: string;
+  description?: string;
+}
+
+const ProgressReportSection: React.FC<ProgressReportSectionProps> = ({
+  thesisId,
+  studentId,
+  tasks,
+  messageApi,
+}) => {
+  const [form] = Form.useForm<FormFields>();
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [progressHistory, setProgressHistory] = useState<ProgressResponse[]>(
     [],
   );
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const [fileList, setFileList] = useState<UploadFile[]>([]);
 
-  // State quản lý Modal Comment
-  const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
+  const [isCommentModalOpen, setIsCommentModalOpen] = useState<boolean>(false);
   const [activeSubmissionId, setActiveSubmissionId] = useState<number | null>(
     null,
   );
 
-  const openCommentModal = (id: number) => {
+  const openCommentModal = (id: number): void => {
     setActiveSubmissionId(id);
     setIsCommentModalOpen(true);
   };
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (): Promise<void> => {
     if (!thesisId) return;
     try {
       setLoadingHistory(true);
       const res = await getProgressByThesis(thesisId);
       if (Array.isArray(res)) {
-        setProgressHistory(res);
+        setProgressHistory(res as ProgressResponse[]);
       } else if (res?.data && Array.isArray(res.data)) {
-        setProgressHistory(res.data);
+        setProgressHistory(res.data as ProgressResponse[]);
       } else {
         setProgressHistory([]);
       }
-    } catch (error) {
-      messageApi.error("Lỗi khi tải lịch sử báo cáo!");
+    } catch {
+      void messageApi.error("Lỗi khi tải lịch sử báo cáo!");
     } finally {
       setLoadingHistory(false);
     }
   };
 
   useEffect(() => {
-    fetchHistory();
+    void fetchHistory();
   }, [thesisId]);
 
-  const handleSubmitProgress = async () => {
+  const handleSubmitProgress = async (): Promise<void> => {
     try {
       const values = await form.validateFields();
       const fileToUpload = fileList[0]?.originFileObj || fileList[0];
       const linkUrl = values.file_url;
 
       if (!fileToUpload && !linkUrl) {
-        messageApi.error(
+        void messageApi.error(
           "Vui lòng đính kèm file báo cáo HOẶC dán link tài liệu!",
         );
         return;
@@ -592,14 +637,16 @@ const ProgressReportSection: React.FC<{
 
       const token = localStorage.getItem("token");
       if (!token) {
-        messageApi.error("Phiên đăng nhập hết hạn! Vui lòng tải lại trang.");
+        void messageApi.error(
+          "Phiên đăng nhập hết hạn! Vui lòng tải lại trang.",
+        );
         return;
       }
 
       setIsSubmitting(true);
 
       const formData = new FormData();
-      formData.append("milestone_id", values.milestone_id);
+      formData.append("milestone_id", values.milestone_id.toString());
       formData.append("thesis_id", thesisId.toString());
       formData.append("student_id", studentId.toString());
       formData.append("file_name", values.fileName);
@@ -614,33 +661,37 @@ const ProgressReportSection: React.FC<{
         body: formData,
       });
 
-      const result = await response.json();
+      const result = (await response.json()) as { message?: string };
       if (!response.ok) throw new Error(result.message || "Lỗi nộp báo cáo!");
 
-      messageApi.success("Đã nộp báo cáo tiến độ thành công!");
+      void messageApi.success("Đã nộp báo cáo tiến độ thành công!");
       form.resetFields();
       setFileList([]);
-      fetchHistory();
-    } catch (error: any) {
-      messageApi.error(error.message || "Có lỗi xảy ra, vui lòng thử lại!");
+      void fetchHistory();
+    } catch (error: unknown) {
+      const errMsg =
+        error instanceof Error
+          ? error.message
+          : "Có lỗi xảy ra, vui lòng thử lại!";
+      void messageApi.error(errMsg);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteSubmission = async (submissionId: number) => {
+  const handleDeleteSubmission = async (
+    submissionId: number,
+  ): Promise<void> => {
     try {
       const token = localStorage.getItem("token");
       await request(`/api/progress/submissions/${submissionId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      messageApi.success("Đã thu hồi báo cáo thành công!");
-      fetchHistory();
-    } catch (error: any) {
-      messageApi.error(
-        error?.response?.data?.message || "Lỗi khi thu hồi báo cáo!",
-      );
+      void messageApi.success("Đã thu hồi báo cáo thành công!");
+      void fetchHistory();
+    } catch {
+      void messageApi.error("Lỗi khi thu hồi báo cáo!");
     }
   };
 
@@ -751,7 +802,9 @@ const ProgressReportSection: React.FC<{
               type="primary"
               icon={<CloudUploadOutlined />}
               loading={isSubmitting}
-              onClick={handleSubmitProgress}
+              onClick={() => {
+                void handleSubmitProgress();
+              }}
               block
               style={{ borderRadius: 8, height: 40 }}
             >
@@ -837,7 +890,6 @@ const ProgressReportSection: React.FC<{
                             </Button>
                           </a>
 
-                          {/* Nút Trao đổi */}
                           <Button
                             size="small"
                             icon={<CommentOutlined />}
@@ -872,7 +924,7 @@ const ProgressReportSection: React.FC<{
                                 title="Thu hồi báo cáo"
                                 description="Bạn có chắc chắn muốn thu hồi báo cáo này không?"
                                 onConfirm={() =>
-                                  handleDeleteSubmission(
+                                  void handleDeleteSubmission(
                                     item.submission_id || item.id,
                                   )
                                 }
@@ -919,7 +971,6 @@ const ProgressReportSection: React.FC<{
         </Col>
       </Row>
 
-      {/* Modal Comment */}
       <CommentModal
         submissionId={activeSubmissionId}
         open={isCommentModalOpen}
@@ -929,10 +980,27 @@ const ProgressReportSection: React.FC<{
     </Card>
   );
 };
+
+// ==========================================
+// 5. Component gốc Progress
+// ==========================================
+interface DashboardApiResponse {
+  status?: string;
+  thesisId?: number;
+  data?: {
+    status?: string;
+    thesisId?: number;
+  };
+}
+
+interface MilestonesApiResponse {
+  data?: Milestone[];
+}
+
 const Progress: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage();
   const [tasks, setTasks] = useState<Milestone[]>([]);
-  const [loadingInitial, setLoadingInitial] = useState(true);
+  const [loadingInitial, setLoadingInitial] = useState<boolean>(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [realThesisId, setRealThesisId] = useState<number | null>(null);
   const [isApproved, setIsApproved] = useState<boolean>(false);
@@ -942,7 +1010,7 @@ const Progress: React.FC = () => {
   const CURRENT_STUDENT_ID = currentUser?.id;
 
   useEffect(() => {
-    const fetchInitData = async () => {
+    const fetchInitData = async (): Promise<void> => {
       if (!CURRENT_STUDENT_ID) {
         setLoadingInitial(false);
         return;
@@ -952,10 +1020,10 @@ const Progress: React.FC = () => {
         setLoadingInitial(true);
         const token = localStorage.getItem("token");
 
-        const dashRes = await request("/api/student/dashboard", {
+        const dashRes = (await request("/api/student/dashboard", {
           method: "GET",
           headers: { Authorization: `Bearer ${token}` },
-        });
+        })) as DashboardApiResponse;
 
         const actualStatus =
           dashRes?.status || dashRes?.data?.status || "not_registered";
@@ -965,30 +1033,35 @@ const Progress: React.FC = () => {
           setIsApproved(true);
           setRealThesisId(fetchedThesisId);
 
-          const milestonesRes = await request(
+          const milestonesRes = (await request(
             `/api/progress/milestones/${fetchedThesisId}`,
             {
               method: "GET",
               headers: { Authorization: `Bearer ${token}` },
             },
-          );
+          )) as Milestone[] | MilestonesApiResponse;
 
           if (Array.isArray(milestonesRes)) {
             setTasks(milestonesRes);
-          } else if (milestonesRes?.data && Array.isArray(milestonesRes.data)) {
-            setTasks(milestonesRes.data);
+          } else if (
+            (milestonesRes as MilestonesApiResponse)?.data &&
+            Array.isArray((milestonesRes as MilestonesApiResponse).data)
+          ) {
+            setTasks(
+              (milestonesRes as MilestonesApiResponse).data as Milestone[],
+            );
           }
         } else {
           setIsApproved(false);
         }
-      } catch (error) {
-        messageApi.error("Lỗi khi tải dữ liệu. Vui lòng thử lại.");
+      } catch {
+        void messageApi.error("Lỗi khi tải dữ liệu. Vui lòng thử lại.");
       } finally {
         setLoadingInitial(false);
       }
     };
 
-    fetchInitData();
+    void fetchInitData();
   }, [CURRENT_STUDENT_ID]);
 
   if (
@@ -1016,7 +1089,8 @@ const Progress: React.FC = () => {
           <Button
             type="primary"
             size="large"
-            onClick={() => history.push("/thesis")}
+            /* 🔥 ĐÃ SỬA: Sửa lại đường dẫn tương đối đồng bộ thay vì /thesis lỗi trang */
+            onClick={() => history.push("/student/registration")}
             style={{ marginTop: 24, borderRadius: 8 }}
           >
             Quay lại mục Đăng ký
@@ -1029,16 +1103,16 @@ const Progress: React.FC = () => {
   const handleUpdateTask = async (
     taskId: number,
     newStatus: MilestoneStatus,
-  ) => {
+  ): Promise<void> => {
     try {
       setUpdatingId(taskId);
       await updateStudentMilestoneStatus(taskId, newStatus);
       setTasks((prev) =>
         prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)),
       );
-      messageApi.success("Đã cập nhật trạng thái!");
+      void messageApi.success("Đã cập nhật trạng thái!");
     } catch {
-      messageApi.error("Lỗi cập nhật!");
+      void messageApi.error("Lỗi cập nhật!");
     } finally {
       setUpdatingId(null);
     }
@@ -1075,7 +1149,7 @@ const Progress: React.FC = () => {
               </Col>
               <Col xs={24} xl={14}>
                 <ProgressReportSection
-                  thesisId={realThesisId as number}
+                  thesisId={realThesisId}
                   studentId={CURRENT_STUDENT_ID as number}
                   tasks={tasks}
                   messageApi={messageApi}

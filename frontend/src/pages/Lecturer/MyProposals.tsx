@@ -16,7 +16,6 @@ import {
   Row,
   Col,
   Drawer,
-  Tabs,
   Empty,
   Avatar,
   List
@@ -36,11 +35,12 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 
+// --- Định nghĩa Hệ thống Interface Chặt chẽ ---
 interface Proposal {
   id: number;
   title: string;
   description: string;
-  max_groups: number;
+max_groups: number;
   status: string;
   lecturer_note?: string;
   registration_count?: number;
@@ -61,56 +61,70 @@ interface Registration {
   created_at: string;
 }
 
+interface SessionItem {
+  id: number;
+  sessionName?: string;
+  name?: string;
+}
+
+interface FormValues {
+  title: string;
+  session_id: number;
+  description?: string;
+  max_groups: number;
+  status: string;
+}
+
 const MyProposals: React.FC = () => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<FormValues>();
   const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [sessions, setSessions] = useState<any[]>([]);
-  const [registrationDrawerOpen, setRegistrationDrawerOpen] = useState(false);
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [registrationDrawerOpen, setRegistrationDrawerOpen] = useState<boolean>(false);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
-  const [registrationLoading, setRegistrationLoading] = useState(false);
+  const [registrationLoading, setRegistrationLoading] = useState<boolean>(false);
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
 
   const { initialState } = useModel("@@initialState");
   const lecturerId = initialState?.currentUser?.id;
 
-  const fetchProposals = async () => {
+  const fetchProposals = async (): Promise<void> => {
     if (!lecturerId) return;
     setLoading(true);
     try {
       const res = await getMyProposals();
-      setProposals(res || []);
-    } catch (error) {
-      message.error("Lỗi khi tải danh sách đề xuất");
+      setProposals((res as Proposal[]) || []);
+    } catch {
+      void message.error("Lỗi khi tải danh sách đề xuất");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchSessions = async () => {
+  const fetchSessions = async (): Promise<void> => {
     if (!lecturerId) return;
     try {
       const res = await getSessions(lecturerId);
-      setSessions(res || []);
-    } catch (error) {
-      message.error("Không thể tải danh sách học kỳ");
+      setSessions((res as SessionItem[]) || []);
+    } catch {
+      void message.error("Không thể tải danh sách học kỳ");
     }
   };
 
   useEffect(() => {
-    fetchProposals();
-    fetchSessions();
+    void fetchProposals();
+    void fetchSessions();
   }, [lecturerId]);
 
-  const openModal = (record?: Proposal) => {
+  const openModal = (record?: Proposal): void => {
     if (record) {
       setEditingId(record.id);
       form.setFieldsValue({
         title: record.title,
         description: record.description,
-        max_groups: record.max_groups,
+max_groups: record.max_groups,
         status: record.status,
         session_id: record.session_id,
       });
@@ -118,7 +132,6 @@ const MyProposals: React.FC = () => {
       setEditingId(null);
       form.resetFields();
       form.setFieldsValue({ max_groups: 1, status: "open" });
-      // Pre-select first available session when creating
       if (sessions.length > 0) {
         form.setFieldsValue({ session_id: sessions[0].id });
       }
@@ -126,50 +139,52 @@ const MyProposals: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const fetchRegistrations = async (proposalId: number) => {
+  const fetchRegistrations = async (proposalId: number): Promise<void> => {
     setRegistrationLoading(true);
     try {
       const res = await getProposalRegistrations(proposalId);
-      setRegistrations(res || []);
-    } catch (error) {
-      message.error("Lỗi khi tải danh sách đăng ký");
+      setRegistrations((res as Registration[]) || []);
+    } catch {
+      void message.error("Lỗi khi tải danh sách đăng ký");
       setRegistrations([]);
     } finally {
       setRegistrationLoading(false);
     }
   };
 
-  const openRegistrationDrawer = (proposal: Proposal) => {
+  const openRegistrationDrawer = (proposal: Proposal): void => {
     setSelectedProposal(proposal);
     setRegistrationDrawerOpen(true);
-    fetchRegistrations(proposal.id);
+    void fetchRegistrations(proposal.id);
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: FormValues): Promise<void> => {
     try {
       if (editingId) {
         await updateProposal(editingId, values);
-        message.success("Đã cập nhật đề tài đề xuất");
+        void message.success("Đã cập nhật đề tài đề xuất");
       } else {
         await createProposal(values);
-        message.success("Đã đăng đề tài đề xuất mới");
+        void message.success("Đã đăng đề tài đề xuất mới");
       }
       setIsModalOpen(false);
       form.resetFields();
       setEditingId(null);
-      fetchProposals();
-    } catch (error: any) {
-      message.error(error.message || "Lỗi khi lưu đề xuất");
+      void fetchProposals();
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : "Lỗi khi lưu đề xuất";
+      void message.error(errorMsg);
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: number): Promise<void> => {
     try {
       await deleteProposal(id);
-      message.success("Đã xóa đề tài đề xuất");
-      fetchProposals();
-    } catch (error: any) {
-      message.error(error.message || "Không thể xóa đề xuất này");
+      void message.success("Đã xóa đề tài đề xuất");
+      void fetchProposals();
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : "Không thể xóa đề xuất này";
+      void message.error(errorMsg);
     }
   };
 
@@ -178,21 +193,21 @@ const MyProposals: React.FC = () => {
       title: "Tên đề tài đề xuất",
       dataIndex: "title",
       key: "title",
-      render: (text: string) => <Text strong style={{ color: "#1e3c72" }}>{text}</Text>
+      render: (text: string): React.ReactNode => <Text strong style={{ color: "#1e3c72" }}>{text}</Text>
     },
     {
       title: "Mô tả",
       dataIndex: "description",
       key: "description",
       ellipsis: true,
-      render: (text: string) => text || "-"
+      render: (text: string): React.ReactNode => text || "-"
     },
     {
       title: "Đăng ký",
       key: "registrations",
       width: 120,
       align: "center" as const,
-      render: (_: any, record: Proposal) => (
+      render: (unknownText: unknown, record: Proposal): React.ReactNode => (
         <Tag color="cyan" style={{ cursor: "pointer" }} onClick={() => openRegistrationDrawer(record)}>
           <TeamOutlined /> {record.registration_count || 0}/{record.max_groups}
         </Tag>
@@ -204,14 +219,14 @@ const MyProposals: React.FC = () => {
       key: "max_groups",
       width: 120,
       align: "center" as const,
-      render: (val: number) => <Tag color="blue">{val} nhóm</Tag>
+      render: (val: number): React.ReactNode => <Tag color="blue">{val} nhóm</Tag>
     },
     {
       title: "Trạng thái",
       dataIndex: "status",
       key: "status",
       width: 120,
-      render: (status: string) => {
+      render: (status: string): React.ReactNode => {
         let color = "default";
         if (status === "open") color = "success";
         if (status === "closed") color = "error";
@@ -224,7 +239,7 @@ const MyProposals: React.FC = () => {
       key: "action",
       width: 140,
       align: "center" as const,
-      render: (_: any, record: Proposal) => (
+      render: (unknownText: unknown, record: Proposal): React.ReactNode => (
         <Space>
           <Button
             type="text"
@@ -234,7 +249,7 @@ const MyProposals: React.FC = () => {
           />
           <Popconfirm
             title="Xóa đề tài đề xuất này?"
-            onConfirm={() => handleDelete(record.id)}
+            onConfirm={() => { void handleDelete(record.id); }}
             okText="Xóa"
             cancelText="Hủy"
           >
@@ -294,7 +309,7 @@ const MyProposals: React.FC = () => {
         okButtonProps={{ style: { background: "#1e3c72", borderColor: "#1e3c72" } }}
         width={700}
       >
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
+        <Form form={form} layout="vertical" onFinish={(values) => { void handleSubmit(values); }}>
           <Form.Item name="title" label="Tên đề tài" rules={[{ required: true, message: "Vui lòng nhập tên đề tài" }]}>
             <Input placeholder="Ví dụ: Hệ thống quản lý đồ án tốt nghiệp" />
           </Form.Item>
@@ -308,7 +323,7 @@ const MyProposals: React.FC = () => {
               placeholder="Chọn học kỳ áp dụng" 
               disabled={!!editingId}
             >
-              {sessions.map((s: any) => (
+              {sessions.map((s) => (
                 <Option key={s.id} value={s.id}>
                   {s.sessionName || s.name || `Học kỳ ${s.id}`}
                 </Option>

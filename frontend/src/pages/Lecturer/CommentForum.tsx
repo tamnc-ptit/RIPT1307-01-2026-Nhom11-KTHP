@@ -11,8 +11,6 @@ import {
   Popconfirm,
   Avatar,
   Divider,
-  Row,
-  Col,
   Typography,
   Tag,
 } from "antd";
@@ -21,7 +19,6 @@ import {
   DeleteOutlined,
   EditOutlined,
   UserOutlined,
-  FileOutlined,
 } from "@ant-design/icons";
 import {
   getCommentsBySubmission,
@@ -33,6 +30,7 @@ import { useModel } from "umi";
 
 const { Title, Text } = Typography;
 
+// --- Định cấu trúc Interface chuẩn chỉnh ---
 interface Comment {
   id: number;
   submission_id: number;
@@ -52,6 +50,12 @@ interface CommentForumProps {
   milestoneTitle?: string;
 }
 
+// Cấu trúc phản hồi kỳ vọng từ API lấy danh sách bình luận
+interface CommentsApiResponse {
+  data?: Comment[];
+  [key: string]: unknown;
+}
+
 const CommentForum: React.FC<CommentForumProps> = ({
   submissionId,
   submissionFile = "file.pdf",
@@ -59,16 +63,16 @@ const CommentForum: React.FC<CommentForumProps> = ({
   milestoneTitle = "Bài tập",
 }) => {
   const [comments, setComments] = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [newComment, setNewComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [newComment, setNewComment] = useState<string>("");
+  const [submitting, setSubmitting] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingContent, setEditingContent] = useState("");
+  const [editingContent, setEditingContent] = useState<string>("");
   const { initialState } = useModel("@@initialState");
   const currentUser = initialState?.currentUser;
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (): void => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
@@ -77,25 +81,27 @@ const CommentForum: React.FC<CommentForumProps> = ({
   }, [comments]);
 
   useEffect(() => {
-    fetchComments();
+    void fetchComments();
   }, [submissionId]);
 
-  const fetchComments = async () => {
+  const fetchComments = async (): Promise<void> => {
     setLoading(true);
     try {
-      const res = await getCommentsBySubmission(submissionId);
+      const res = (await getCommentsBySubmission(
+        submissionId,
+      )) as CommentsApiResponse;
       setComments(res.data || []);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to fetch comments:", error);
-      message.error("Lỗi khi tải bình luận");
+      void message.error("Lỗi khi tải bình luận");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSendComment = async () => {
+  const handleSendComment = async (): Promise<void> => {
     if (!newComment.trim()) {
-      message.warning("Vui lòng nhập bình luận");
+      void message.warning("Vui lòng nhập bình luận");
       return;
     }
 
@@ -104,18 +110,18 @@ const CommentForum: React.FC<CommentForumProps> = ({
       await createComment(submissionId, newComment);
       setNewComment("");
       await fetchComments();
-      message.success("Bình luận thành công");
-    } catch (error) {
+      void message.success("Bình luận thành công");
+    } catch (error: unknown) {
       console.error("Failed to create comment:", error);
-      message.error("Lỗi khi gửi bình luận");
+      void message.error("Lỗi khi gửi bình luận");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleUpdateComment = async (id: number) => {
+  const handleUpdateComment = async (id: number): Promise<void> => {
     if (!editingContent.trim()) {
-      message.warning("Nội dung bình luận không được rỗng");
+      void message.warning("Nội dung bình luận không được rỗng");
       return;
     }
 
@@ -125,27 +131,27 @@ const CommentForum: React.FC<CommentForumProps> = ({
       setEditingId(null);
       setEditingContent("");
       await fetchComments();
-      message.success("Cập nhật bình luận thành công");
-    } catch (error) {
+      void message.success("Cập nhật bình luận thành công");
+    } catch (error: unknown) {
       console.error("Failed to update comment:", error);
-      message.error("Lỗi khi cập nhật bình luận");
+      void message.error("Lỗi khi cập nhật bình luận");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteComment = async (id: number) => {
+  const handleDeleteComment = async (id: number): Promise<void> => {
     try {
       await deleteComment(id);
       await fetchComments();
-      message.success("Xóa bình luận thành công");
-    } catch (error) {
+      void message.success("Xóa bình luận thành công");
+    } catch (error: unknown) {
       console.error("Failed to delete comment:", error);
-      message.error("Lỗi khi xóa bình luận");
+      void message.error("Lỗi khi xóa bình luận");
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
@@ -167,7 +173,7 @@ const CommentForum: React.FC<CommentForumProps> = ({
     });
   };
 
-  const getRoleColor = (role: string) => {
+  const getRoleColor = (role: string): string => {
     switch (role) {
       case "lecturer":
         return "blue";
@@ -180,7 +186,7 @@ const CommentForum: React.FC<CommentForumProps> = ({
     }
   };
 
-  const getRoleLabel = (role: string) => {
+  const getRoleLabel = (role: string): string => {
     switch (role) {
       case "lecturer":
         return "Giảng viên";
@@ -223,11 +229,14 @@ const CommentForum: React.FC<CommentForumProps> = ({
           }}
         >
           {comments.length === 0 ? (
-            <Empty description="Chưa có bình luận nào" style={{ marginTop: "20px" }} />
+            <Empty
+              description="Chưa có bình luận nào"
+              style={{ marginTop: "20px" }}
+            />
           ) : (
             <List
               dataSource={comments}
-              renderItem={(comment) => {
+              renderItem={(comment: Comment) => {
                 const isMine = comment.user_id === currentUser?.id;
                 return (
                   <div
@@ -257,15 +266,27 @@ const CommentForum: React.FC<CommentForumProps> = ({
                           gap: "12px",
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                          }}
+                        >
                           <Avatar
                             icon={<UserOutlined />}
                             size="small"
-                            style={{ backgroundColor: isMine ? "#2f54eb" : "#87d068", color: "white" }}
+                            style={{
+                              backgroundColor: isMine ? "#2f54eb" : "#87d068",
+                              color: "white",
+                            }}
                           />
                           <div>
                             <Text strong>{comment.user_name}</Text>
-                            <Tag color={getRoleColor(comment.user_role)} style={{ marginLeft: "8px" }}>
+                            <Tag
+                              color={getRoleColor(comment.user_role)}
+                              style={{ marginLeft: "8px" }}
+                            >
                               {getRoleLabel(comment.user_role)}
                             </Tag>
                           </div>
@@ -289,7 +310,9 @@ const CommentForum: React.FC<CommentForumProps> = ({
                               type="primary"
                               size="small"
                               loading={submitting}
-                              onClick={() => handleUpdateComment(comment.id)}
+                              onClick={() => {
+                                void handleUpdateComment(comment.id);
+                              }}
                             >
                               Lưu
                             </Button>
@@ -332,7 +355,9 @@ const CommentForum: React.FC<CommentForumProps> = ({
                               <Popconfirm
                                 title="Xóa bình luận"
                                 description="Bạn chắc chắn muốn xóa bình luận này không?"
-                                onConfirm={() => handleDeleteComment(comment.id)}
+                                onConfirm={() => {
+                                  void handleDeleteComment(comment.id);
+                                }}
                                 okText="Xóa"
                                 cancelText="Hủy"
                               >
@@ -371,7 +396,7 @@ const CommentForum: React.FC<CommentForumProps> = ({
           maxLength={5000}
           onPressEnter={(e) => {
             if (e.ctrlKey || e.metaKey) {
-              handleSendComment();
+              void handleSendComment();
             }
           }}
         />
@@ -379,13 +404,18 @@ const CommentForum: React.FC<CommentForumProps> = ({
           type="primary"
           icon={<SendOutlined />}
           loading={submitting}
-          onClick={handleSendComment}
+          onClick={() => {
+            void handleSendComment();
+          }}
           style={{ height: "100%" }}
         >
           Gửi
         </Button>
       </div>
-      <Text type="secondary" style={{ fontSize: "12px", marginTop: "4px", display: "block" }}>
+      <Text
+        type="secondary"
+        style={{ fontSize: "12px", marginTop: "4px", display: "block" }}
+      >
         Nhấn Ctrl+Enter để gửi nhanh
       </Text>
     </Card>
