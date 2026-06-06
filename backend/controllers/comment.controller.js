@@ -1,9 +1,60 @@
 const commentService = require("../services/comment.service");
 const { poolPromise, sql } = require("../config/db");
 
+
+const verifyAccess = async (submissionId, userId) => {
+    const pool = await poolPromise;
+    const result = await pool.request()
+        .input("sId", sql.Int, submissionId)
+        .input("uId", sql.Int, userId)
+        .query(`
+            SELECT 1 FROM Submissions s
+            JOIN Thesis t ON s.thesis_id = t.id
+            WHERE s.id = @sId AND (s.student_id = @uId OR t.lecturer_id = @uId)
+        `);
+    return result.recordset.length > 0;
+};
+
+
+// API DÀNH CHUNG (
+
+exports.postComment = async (req, res) => {
+    const { submission_id, content } = req.body;
+    const userId = req.user.id;
+
+    try {
+        if (!(await verifyAccess(submission_id, userId))) {
+            return res.status(403).json({ message: "Bạn không có quyền trao đổi ở bài nộp này." });
+        }
+        const comment = await commentService.addComment(submission_id, userId, content);
+        res.status(201).json(comment);
+    } catch (err) {
+        res.status(500).json({ message: "Lỗi lưu comment", error: err.message });
+    }
+};
+
+exports.getComments = async (req, res) => {
+    const { submission_id } = req.params;
+    const userId = req.user.id;
+
+    try {
+        if (!(await verifyAccess(submission_id, userId))) {
+            return res.status(403).json({ message: "Bạn không có quyền xem thông tin này." });
+        }
+        const comments = await commentService.getCommentsBySubmission(submission_id);
+        res.json(comments);
+    } catch (err) {
+        res.status(500).json({ message: "Lỗi lấy danh sách comment", error: err.message });
+    }
+};
+
+
+// API DÀNH RIÊNG CHO GIẢNG VIÊN & TÍNH NĂNG FORUM LỚP (Từ nhánh HEAD)
+
+
 /**
  * GET /api/lecturer/comments/submission/:submissionId
- * Get all comments for a submission
+ 
  */
 exports.getCommentsBySubmission = async (req, res) => {
   try {
@@ -13,7 +64,6 @@ exports.getCommentsBySubmission = async (req, res) => {
       return res.status(400).json({ message: "submissionId không hợp lệ" });
     }
 
-    // Verify submission exists and belongs to a thesis where user is lecturer
     const pool = await poolPromise;
     const submissionCheck = await pool
       .request()
@@ -43,7 +93,6 @@ exports.getCommentsBySubmission = async (req, res) => {
 
 /**
  * GET /api/lecturer/comments/thesis/:thesisId
- * Get all comments for a thesis (across all submissions)
  */
 exports.getCommentsByThesis = async (req, res) => {
   try {
@@ -53,7 +102,6 @@ exports.getCommentsByThesis = async (req, res) => {
       return res.status(400).json({ message: "thesisId không hợp lệ" });
     }
 
-    // Verify thesis exists and user is the lecturer
     const pool = await poolPromise;
     const thesisCheck = await pool
       .request()
@@ -78,7 +126,6 @@ exports.getCommentsByThesis = async (req, res) => {
 
 /**
  * GET /api/lecturer/comments/class/:classId
- * Get all comments for a class
  */
 exports.getCommentsByClass = async (req, res) => {
   try {
@@ -88,7 +135,6 @@ exports.getCommentsByClass = async (req, res) => {
       return res.status(400).json({ message: "classId không hợp lệ" });
     }
 
-    // Verify class exists
     const pool = await poolPromise;
     const classCheck = await pool
       .request()
@@ -101,7 +147,6 @@ exports.getCommentsByClass = async (req, res) => {
 
     const { lecturer_id } = classCheck.recordset[0];
 
-    // Allow access to the lecturer of the class, admins, or students who belong to the class
     let allowed = false;
     if (req.user.role === "admin") allowed = true;
     if (req.user.role === "lecturer" && lecturer_id === req.user.id) allowed = true;
@@ -123,15 +168,11 @@ exports.getCommentsByClass = async (req, res) => {
   }
 };
 
-/**
- * Ensure a "forum anchor" submission exists for a class and return its submission_id
- * This creates minimal Thesis/Milestone/Submission records if necessary.
- */
+
 async function ensureClassForumSubmission(classId) {
   const pool = await poolPromise;
   const now = new Date();
 
-  // Check if there's a thesis created as forum anchor for this class
   const thRes = await pool
     .request()
     .input("classId", sql.Int, classId)
@@ -141,7 +182,6 @@ async function ensureClassForumSubmission(classId) {
   if (thRes.recordset.length > 0) {
     thesisId = thRes.recordset[0].id;
   } else {
-    // find a session to attach
     const sRes = await pool.request().query("SELECT TOP 1 id FROM Sessions WHERE is_active = 1 ORDER BY id ASC");
     let sessionId = sRes.recordset.length > 0 ? sRes.recordset[0].id : null;
     if (!sessionId) {
@@ -149,7 +189,6 @@ async function ensureClassForumSubmission(classId) {
       sessionId = sAll.recordset.length > 0 ? sAll.recordset[0].id : null;
     }
 
-    // Get class's lecturer as thesis.lecturer_id
     const cRes = await pool
       .request()
       .input("classId", sql.Int, classId)
@@ -174,7 +213,6 @@ async function ensureClassForumSubmission(classId) {
     thesisId = insertTh.recordset[0].id;
   }
 
-  // Now find or create a milestone for this thesis to attach submissions
   const mRes = await pool
     .request()
     .input("thesisId", sql.Int, thesisId)
@@ -184,7 +222,6 @@ async function ensureClassForumSubmission(classId) {
   if (mRes.recordset.length > 0) {
     milestoneId = mRes.recordset[0].id;
   } else {
-    // use lecturer as created_by if available
     const tRes = await pool.request().input("thesisId", sql.Int, thesisId).query("SELECT lecturer_id FROM Thesis WHERE id = @thesisId");
     const createdBy = tRes.recordset[0].lecturer_id || null;
     const insertM = await pool
@@ -200,7 +237,6 @@ async function ensureClassForumSubmission(classId) {
     milestoneId = insertM.recordset[0].id;
   }
 
-  // Find existing submission for this milestone that we use as anchor
   const sRes2 = await pool
     .request()
     .input("milestoneId", sql.Int, milestoneId)
@@ -210,7 +246,6 @@ async function ensureClassForumSubmission(classId) {
     return sRes2.recordset[0].id;
   }
 
-  // Create a submission with student_id = lecturer_id to satisfy NOT NULL constraints
   const tRes2 = await pool.request().input("thesisId", sql.Int, thesisId).query("SELECT lecturer_id FROM Thesis WHERE id = @thesisId");
   const studentId = tRes2.recordset[0].lecturer_id;
 
@@ -229,13 +264,11 @@ async function ensureClassForumSubmission(classId) {
   return insertS.recordset[0].id;
 }
 
-// GET anchor submission id for a class (creates anchor if missing)
 exports.getClassAnchor = async (req, res) => {
   try {
     const { classId } = req.params;
     if (!classId || isNaN(classId)) return res.status(400).json({ message: "classId không hợp lệ" });
 
-    // check membership similar to getCommentsByClass
     const pool = await poolPromise;
     const classCheck = await pool.request().input("classId", sql.Int, parseInt(classId)).query("SELECT id, lecturer_id FROM Classes WHERE id = @classId");
     if (classCheck.recordset.length === 0) return res.status(404).json({ message: "Lớp không tồn tại" });
@@ -257,7 +290,6 @@ exports.getClassAnchor = async (req, res) => {
   }
 };
 
-// POST /api/lecturer/comments/class/:classId -> create comment on anchor submission
 exports.createCommentForClass = async (req, res) => {
   try {
     const { classId } = req.params;
@@ -265,7 +297,6 @@ exports.createCommentForClass = async (req, res) => {
     if (!classId || isNaN(classId)) return res.status(400).json({ message: "classId không hợp lệ" });
     if (!content || content.trim().length === 0) return res.status(400).json({ message: "Nội dung comment không được rỗng" });
 
-    // ensure membership: students must belong to class, lecturers must be lecturer
     const pool = await poolPromise;
     const classCheck = await pool.request().input("classId", sql.Int, parseInt(classId)).query("SELECT id, lecturer_id FROM Classes WHERE id = @classId");
     if (classCheck.recordset.length === 0) return res.status(404).json({ message: "Lớp không tồn tại" });
@@ -288,10 +319,6 @@ exports.createCommentForClass = async (req, res) => {
   }
 };
 
-/**
- * GET /api/lecturer/comments/:id
- * Get a single comment by ID
- */
 exports.getCommentById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -305,7 +332,6 @@ exports.getCommentById = async (req, res) => {
       return res.status(404).json({ message: "Comment không tồn tại" });
     }
 
-    // Verify lecturer access - check if comment belongs to their thesis
     const pool = await poolPromise;
     const accessCheck = await pool
       .request()
@@ -328,10 +354,6 @@ exports.getCommentById = async (req, res) => {
   }
 };
 
-/**
- * POST /api/lecturer/comments/submission/:submissionId
- * Create a new comment on a submission
- */
 exports.createComment = async (req, res) => {
   try {
     const { submissionId } = req.params;
@@ -349,7 +371,6 @@ exports.createComment = async (req, res) => {
       return res.status(400).json({ message: "Nội dung comment không được vượt quá 5000 ký tự" });
     }
 
-    // Verify submission exists
     const pool = await poolPromise;
     const submissionCheck = await pool
       .request()
@@ -367,10 +388,7 @@ exports.createComment = async (req, res) => {
 
     const { lecturer_id, thesis_id } = submissionCheck.recordset[0];
 
-    // If user is not the lecturer of the thesis, allow posting only when this submission
-    // belongs to a class forum anchor and user is a member of that class (or admin).
     if (lecturer_id !== req.user.id) {
-      // check if thesis is an anchor
       const th = await pool
         .request()
         .input("thesisId", sql.Int, thesis_id)
@@ -383,9 +401,7 @@ exports.createComment = async (req, res) => {
         return res.status(403).json({ message: "Bạn không có quyền comment trên submission này" });
       }
 
-      // allow if admin
       if (req.user.role === "admin") {
-        // allowed
       } else if (req.user.role === "student") {
         const membership = await pool
           .request()
@@ -413,10 +429,6 @@ exports.createComment = async (req, res) => {
   }
 };
 
-/**
- * PUT /api/lecturer/comments/:id
- * Update a comment
- */
 exports.updateComment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -434,7 +446,6 @@ exports.updateComment = async (req, res) => {
       return res.status(400).json({ message: "Nội dung comment không được vượt quá 5000 ký tự" });
     }
 
-    // Verify comment exists and user is the owner
     const pool = await poolPromise;
     const commentCheck = await pool
       .request()
@@ -453,7 +464,6 @@ exports.updateComment = async (req, res) => {
 
     const { user_id, lecturer_id } = commentCheck.recordset[0];
     
-    // Only the comment owner or the lecturer can update
     if (user_id !== req.user.id && lecturer_id !== req.user.id) {
       return res.status(403).json({ message: "Bạn không có quyền cập nhật comment này" });
     }
@@ -471,10 +481,6 @@ exports.updateComment = async (req, res) => {
   }
 };
 
-/**
- * DELETE /api/lecturer/comments/:id
- * Delete a comment
- */
 exports.deleteComment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -483,7 +489,6 @@ exports.deleteComment = async (req, res) => {
       return res.status(400).json({ message: "Comment ID không hợp lệ" });
     }
 
-    // Verify comment exists and user is the owner or lecturer
     const pool = await poolPromise;
     const commentCheck = await pool
       .request()
@@ -502,14 +507,11 @@ exports.deleteComment = async (req, res) => {
 
     const { user_id, lecturer_id, thesis_title } = commentCheck.recordset[0];
 
-    // If this comment belongs to a forum anchor (thesis title starts with marker),
-    // only the lecturer/admin can delete — students (even owners) cannot delete.
     if (thesis_title && thesis_title.startsWith("DIEN_DAN_CHUNG_LOP_")) {
       if (req.user.role !== "admin" && lecturer_id !== req.user.id) {
         return res.status(403).json({ message: "Bạn không có quyền xóa comment này" });
       }
     } else {
-      // Only the comment owner or the lecturer can delete
       if (user_id !== req.user.id && lecturer_id !== req.user.id) {
         return res.status(403).json({ message: "Bạn không có quyền xóa comment này" });
       }
@@ -523,10 +525,6 @@ exports.deleteComment = async (req, res) => {
   }
 };
 
-/**
- * GET /api/lecturer/students-with-thesis/:classId
- * Get all students of a class with their thesis topics and latest submission
- */
 exports.getStudentsWithThesis = async (req, res) => {
   try {
     const { classId } = req.params;
@@ -535,7 +533,6 @@ exports.getStudentsWithThesis = async (req, res) => {
       return res.status(400).json({ message: "classId không hợp lệ" });
     }
 
-    // Verify class exists and user is the lecturer
     const pool = await poolPromise;
     const classCheck = await pool
       .request()
@@ -551,7 +548,6 @@ exports.getStudentsWithThesis = async (req, res) => {
       return res.status(403).json({ message: "Bạn không có quyền xem danh sách sinh viên của lớp này" });
     }
 
-    // Get all students in this class with their thesis information
     const result = await pool
       .request()
       .input("classId", sql.Int, parseInt(classId))

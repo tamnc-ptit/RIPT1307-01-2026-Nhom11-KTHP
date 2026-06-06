@@ -23,10 +23,7 @@ const { Dragger } = Upload;
 
 const SubmissionPage: React.FC = () => {
   const [messageApi, contextHolder] = message.useMessage();
-  
-  // =========================================================================
-  // 🔌 MỞ KHÓA KẾT NỐI: TỰ ĐỘNG LẤY ID TỪ URL
-  // =========================================================================
+
   const params = useParams<{ thesisId: string; milestoneId: string }>();
   
   const thesisId = Number(params.thesisId);
@@ -35,7 +32,7 @@ const SubmissionPage: React.FC = () => {
   const { initialState } = useModel('@@initialState');
   const studentId = initialState?.currentUser?.id || Number(localStorage.getItem('userId')) || 5;
 
-  // =========================================================================
+
 
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [confirmModal, setConfirmModal] = useState(false);
@@ -113,6 +110,8 @@ const SubmissionPage: React.FC = () => {
 
   const statusMeta = getUIStatus();
 
+  const currentSubmissionId = history.length > 0 ? (history[0].id || (history[0] as any).submission_id) : null;
+
   return (
     <Spin spinning={loadingInitial}>
       {contextHolder}
@@ -128,7 +127,8 @@ const SubmissionPage: React.FC = () => {
         />
 
         <Row gutter={[20, 20]} style={{ marginTop: 20 }}>
-          <Col span={16}>
+          {/* CỘT TRÁI: NỘP BÀI VÀ LỊCH SỬ */}
+          <Col xs={24} lg={16}>
             <Card title="Tài liệu bài làm" variant="borderless" style={{ borderRadius: 12 }}>
               {statusMeta.label === 'Đã có điểm' ? (
                 <Alert message="Bạn đã hoàn thành đợt nộp này." type="success" showIcon />
@@ -182,7 +182,8 @@ const SubmissionPage: React.FC = () => {
             </Card>
           </Col>
 
-          <Col span={8}>
+          {/* CỘT PHẢI: CHECKLIST VÀ COMMENT */}
+          <Col xs={24} lg={8}>
             <Card title="Checklist bắt buộc" variant="borderless" style={{ borderRadius: 12 }}>
               {checklist.map(item => (
                 <div key={item.id} style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -191,6 +192,8 @@ const SubmissionPage: React.FC = () => {
                 </div>
               ))}
             </Card>
+
+           
           </Col>
         </Row>
 

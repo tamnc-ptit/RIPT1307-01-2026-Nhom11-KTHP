@@ -9,24 +9,24 @@ const upload = require("../middlewares/upload.middleware");
 const studentController = require("../controllers/student.controller");
 const progressController = require("../controllers/progress.controller");
 
-// Xác thực sinh viên
+// Xác thực sinh viên (Tất cả route bên dưới đều phải có token)
 router.use(auth);
 
 // 1. DASHBOARD
 router.get("/dashboard", studentController.getStudentDashboard);
 
+// 2. PROFILE (Hồ sơ cá nhân)
+router.get("/profile", studentController.getProfile);
+router.put("/profile", studentController.updateProfile);
 
-// 2. MILESTONES (Cột mốc)
-
+// 3. MILESTONES (Cột mốc)
 router.get("/theses/:thesisId/milestones", progressController.getMilestones);
 router.post("/milestones", progressController.createMilestone);
 router.patch("/milestones/:id", progressController.updateMilestone);
 
-
-// 3. PROGRESS (Nộp bài báo cáo)
-
+// 4. PROGRESS (Nộp bài báo cáo)
 router.get("/theses/:thesisId/progress", progressController.getThesisProgress);
-router.post("/progress", upload.single("file"), progressController.submitProgress); // Chèn middleware upload file vào đây
+router.post("/progress", upload.single("file"), progressController.submitProgress);
 router.delete("/submissions/:id", progressController.deleteSubmission);
 
 module.exports = router;

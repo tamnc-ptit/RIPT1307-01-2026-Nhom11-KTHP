@@ -1,6 +1,35 @@
 import { request } from "umi";
 import { getAuthHeader } from "@/services/api";
 
+
+// API CHUNG / DÀNH CHO SINH VIÊN 
+
+
+/**
+ * Lấy danh sách comment cho sinh viên
+ 
+ */
+export async function getStudentCommentsBySubmission(submissionId: number | string) {
+  return request(`/api/comments/${submissionId}`, {
+    method: 'GET',
+    headers: getAuthHeader(),
+  });
+}
+
+/**
+ * Sinh viên gửi comment mới
+ */
+export async function postComment(submissionId: number | string, content: string) {
+  return request('/api/comments', {
+    method: 'POST',
+    data: { submission_id: submissionId, content },
+    headers: getAuthHeader(),
+  });
+}
+
+
+// BỘ API DÀNH RIÊNG CHO GIẢNG VIÊN (Từ nhánh HEAD)
+
 /**
  * Get all comments for a submission
  * @param submissionId 
@@ -50,7 +79,7 @@ export async function getCommentsByClass(classId: number) {
 }
 
 /**
- * Get or create the anchor submission id for a class forum
+
  */
 export async function getClassAnchor(classId: number) {
   return request(`/api/lecturer/comments/class/${classId}/anchor`, {
@@ -111,9 +140,7 @@ export async function getStudentsWithThesis(classId: number) {
   });
 }
 
-/**
- * Create comment on class forum (creates anchor if needed)
- */
+
 export async function createCommentForClass(classId: number, content: string) {
   return request(`/api/lecturer/comments/class/${classId}`, {
     method: "POST",

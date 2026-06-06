@@ -1,7 +1,36 @@
 const { poolPromise, sql } = require("../config/db");
 
+
+
+
+/**
+ * Thêm một comment mới (Tối ưu cho API postComment)
+ * @param {number} submissionId
+ * @param {number} userId
+ * @param {string} content
+ * @returns {Promise<Object>}
+ */
+exports.addComment = async (submissionId, userId, content) => {
+  const pool = await poolPromise;
+  const result = await pool.request()
+    .input("submissionId", sql.Int, submissionId)
+    .input("userId", sql.Int, userId)
+    .input("content", sql.NVarChar, content)
+    .query(`
+      INSERT INTO Comments (submission_id, user_id, content, created_at, updated_at)
+      OUTPUT INSERTED.*
+      VALUES (@submissionId, @userId, @content, GETDATE(), GETDATE())
+    `);
+  return result.recordset[0];
+};
+
+
+
+
+
 /**
  * Get all comments for a specific submission
+ * Đã merge: Trả về cả 'user_name' và 'sender_name' để tương thích 100% với Frontend
  * @param {number} submissionId
  * @returns {Promise<Array>}
  */
@@ -20,6 +49,7 @@ exports.getCommentsBySubmission = async (submissionId) => {
         c.created_at,
         c.updated_at,
         u.name AS user_name,
+        u.name AS sender_name, -- Đảm bảo Frontend cũ không bị undefined
         u.role AS user_role,
         u.email AS user_email
       FROM Comments c
@@ -62,7 +92,7 @@ exports.getCommentById = async (id) => {
 };
 
 /**
- * Create a new comment on a submission
+ * Create a new comment on a submission (Luồng an toàn có validate cho Giảng viên/Admin)
  * @param {object} data - { submissionId, userId, content }
  * @returns {Promise<Object>}
  */
@@ -170,8 +200,8 @@ exports.updateComment = async (id, data) => {
 
 /**
  * Delete a comment
- * @param {number} id - Comment ID
- * @returns {Promise<number>} - Number of rows affected
+ * @param {number} id 
+ * @returns {Promise<number>} 
  */
 exports.deleteComment = async (id) => {
   const pool = await poolPromise;
@@ -195,7 +225,7 @@ exports.deleteComment = async (id) => {
 };
 
 /**
- * Get all comments for a thesis (across all submissions)
+
  * @param {number} thesisId
  * @returns {Promise<Array>}
  */
@@ -230,7 +260,7 @@ exports.getCommentsByThesis = async (thesisId) => {
 };
 
 /**
- * Get all comments for a lecturer class (across all submissions and theses in the class)
+ *
  * @param {number} classId
  * @returns {Promise<Array>}
  */
