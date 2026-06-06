@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Card, List, Button, Modal, Form, Input, Radio, Select, message, Badge, Empty } from "antd";
+import { Card, Button, Modal, Form, Input, Radio, Select, message, Badge, Empty, Spin } from "antd";
 import { BellOutlined, SendOutlined, CheckOutlined } from "@ant-design/icons";
 import { useModel } from "umi";
 import { getNotifications, markNotificationRead, broadcastNotification } from "@/services/lecturer/notifications";
@@ -10,6 +10,11 @@ const { Option } = Select;
 const renderSelectLabel = (option: any) => String(option?.children ?? "");
 const filterOptionByChildren = (input: string, option: any) =>
   renderSelectLabel(option).toLowerCase().includes(input.toLowerCase());
+
+const sortNewestFirst = (items: any[]) =>
+  [...items].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
 
 const NotificationsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -37,7 +42,7 @@ const NotificationsPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await getNotifications();
-      setNotifications(res || []);
+      setNotifications(sortNewestFirst(res || []));
     } catch (e) {
       message.error("Không thể tải thông báo");
     } finally {
@@ -150,44 +155,23 @@ const NotificationsPage: React.FC = () => {
         {notifications.length === 0 ? (
           <Empty description="Chưa có thông báo" />
         ) : (
-          <List
-            loading={loading}
-            split
-            dataSource={notifications}
-            renderItem={(item: any) => (
-              <List.Item
-                key={item.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 16,
-                  padding: "14px 0",
-                }}
-                actions={
-                  !item.is_read
-                    ? [
-                        <Button
-                          type="link"
-                          icon={<CheckOutlined />}
-                          onClick={() => handleMarkRead(item.id)}
-                          key="mark-read"
-                        >
-                          Đánh dấu đã đọc
-                        </Button>,
-                      ]
-                    : []
-                }
-              >
+          <Spin spinning={loading}>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {notifications.map((item: any, index: number) => (
                 <div
+                  key={item.id}
                   style={{
-                    flex: 1,
-                    minWidth: 0,
                     display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
+                    alignItems: "center",
+                    gap: 16,
+                    width: "100%",
+                    padding: "16px 4px",
+                    borderBottom:
+                      index < notifications.length - 1 ? "1px solid #f0f0f0" : "none",
+                    background: item.is_read ? "transparent" : "#f6ffed",
                   }}
                 >
-                  <div style={{ paddingTop: 6, flexShrink: 0 }}>
+                  <div style={{ flexShrink: 0, width: 10 }}>
                     {!item.is_read ? (
                       <Badge status="processing" />
                     ) : (
@@ -201,8 +185,7 @@ const NotificationsPage: React.FC = () => {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        gap: 12,
-                        flexWrap: "wrap",
+                        gap: 16,
                       }}
                     >
                       <span
@@ -223,7 +206,6 @@ const NotificationsPage: React.FC = () => {
                         style={{
                           marginTop: 4,
                           color: "rgba(0,0,0,0.65)",
-                          whiteSpace: "pre-wrap",
                           wordBreak: "break-word",
                         }}
                       >
@@ -231,10 +213,28 @@ const NotificationsPage: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  <div style={{ flexShrink: 0 }}>
+                    {!item.is_read ? (
+                      <Button
+                        type="link"
+                        icon={<CheckOutlined />}
+                        onClick={() => handleMarkRead(item.id)}
+                        style={{ padding: 0, whiteSpace: "nowrap" }}
+                      >
+                        Đánh dấu đã đọc
+                      </Button>
+                    ) : (
+                      <span style={{ color: "rgba(0,0,0,0.45)", fontSize: 13, whiteSpace: "nowrap" }}>
+                        <CheckOutlined style={{ marginRight: 4 }} />
+                        Đã xem
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </List.Item>
-            )}
-          />
+              ))}
+            </div>
+          </Spin>
         )}
       </Card>
 
