@@ -1,6 +1,7 @@
 const { poolPromise, sql } = require("../config/db");
 
 // 1. Tạo đợt đồ án mới
+// 1. Tạo đợt đồ án mới (Đã sửa lỗi lệch cấu trúc bảng tạm khi OUTPUT)
 exports.createSession = async (data) => {
   const { name, start_date, end_date, is_active, created_by } = data;
   const pool = await poolPromise;
@@ -12,7 +13,7 @@ exports.createSession = async (data) => {
     .input("end_date", sql.DateTime, end_date)
     .input("is_active", sql.Bit, is_active !== undefined ? is_active : 0)
     .input("created_by", sql.Int, created_by || null).query(`
-      -- Khai báo bảng tạm để hứng OUTPUT tránh xung đột Trigger khi INSERT
+      -- Khai báo đầy đủ các cột bao gồm cả updated_at
       DECLARE @TmpInsert TABLE (
         id INT,
         name NVARCHAR(50),
@@ -20,12 +21,14 @@ exports.createSession = async (data) => {
         end_date DATETIME,
         is_active BIT,
         created_by INT,
-        created_at DATETIME
+        created_at DATETIME,
+        updated_at DATETIME
       );
 
-      INSERT INTO Sessions (name, start_date, end_date, is_active, created_by, created_at)
+      -- Khi INSERT, hệ thống sẽ tự sinh created_at và updated_at qua GETDATE() hoặc DEFAULT
+      INSERT INTO Sessions (name, start_date, end_date, is_active, created_by, created_at, updated_at)
       OUTPUT INSERTED.* INTO @TmpInsert
-      VALUES (@name, @start_date, @end_date, @is_active, @created_by, GETDATE());
+      VALUES (@name, @start_date, @end_date, @is_active, @created_by, GETDATE(), GETDATE());
 
       SELECT * FROM @TmpInsert;
     `);
@@ -42,48 +45,64 @@ exports.getAllSessions = async () => {
   return result.recordset;
 };
 
-// 3. Cập nhật đợt đồ án (Fix lỗi Trigger DML 500 khi Đóng / Mở lại đợt)
+// 3. Cập nhật đợt đồ án (Fix triệt để lỗi trùng trùng Unique Key khi đóng/mở đợt)
 exports.updateSession = async (id, data) => {
   const { name, start_date, end_date, is_active } = data;
   const pool = await poolPromise;
 
-  // THÊM: Nếu thao tác này là MỞ ĐỢT (is_active = 1 hoặc true), tự động đóng tất cả các đợt khác trước
+  // Nếu thao tác này là MỞ ĐỢT, tự động đóng tất cả các đợt khác trước
   if (is_active === 1 || is_active === true) {
     await pool
       .request()
       .query("UPDATE Sessions SET is_active = 0 WHERE id <> " + parseInt(id));
   }
 
-  const result = await pool
-    .request()
-    .input("id", sql.Int, id)
-    .input("name", sql.NVarChar, name || null)
-    .input("start_date", sql.DateTime, start_date || null)
-    .input("end_date", sql.DateTime, end_date || null)
-    .input("is_active", sql.Bit, is_active !== undefined ? is_active : null)
-    .query(`
-      -- THÊM: Khai báo bảng tạm hứng dữ liệu OUTPUT của lệnh UPDATE
-      DECLARE @TmpUpdate TABLE (
-        id INT,
-        name NVARCHAR(50),
-        start_date DATETIME,
-        end_date DATETIME,
-        is_active BIT,
-        created_by INT,
-        created_at DATETIME
-      );
+  const request = pool.request();
+  request.input("id", sql.Int, id);
 
-      UPDATE Sessions
-      SET 
-        name = ISNULL(@name, name),
-        start_date = ISNULL(@start_date, start_date),
-        end_date = ISNULL(@end_date, end_date),
-        is_active = ISNULL(@is_active, is_active)
-      OUTPUT INSERTED.* INTO @TmpUpdate
-      WHERE id = @id;
+  // Xây dựng câu lệnh động: Chỉ SET những trường thực sự được gửi lên từ Frontend
+  let setClauses = [];
+  
+  if (name !== undefined && name !== null) {
+    request.input("name", sql.NVarChar, name);
+    setClauses.push("name = @name");
+  }
+  if (start_date !== undefined && start_date !== null) {
+    request.input("start_date", sql.DateTime, start_date);
+    setClauses.push("start_date = @start_date");
+  }
+  if (end_date !== undefined && end_date !== null) {
+    request.input("end_date", sql.DateTime, end_date);
+    setClauses.push("end_date = @end_date");
+  }
+  if (is_active !== undefined && is_active !== null) {
+    request.input("is_active", sql.Bit, is_active ? 1 : 0);
+    setClauses.push("is_active = @is_active");
+  }
 
-      SELECT * FROM @TmpUpdate;
-    `);
+  // Luôn cập nhật thời gian chỉnh sửa mới nhất
+  setClauses.push("updated_at = GETDATE()");
 
+  const queryText = `
+    DECLARE @TmpUpdate TABLE (
+      id INT,
+      name NVARCHAR(50),
+      start_date DATETIME,
+      end_date DATETIME,
+      is_active BIT,
+      created_by INT,
+      created_at DATETIME,
+      updated_at DATETIME
+    );
+
+    UPDATE Sessions
+    SET ${setClauses.join(", ")}
+    OUTPUT INSERTED.* INTO @TmpUpdate
+    WHERE id = @id;
+
+    SELECT * FROM @TmpUpdate;
+  `;
+
+  const result = await request.query(queryText);
   return result.recordset[0];
 };
