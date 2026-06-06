@@ -40,7 +40,7 @@ app.use("/api/progress", require("./routes/progress.routes"));
 
 app.use("/api/topics", require("./routes/topic.routes"));
 app.use("/api/notifications", require("./routes/notification.routes"));
-
+app.use("/api/comments", require("./routes/comment.routes"));
 app.get("/", (req, res) => {
   res.send("API đang chạy...");
 });

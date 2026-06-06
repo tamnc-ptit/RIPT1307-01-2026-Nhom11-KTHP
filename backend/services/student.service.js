@@ -8,9 +8,9 @@ const getStudentDashboard = async (studentId) => {
     .input("studentId", sql.Int, studentId)
     .query(`
       SELECT 
-        t.id AS thesisId, -- 🚀 Đã thêm lấy ID đề tài
+        t.id AS thesisId, 
         t.title AS thesisTitle,
-        u.name AS advisorName, -- SỬA full_name THÀNH name TẠI ĐÂY
+        u.name AS advisorName, -- Bảng Users dùng cột 'name'
         t.status AS status
       FROM Thesis t
       LEFT JOIN Users u ON t.lecturer_id = u.id
@@ -20,7 +20,7 @@ const getStudentDashboard = async (studentId) => {
   // Nếu sinh viên chưa có đề tài
   if (result.recordset.length === 0) {
     return {
-      thesisId: null, // 🚀 Trả về null nếu chưa có
+      thesisId: null, 
       thesisTitle: null,
       advisorName: null,
       status: "not_registered",
@@ -32,7 +32,7 @@ const getStudentDashboard = async (studentId) => {
   // Nếu sinh viên đã có đề tài
   const data = result.recordset[0];
   return {
-    thesisId: data.thesisId, // 🚀 Trả về ID thật của đề tài
+    thesisId: data.thesisId, 
     thesisTitle: data.thesisTitle,
     advisorName: data.advisorName || "Đang chờ phân công",
     status: data.status || "approved",
@@ -41,6 +41,90 @@ const getStudentDashboard = async (studentId) => {
   };
 };
 
+// 1. Lấy thông tin Hồ sơ Sinh viên
+const getProfile = async (userId) => {
+  const pool = await poolPromise;
+  
+  
+  const profileResult = await pool.request()
+  .input("userId", sql.Int, userId)
+  .query(`
+    SELECT 
+      u.id, u.name, u.email, u.role, u.phone, 
+      c.class_name, 
+      c.id AS class_id,
+      t.id AS thesis_id, 
+      t.title AS thesis_title,
+      l.name AS lecturer_name
+    FROM Users u
+    LEFT JOIN ClassStudents cs ON u.id = cs.student_id
+    LEFT JOIN Classes c ON cs.class_id = c.id
+    LEFT JOIN Thesis t ON u.id = t.student_id
+    LEFT JOIN Users l ON t.lecturer_id = l.id
+    WHERE u.id = @userId AND u.role = 'student'
+  `);
+
+  const profile = profileResult.recordset[0];
+  if (!profile) return null;
+
+  
+  let studentCode = 'Chưa cập nhật';
+  if (profile.email) {
+    studentCode = profile.email.split('@')[0].toUpperCase();
+  }
+
+  // Tính toán % tiến độ
+  let progressPercentage = 0;
+  if (profile.thesis_id) {
+    const progressResult = await pool.request()
+      .input("thesisId", sql.Int, profile.thesis_id)
+      .query(`
+        SELECT 
+          COUNT(id) AS total_milestones,
+          SUM(CASE WHEN status = 'completed' OR status = 'graded' THEN 1 ELSE 0 END) AS completed_milestones
+        FROM Milestones
+        WHERE thesis_id = @thesisId
+      `);
+      
+    const { total_milestones, completed_milestones } = progressResult.recordset[0];
+    if (total_milestones > 0) {
+      progressPercentage = Math.round((completed_milestones / total_milestones) * 100);
+    }
+  }
+
+  return {
+    ...profile,
+    student_code: studentCode,
+  phone: profile.phone || '', 
+  progress_percentage: progressPercentage
+  };
+};
+
+// 2. Cập nhật thông tin Hồ sơ
+const updateProfile = async (userId, data) => {
+  const pool = await poolPromise;
+  const { phone } = data;
+
+ 
+  try {
+    await pool.request()
+      .input("userId", sql.Int, userId)
+      .input("phone", sql.NVarChar, phone || null)
+      .query(`
+        UPDATE Users 
+        SET phone = @phone, updated_at = GETDATE() 
+        WHERE id = @userId
+      `);
+  } catch (err) {
+  
+    console.log("Cảnh báo: Bảng Users chưa có cột phone. Vui lòng thêm cột này vào Database.");
+  }
+    
+  return { success: true };
+};
+
 module.exports = {
-  getStudentDashboard
+  getStudentDashboard,
+  getProfile,
+  updateProfile
 };

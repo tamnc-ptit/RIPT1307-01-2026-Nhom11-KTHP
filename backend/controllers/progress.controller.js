@@ -1,28 +1,29 @@
-// backend/controllers/progress.controller.js
-const progressService = require("../services/progress.service");
+const progressService = require("../services/progress.service"); // Đảm bảo đúng đường dẫn file service của bạn
 
 // --- PHẦN 1: CỘT MỐC (MILESTONES) ---
+
 const getMilestones = async (req, res) => {
   try {
-    const { thesisId } = req.params;
+    const thesisId = req.params.thesisId || req.query.thesisId;
+    console.log(">>> getMilestones called, thesisId:", thesisId); // log 1
+    
     const data = await progressService.getMilestonesByThesis(thesisId);
+    console.log(">>> data returned:", data); // log 2
+    
     res.json({ success: true, data });
   } catch (err) {
+    console.error(">>> getMilestones ERROR:", err.message); // log 3
     res.status(500).json({ success: false, message: "Lỗi lấy Milestones", error: err.message });
   }
 };
 
-const updateMilestone = async (req, res) => {
-  try {
-    await progressService.updateMilestoneStatus(req.params.id, req.body.status);
-    res.json({ success: true, message: "Cập nhật thành công!" });
-  } catch (err) {
-    res.status(500).json({ success: false, message: "Lỗi cập nhật trạng thái", error: err.message });
-  }
-};
-
+// Hàm CREATE: Chặn sinh viên ngay tại đây
 const createMilestone = async (req, res) => {
   try {
+    if (req.user.role === 'student') {
+      return res.status(403).json({ success: false, message: "Access Denied: Sinh viên không được phép giao việc!" });
+    }
+
     const payload = { ...req.body, created_by: req.user.id };
     const data = await progressService.createMilestone(payload);
     res.status(201).json({ success: true, message: "Thêm công việc thành công!", data });
@@ -31,7 +32,49 @@ const createMilestone = async (req, res) => {
   }
 };
 
+// Hàm UPDATE (PATCH): Thông minh tự phân biệt Sinh viên / Giảng viên
+const updateMilestone = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Nếu là Sinh viên -> Chỉ trích xuất đúng trường 'status' để cập nhật
+    if (req.user.role === 'student') {
+      const { status } = req.body;
+      if (!status) {
+        return res.status(400).json({ success: false, message: "Vui lòng cung cấp trạng thái hợp lệ!" });
+      }
+      await progressService.updateMilestoneStatus(id, status); 
+      return res.json({ success: true, message: "Cập nhật trạng thái công việc thành công!" });
+    }
+
+    // Nếu là Giảng viên -> Được cập nhật toàn bộ (tên, mô tả, deadline...)
+    await progressService.updateMilestone(id, req.body);
+    return res.json({ success: true, message: "Cập nhật chi tiết công việc thành công!" });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Lỗi cập nhật", error: err.message });
+  }
+};
+
+// 🚀 Bổ sung hàm hứng riêng cho API /milestones/:id/status
+const updateMilestoneStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ success: false, message: "Vui lòng cung cấp trạng thái hợp lệ!" });
+    }
+
+    await progressService.updateMilestoneStatus(id, status);
+    res.json({ success: true, message: "Cập nhật trạng thái công việc thành công!" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Lỗi cập nhật trạng thái", error: err.message });
+  }
+};
+
 // --- PHẦN 2: BÁO CÁO TIẾN ĐỘ (PROGRESS & SUBMISSIONS) ---
+
 const getThesisProgress = async (req, res) => {
   try {
     const { thesisId } = req.params;
@@ -54,7 +97,7 @@ const submitProgress = async (req, res) => {
     const payload = {
       milestone_id: req.body.milestone_id,
       thesis_id: req.body.thesis_id || req.user.thesis_id,
-      student_id: req.user.id, // Lấy ID từ token cho bảo mật
+      student_id: req.user.id,
       file_name: req.body.file_name || req.file?.originalname,
       description: req.body.description || "",
       file_url: req.file ? `/uploads/${req.file.filename}` : req.body.file_url
@@ -67,7 +110,6 @@ const submitProgress = async (req, res) => {
     const data = await progressService.createProgress(payload);
     res.status(201).json({ success: true, message: "Nộp báo cáo thành công!", data });
   } catch (err) {
-    // Bắt lỗi sinh viên nộp vượt cấp từ Service
     if (err.message.includes("chưa hoàn thành")) {
         return res.status(400).json({ success: false, message: err.message });
     }
@@ -90,8 +132,9 @@ const deleteSubmission = async (req, res) => {
 
 module.exports = {
   getMilestones,
-  updateMilestone,
   createMilestone,
+  updateMilestone,
+  updateMilestoneStatus, 
   getThesisProgress,
   submitProgress,
   deleteSubmission
