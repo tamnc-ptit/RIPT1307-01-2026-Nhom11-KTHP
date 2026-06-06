@@ -30,7 +30,7 @@ import {
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
-const API = "http://localhost:5000";
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 // FIX: Helper normalize is_active — DB trả bit (0/1 hoặc true/false)
 const isActive = (val: SessionItem["is_active"]): boolean =>

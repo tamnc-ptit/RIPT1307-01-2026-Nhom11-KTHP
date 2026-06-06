@@ -31,12 +31,17 @@ export default defineConfig({
   },
 
   npmClient: "npm",
+  define: {
+    "process.env.REACT_APP_API_URL":
+      process.env.NODE_ENV === "production"
+        ? "https://thesis-backend-pgf4.onrender.com"
+        : "http://localhost:5000",
+  },
 
   proxy: {
     "/api": {
       target: "http://localhost:5000",
       changeOrigin: true,
-    
     },
   },
 });

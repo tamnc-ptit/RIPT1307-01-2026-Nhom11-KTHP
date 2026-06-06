@@ -118,9 +118,10 @@ const ThesisRegistrationPage: React.FC = () => {
         setIsSubmitting(true);
         try {
           // Gửi dữ liệu đi kèm ID chính xác của sinh viên hiện tại
-          const payload = { 
-              ...values, 
-              student_id: studentId,
+          const allFormValues = form.getFieldsValue();
+          const payload = {
+            ...allFormValues,
+            student_id: studentId,
           };
           
           console.log(">>> Payload chuẩn bị bắn xuống Backend:", payload);

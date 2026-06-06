@@ -98,13 +98,8 @@ exports.importAndAutoAssignClasses = async (fileBuffer) => {
       await profileRequest
         .input("user_id", sql.Int, newUserId)
         .input("student_code", sql.NVarChar, studentCode).query(`
-<<<<<<< HEAD
           INSERT INTO UserProfiles (user_id, student_code, updated_at)
           VALUES (@user_id, @student_code, GETDATE())
-=======
-          INSERT INTO UserProfiles (user_id, student_code)
-          VALUES (@user_id, @student_code)
->>>>>>> main
         `);
 
       // Gán sinh viên vào lớp học còn slot trống

@@ -7,13 +7,12 @@ interface RegisterFormValues {
   email: string;
   role: "student" | "lecturer";
   password: string;
-  confirmPassword?: string; 
+  confirmPassword?: string;
 }
 
 const RegisterPage: React.FC = () => {
   const [form] = Form.useForm<RegisterFormValues>();
 
-  // 2. Thay đổi kiểu dữ liệu từ any sang RegisterFormValues
   const handleRegister = async (values: RegisterFormValues) => {
     try {
       // 1. Kiểm tra mật khẩu khớp nhau (Client-side validation)
@@ -21,7 +20,10 @@ const RegisterPage: React.FC = () => {
         return message.error("Mật khẩu nhập lại không khớp!");
       }
 
-      const response = await fetch("http://localhost:5000/api/auth/register", {
+      // Đọc biến môi trường động từ cấu hình Netlify / Render
+      const API_BASE = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+      const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
