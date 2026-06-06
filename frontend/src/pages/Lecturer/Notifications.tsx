@@ -1,140 +1,197 @@
 import React, { useEffect, useState } from "react";
-import { Card, Button, Modal, Form, Input, Radio, Select, message, Badge, Empty, Spin } from "antd";
+import {
+  Card,
+  Button,
+  Modal,
+  Form,
+  Input,
+  Radio,
+  Select,
+  message,
+  Badge,
+  Empty,
+  Spin,
+} from "antd";
 import { BellOutlined, SendOutlined, CheckOutlined } from "@ant-design/icons";
 import { useModel } from "umi";
-import { getNotifications, markNotificationRead, broadcastNotification } from "@/services/lecturer/notifications";
-import { getLecturerClasses, getLecturerTheses, getClassStudents } from "@/services/lecturer";
+import type { RadioChangeEvent } from "antd";
+import {
+  getNotifications,
+  markNotificationRead,
+  broadcastNotification,
+} from "@/services/lecturer/notifications";
+import type {
+  NotificationItem,
+  BroadcastPayload,
+} from "@/services/lecturer/notifications";
+import {
+  getLecturerClasses,
+  getLecturerTheses,
+  getClassStudents,
+} from "@/services/lecturer";
 
 const { Option } = Select;
 
-const renderSelectLabel = (option: any) => String(option?.children ?? "");
-const filterOptionByChildren = (input: string, option: any) =>
-  renderSelectLabel(option).toLowerCase().includes(input.toLowerCase());
+// Định nghĩa cụ thể các Interface thực thể dữ liệu
+interface ClassItem {
+  id: number;
+  class_name?: string;
+}
 
-const sortNewestFirst = (items: any[]) =>
+interface ThesisItem {
+  id: number;
+  title?: string;
+}
+
+interface StudentItem {
+  id: number;
+  name?: string;
+}
+
+interface FormValues {
+  audience: "by_class" | "by_thesis" | "by_student";
+  classId?: number;
+  thesisId?: number;
+  studentId?: number;
+  title: string;
+  message?: string;
+}
+
+// Tránh sử dụng kiểu 'any' cho các hàm bổ trợ
+const sortNewestFirst = (items: NotificationItem[]): NotificationItem[] =>
   [...items].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
 
 const NotificationsPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [classes, setClasses] = useState<any[]>([]);
-  const [theses, setTheses] = useState<any[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
-  const [selectedAudience, setSelectedAudience] = useState("by_class");
-  const [studentsLoading, setStudentsLoading] = useState(false);
-  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [theses, setTheses] = useState<ThesisItem[]>([]);
+  const [students, setStudents] = useState<StudentItem[]>([]);
+  const [selectedAudience, setSelectedAudience] = useState<string>("by_class");
+  const [studentsLoading, setStudentsLoading] = useState<boolean>(false);
+  const [optionsLoading, setOptionsLoading] = useState<boolean>(false);
 
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<FormValues>();
   const { initialState } = useModel("@@initialState");
   const lecturerId = initialState?.currentUser?.id;
 
   useEffect(() => {
-    fetchNotifications();
+    void fetchNotifications();
     if (lecturerId) {
-      fetchOptions();
+      void fetchOptions();
     }
   }, [lecturerId]);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (): Promise<void> => {
     setLoading(true);
     try {
       const res = await getNotifications();
       setNotifications(sortNewestFirst(res || []));
-    } catch (e) {
-      message.error("Không thể tải thông báo");
+    } catch {
+      void message.error("Không thể tải thông báo");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchOptions = async () => {
+  const fetchOptions = async (): Promise<void> => {
     if (!lecturerId) return;
 
     setOptionsLoading(true);
     try {
       const classData = await getLecturerClasses(lecturerId);
+      // Giả định API trả về cấu trúc phân trang hoặc mảng thô
       const thesisData = await getLecturerTheses({ pageSize: 500 });
 
-      setClasses(classData || []);
-      setTheses(thesisData?.items || []);
-    } catch (e) {
-      message.error("Không thể tải danh sách lớp hoặc đề tài");
+      setClasses((classData as ClassItem[]) || []);
+      setTheses((thesisData?.items as ThesisItem[]) || []);
+    } catch {
+      void message.error("Không thể tải danh sách lớp hoặc đề tài");
     } finally {
       setOptionsLoading(false);
     }
   };
 
-  const fetchStudents = async (classId: number) => {
+  const fetchStudents = async (classId: number): Promise<void> => {
     setStudentsLoading(true);
     try {
       const res = await getClassStudents(classId);
-      setStudents(res || []);
-    } catch (e) {
-      message.error("Không thể tải danh sách sinh viên");
+      setStudents((res as StudentItem[]) || []);
+    } catch {
+      void message.error("Không thể tải danh sách sinh viên");
       setStudents([]);
     } finally {
       setStudentsLoading(false);
     }
   };
 
-  const handleMarkRead = async (id: number) => {
+  const handleMarkRead = async (id: number): Promise<void> => {
     try {
       await markNotificationRead(id);
-      message.success("Đã đánh dấu đã đọc");
-      fetchNotifications();
-    } catch (e) {
-      message.error("Không thể đánh dấu thông báo");
+      void message.success("Đã đánh dấu đã đọc");
+      void fetchNotifications();
+    } catch {
+      void message.error("Không thể đánh dấu thông báo");
     }
   };
 
-  const openModal = () => {
+  const openModal = (): void => {
     form.resetFields();
     setSelectedAudience("by_class");
     setStudents([]);
     setModalVisible(true);
   };
 
-  const handleAudienceChange = (e: any) => {
-    const value = e.target.value;
+  const handleAudienceChange = (e: RadioChangeEvent): void => {
+    const value = e.target.value as string;
     setSelectedAudience(value);
-    form.setFieldsValue({ classId: undefined, thesisId: undefined, studentId: undefined });
+    form.setFieldsValue({
+      classId: undefined,
+      thesisId: undefined,
+      studentId: undefined,
+    });
     setStudents([]);
   };
 
-  const handleClassChange = async (classId: number) => {
+  const handleClassChange = async (classId: number): Promise<void> => {
     if (selectedAudience === "by_student") {
       form.setFieldsValue({ studentId: undefined });
       await fetchStudents(classId);
     }
   };
 
-  const handleSend = async (values: any) => {
+  const handleSend = async (values: FormValues): Promise<void> => {
     try {
-      const payload: any = {
+      const payload: BroadcastPayload = {
         title: values.title,
         message: values.message || "",
-        target: {},
+        target: {
+          audience: values.audience,
+        },
       };
 
-      if (values.audience === "by_class") {
-        payload.target = { audience: "by_class", classId: values.classId };
+      if (values.audience === "by_class" && values.classId) {
+        payload.target.classId = values.classId;
       }
-      if (values.audience === "by_thesis") {
-        payload.target = { audience: "by_thesis", thesisId: values.thesisId };
+      if (values.audience === "by_thesis" && values.thesisId) {
+        payload.target.thesisId = values.thesisId;
       }
-      if (values.audience === "by_student") {
-        payload.target = { audience: "by_student", studentId: values.studentId };
+      if (values.audience === "by_student" && values.studentId) {
+        payload.target.studentId = values.studentId;
       }
 
       await broadcastNotification(payload);
-      message.success("Đã gửi thông báo");
+      void message.success("Đã gửi thông báo");
       setModalVisible(false);
-      fetchNotifications();
-    } catch (e: any) {
-      message.error(e?.message || "Không thể gửi thông báo");
+      void fetchNotifications();
+    } catch (e: unknown) {
+      const errorMsg =
+        e instanceof Error ? e.message : "Không thể gửi thông báo";
+      void message.error(errorMsg);
     }
   };
 
@@ -143,7 +200,8 @@ const NotificationsPage: React.FC = () => {
       <Card
         title={
           <span>
-            <BellOutlined style={{ marginRight: 8 }} />Thông báo
+            <BellOutlined style={{ marginRight: 8 }} />
+            Thông báo
           </span>
         }
         extra={
@@ -157,7 +215,7 @@ const NotificationsPage: React.FC = () => {
         ) : (
           <Spin spinning={loading}>
             <div style={{ display: "flex", flexDirection: "column" }}>
-              {notifications.map((item: any, index: number) => (
+              {notifications.map((item, index) => (
                 <div
                   key={item.id}
                   style={{
@@ -167,16 +225,14 @@ const NotificationsPage: React.FC = () => {
                     width: "100%",
                     padding: "16px 4px",
                     borderBottom:
-                      index < notifications.length - 1 ? "1px solid #f0f0f0" : "none",
+                      index < notifications.length - 1
+                        ? "1px solid #f0f0f0"
+                        : "none",
                     background: item.is_read ? "transparent" : "#f6ffed",
                   }}
                 >
                   <div style={{ flexShrink: 0, width: 10 }}>
-                    {!item.is_read ? (
-                      <Badge status="processing" />
-                    ) : (
-                      <Badge status="default" />
-                    )}
+                    <Badge status={!item.is_read ? "processing" : "default"} />
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -192,12 +248,20 @@ const NotificationsPage: React.FC = () => {
                         style={{
                           fontWeight: item.is_read ? 400 : 600,
                           fontSize: 15,
-                          color: item.is_read ? "rgba(0,0,0,0.65)" : "rgba(0,0,0,0.88)",
+                          color: item.is_read
+                            ? "rgba(0,0,0,0.65)"
+                            : "rgba(0,0,0,0.88)",
                         }}
                       >
                         {item.title}
                       </span>
-                      <span style={{ color: "rgba(0,0,0,0.45)", fontSize: 12, whiteSpace: "nowrap" }}>
+                      <span
+                        style={{
+                          color: "rgba(0,0,0,0.45)",
+                          fontSize: 12,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         {new Date(item.created_at).toLocaleString("vi-VN")}
                       </span>
                     </div>
@@ -219,13 +283,21 @@ const NotificationsPage: React.FC = () => {
                       <Button
                         type="link"
                         icon={<CheckOutlined />}
-                        onClick={() => handleMarkRead(item.id)}
+                        onClick={() => {
+                          void handleMarkRead(item.id);
+                        }}
                         style={{ padding: 0, whiteSpace: "nowrap" }}
                       >
                         Đánh dấu đã đọc
                       </Button>
                     ) : (
-                      <span style={{ color: "rgba(0,0,0,0.45)", fontSize: 13, whiteSpace: "nowrap" }}>
+                      <span
+                        style={{
+                          color: "rgba(0,0,0,0.45)",
+                          fontSize: 13,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
                         <CheckOutlined style={{ marginRight: 4 }} />
                         Đã xem
                       </span>
@@ -251,7 +323,11 @@ const NotificationsPage: React.FC = () => {
           onFinish={handleSend}
           initialValues={{ audience: "by_class" }}
         >
-          <Form.Item name="audience" label="Đối tượng" rules={[{ required: true }]}>
+          <Form.Item
+            name="audience"
+            label="Đối tượng"
+            rules={[{ required: true }]}
+          >
             <Radio.Group onChange={handleAudienceChange}>
               <Radio value="by_class">Theo lớp</Radio>
               <Radio value="by_thesis">Theo đề tài</Radio>
@@ -265,7 +341,12 @@ const NotificationsPage: React.FC = () => {
               label="Lớp hướng dẫn"
               rules={[{ required: true, message: "Chọn lớp" }]}
             >
-              <Select placeholder="Chọn lớp" loading={optionsLoading} showSearch filterOption={filterOptionByChildren}>
+              <Select
+                placeholder="Chọn lớp"
+                loading={optionsLoading}
+                showSearch
+                optionFilterProp="children"
+              >
                 {classes.map((cls) => (
                   <Option key={cls.id} value={cls.id}>
                     {cls.class_name || `Lớp ${cls.id}`}
@@ -285,7 +366,7 @@ const NotificationsPage: React.FC = () => {
                 placeholder="Chọn đề tài"
                 loading={optionsLoading}
                 showSearch
-                filterOption={filterOptionByChildren}
+                optionFilterProp="children"
               >
                 {theses.map((thesis) => (
                   <Option key={thesis.id} value={thesis.id}>
@@ -307,8 +388,10 @@ const NotificationsPage: React.FC = () => {
                   placeholder="Chọn lớp"
                   loading={optionsLoading}
                   showSearch
-                  filterOption={filterOptionByChildren}
-                  onChange={handleClassChange}
+                  optionFilterProp="children"
+                  onChange={(val: number) => {
+                    void handleClassChange(val);
+                  }}
                 >
                   {classes.map((cls) => (
                     <Option key={cls.id} value={cls.id}>
@@ -324,10 +407,12 @@ const NotificationsPage: React.FC = () => {
                 rules={[{ required: true, message: "Chọn sinh viên" }]}
               >
                 <Select
-                  placeholder={studentsLoading ? "Đang tải sinh viên..." : "Chọn sinh viên"}
+                  placeholder={
+                    studentsLoading ? "Đang tải sinh viên..." : "Chọn sinh viên"
+                  }
                   loading={studentsLoading}
                   showSearch
-                  filterOption={filterOptionByChildren}
+                  optionFilterProp="children"
                 >
                   {students.map((student) => (
                     <Option key={student.id} value={student.id}>
@@ -339,7 +424,11 @@ const NotificationsPage: React.FC = () => {
             </>
           )}
 
-          <Form.Item name="title" label="Tiêu đề" rules={[{ required: true, message: "Nhập tiêu đề" }]}> 
+          <Form.Item
+            name="title"
+            label="Tiêu đề"
+            rules={[{ required: true, message: "Nhập tiêu đề" }]}
+          >
             <Input />
           </Form.Item>
 
