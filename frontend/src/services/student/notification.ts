@@ -1,18 +1,31 @@
-import { request } from 'umi';
+import { request } from "umi";
 
-// Lấy danh sách thông báo của người đang đăng nhập (Sinh viên)
-export const getMyNotifications = async () => {
-  const token = localStorage.getItem('token');
-  return request('/api/notifications', {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${token}` },
-  });
-};
+export interface NotificationItem {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
 
-export const markNotificationAsRead = async (id: number) => {
-  const token = localStorage.getItem('token');
-  return request(`/api/notifications/${id}/read`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}` },
+/**
+ * Lấy danh sách thông báo của tôi
+ */
+export async function getMyNotifications(): Promise<NotificationItem[]> {
+  return request<NotificationItem[]>("/notifications", {
+    method: "GET",
   });
-};
+}
+
+/**
+ * Đánh dấu thông báo đã đọc
+ * SỬA THÀNH: PATCH để trùng khớp với router.patch() ở Backend
+ */
+export async function markNotificationAsRead(
+  id: number,
+): Promise<{ success: boolean }> {
+  return request<{ success: boolean }>(`/notifications/${id}/read`, {
+    method: "PATCH",
+  });
+}
