@@ -55,10 +55,19 @@ exports.login = async (req, res) => {
 
   try {
     const pool = await poolPromise;
+    // ĐÃ SỬA: JOIN bảng UserProfiles để lấy student_code và phone
     const result = await pool
       .request()
       .input("email", sql.VarChar, email)
-      .query("SELECT * FROM Users WHERE email = @email");
+      .query(`
+        SELECT 
+          u.*, 
+          up.student_code, 
+          up.phone
+        FROM Users u
+        LEFT JOIN UserProfiles up ON u.id = up.user_id
+        WHERE u.email = @email
+      `);
 
     const user = result.recordset[0];
 
@@ -80,11 +89,14 @@ exports.login = async (req, res) => {
       { expiresIn: "24h" },
     );
 
+
     res.json({
       id: user.id,
       name: user.name,
       role: user.role,
       email: user.email,
+      student_code: user.student_code, 
+      phone: user.phone,               
       token: token, 
     });
   } catch (err) {
