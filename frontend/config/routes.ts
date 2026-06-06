@@ -35,6 +35,9 @@ export default [
       { path: "/student/registration", name: "Đăng ký đề tài", component: "Student/ThesisRegistration/index" },
       { path: "/student/progress", name: "Tiến độ & Phản hồi", component: "Student/Progress/index" },
       { path: "/student/submission", name: "Nộp báo cáo", component: "Student/Submission/index" },
+      { path: '/student/notifications', name: 'Thông báo',icon: 'BellOutlined', component: './Student/Notifications'},
+      { path: '/student/profile', name: 'Hồ sơ cá nhân', component: './Student/Profile',
+},
     ],
   },
   
@@ -52,6 +55,7 @@ export default [
       { path: "/lecturer/session", name: "Học kỳ", component: "./Lecturer/SessionSettings" },
       { path: "/lecturer/profile", name: "Hồ sơ cá nhân", component: "./Lecturer/Profile", icon: "UserOutlined" },
       { path: "/lecturer/notifications", name: "Thông báo", component: "./Lecturer/Notifications", icon: "NotificationOutlined" },
+      
     ],
   },
   {
