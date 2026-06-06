@@ -4,7 +4,7 @@ import type { CurrentUser } from "@/app";
 
 interface LoginValues {
   email?: string;
-  password?: string; // Đây là plain text password "123456"
+  password?: string; 
 }
 
 interface LoginResponse extends CurrentUser {
@@ -19,8 +19,7 @@ const LoginPage: React.FC = () => {
   const handleLogin = async (values: LoginValues) => {
     const { email } = values;
 
-    // 1. Cập nhật logic kiểm tra Domain Email để khớp với Seed Data
-    // Admin trong SQL của bạn là admin@ptit.edu.vn
+
     const isStudent = email?.endsWith("@student.ptit.edu.vn");
     const isLecturerOrAdmin = email?.endsWith("@ptit.edu.vn") && !isStudent;
 
@@ -30,8 +29,10 @@ const LoginPage: React.FC = () => {
     }
 
     try {
-      // Thêm await vào trước fetch
-      const response = await fetch("/api/auth/login", {
+      const API_BASE = "https://thesis-backend-pgf4.onrender.com";
+
+      // Gọi API chính xác tới Server Render
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -44,17 +45,14 @@ const LoginPage: React.FC = () => {
       if (response.ok && data.id) {
         message.success("Chào mừng quay trở lại!");
 
-        // 3. Lưu thông tin đăng nhập vào LocalStorage
         localStorage.setItem("user", JSON.stringify(data));
         if (data.token) localStorage.setItem("token", data.token);
 
-        // 4. Cập nhật InitialState cho UmiJS
         await setInitialState((s) => ({
           ...s,
           currentUser: data,
         }));
 
-        // 5. Điều hướng dựa trên role thực tế trả về từ Database
         if (data.role === "admin") {
           history.push("/admin/users");
         } else if (data.role === "lecturer") {
@@ -65,7 +63,6 @@ const LoginPage: React.FC = () => {
 
         await refresh();
       } else {
-        // Hiển thị lỗi "Sai mật khẩu!" hoặc "Email không tồn tại" từ Backend
         message.error(
           data.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại!",
         );
@@ -73,7 +70,7 @@ const LoginPage: React.FC = () => {
     } catch (error) {
       console.error("Login Error:", error);
       message.error(
-        "Không thể kết nối tới Server. Hãy đảm bảo Backend (Port 5000) đang chạy!",
+        "Không thể kết nối tới Server. Hãy đảm bảo Backend trên Render đang chạy ổn định!",
       );
     }
   };
@@ -95,7 +92,7 @@ const LoginPage: React.FC = () => {
         <Form form={form} layout="vertical" onFinish={handleLogin}>
           <Form.Item
             label="Email"
-            name="email" // Khớp với req.body.email ở Backend
+            name="email" 
             rules={[
               { required: true, message: "Vui lòng nhập email!" },
               { type: "email", message: "Email không đúng định dạng!" },
@@ -106,7 +103,7 @@ const LoginPage: React.FC = () => {
 
           <Form.Item
             label="Mật khẩu"
-            name="password" // Khớp với req.body.password ở Backend
+            name="password" 
             rules={[{ required: true, message: "Vui lòng nhập mật khẩu!" }]}
           >
             <Input.Password
