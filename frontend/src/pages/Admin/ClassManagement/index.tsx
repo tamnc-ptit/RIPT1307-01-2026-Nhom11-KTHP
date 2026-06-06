@@ -26,7 +26,7 @@ import {
   ClassFormValues,
 } from "../../../types/AdminTypes/ClassTypes";
 
-const API = "http://localhost:5000";
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 const ClassManagement: React.FC = () => {
   const [classes, setClasses] = useState<ClassItem[]>([]);

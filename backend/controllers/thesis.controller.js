@@ -6,17 +6,24 @@ const notificationService = require("../services/notification.service");
 
 const getAdminThesis = async (req, res) => {
   try {
-    const { keyword, lecturerId, admin_status, lecturer_status, classId, session_id } = req.query;
-    
+    const {
+      keyword,
+      lecturerId,
+      admin_status,
+      lecturer_status,
+      classId,
+      session_id,
+    } = req.query;
+
     const data = await thesisService.getAllThesis({
       keyword,
       lecturerId,
       adminStatus: admin_status,
       lecturerStatus: lecturer_status,
       classId,
-      sessionId: session_id
+      sessionId: session_id,
     });
-    
+
     res.json(data);
   } catch (err) {
     res.status(500).json({ message: "Lỗi Server", error: err.message });
@@ -25,7 +32,7 @@ const getAdminThesis = async (req, res) => {
 
 const createThesis = async (req, res) => {
   const current_student_id = req.user ? req.user.id : req.body.student_id;
-  const { title, lecturer_id } = req.body;
+  const { title, lecturer_id, session_id } = req.body;
 
   if (!current_student_id) {
     return res.status(400).json({
@@ -39,7 +46,14 @@ const createThesis = async (req, res) => {
   }
 
   if (!lecturer_id) {
-    return res.status(400).json({ message: "Thiếu thông tin giảng viên hướng dẫn (lecturer_id)!" });
+    return res
+      .status(400)
+      .json({ message: "Thiếu thông tin giảng viên hướng dẫn (lecturer_id)!" });
+  }
+  if (!session_id) {
+    return res
+      .status(400)
+      .json({ message: "Thiếu thông tin đợt đăng ký (session_id)!" });
   }
 
   try {
@@ -108,7 +122,9 @@ const updateThesisReviewStatus = async (req, res) => {
   }
 
   try {
-    console.log(`>>> Admin duyệt ID Đề tài: ${id}, Trạng thái: ${admin_status}`);
+    console.log(
+      `>>> Admin duyệt ID Đề tài: ${id}, Trạng thái: ${admin_status}`,
+    );
     const pool = await poolPromise;
 
     const result = await pool
@@ -151,7 +167,9 @@ const updateThesisReviewStatus = async (req, res) => {
     const data = result.recordset[0];
 
     if (!data) {
-      return res.status(404).json({ message: "Không tìm thấy đề tài để duyệt" });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy đề tài để duyệt" });
     }
 
     await auditService.logAction({
@@ -168,29 +186,34 @@ const updateThesisReviewStatus = async (req, res) => {
       ip_address: req.ip,
     });
 
-// 🔔 Send notification to lecturer when thesis is approved or rejected
-if (admin_status && data.lecturer_id) {
-  const notificationTitle = admin_status === 'approved' 
-    ? `Đề tài "${data.title}" đã được phê duyệt`
-    : `Đề tài "${data.title}" đã bị từ chối`;
-  
-  const notificationMessage = admin_status === 'approved'
-    ? `Đề tài của bạn "${data.title}" đã được Admin phê duyệt thành công. Bạn có thể bắt đầu hướng dẫn sinh viên.`
-    : `Đề tài của bạn "${data.title}" đã bị từ chối. Lý do: ${reject_reason || 'Không có'}`;
+    // 🔔 Send notification to lecturer when thesis is approved or rejected
+    if (admin_status && data.lecturer_id) {
+      const notificationTitle =
+        admin_status === "approved"
+          ? `Đề tài "${data.title}" đã được phê duyệt`
+          : `Đề tài "${data.title}" đã bị từ chối`;
 
-  await notificationService.createNotification({
-    user_id: data.lecturer_id,
-    type: admin_status === 'approved' ? 'thesis_approved' : 'thesis_rejected',
-    title: notificationTitle,
-    message: notificationMessage,
-    ref_type: 'Thesis',
-    ref_id: id
-  });
-}
+      const notificationMessage =
+        admin_status === "approved"
+          ? `Đề tài của bạn "${data.title}" đã được Admin phê duyệt thành công. Bạn có thể bắt đầu hướng dẫn sinh viên.`
+          : `Đề tài của bạn "${data.title}" đã bị từ chối. Lý do: ${reject_reason || "Không có"}`;
 
-res.json({ message: "Cập nhật trạng thái duyệt thành công!", data });
+      await notificationService.createNotification({
+        user_id: data.lecturer_id,
+        type:
+          admin_status === "approved" ? "thesis_approved" : "thesis_rejected",
+        title: notificationTitle,
+        message: notificationMessage,
+        ref_type: "Thesis",
+        ref_id: id,
+      });
+    }
+
+    res.json({ message: "Cập nhật trạng thái duyệt thành công!", data });
   } catch (err) {
-    res.status(500).json({ message: "Lỗi cập nhật trạng thái duyệt", error: err.message });
+    res
+      .status(500)
+      .json({ message: "Lỗi cập nhật trạng thái duyệt", error: err.message });
   }
 };
 

@@ -12,7 +12,7 @@ import {
 import { history } from "umi";
 import { AdminStats } from "../../../types/AdminTypes/AdminViewTypes";
 
-const API = "http://localhost:5000";
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 const AdminView: React.FC = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);

@@ -32,7 +32,7 @@ import {
   FilterParams,
 } from "../../../types/AdminTypes/ThesisTypes";
 
-const API = "http://localhost:5000";
+const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 const ADMIN_STATUS_CFG: Record<string, { color: string; text: string }> = {
   approved: { color: "green", text: "Admin duyệt" },
