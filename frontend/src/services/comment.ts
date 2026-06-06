@@ -100,6 +100,18 @@ export async function deleteComment(id: number) {
 }
 
 /**
+ * Get all students with their thesis topics for a class
+ * @param classId
+ * @returns
+ */
+export async function getStudentsWithThesis(classId: number) {
+  return request(`/api/lecturer/students-with-thesis/${classId}`, {
+    method: "GET",
+    headers: getAuthHeader(),
+  });
+}
+
+/**
  * Create comment on class forum (creates anchor if needed)
  */
 export async function createCommentForClass(classId: number, content: string) {

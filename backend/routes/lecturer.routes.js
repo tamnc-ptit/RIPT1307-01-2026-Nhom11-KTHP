@@ -67,6 +67,7 @@ router.post("/templates", templateController.createTemplate);
   router.get("/comments/thesis/:thesisId", commentController.getCommentsByThesis);
   router.get("/comments/class/:classId", commentController.getCommentsByClass);
   router.get("/comments/class/:classId/anchor", commentController.getClassAnchor);
+  router.get("/students-with-thesis/:classId", commentController.getStudentsWithThesis);
   router.get("/comments/:id", commentController.getCommentById);
   router.post("/comments/submission/:submissionId", commentController.createComment);
   router.post("/comments/class/:classId", commentController.createCommentForClass);

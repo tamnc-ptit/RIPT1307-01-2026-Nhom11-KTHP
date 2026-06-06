@@ -522,3 +522,66 @@ exports.deleteComment = async (req, res) => {
     res.status(500).json({ message: "Lỗi xóa comment", error: err.message });
   }
 };
+
+/**
+ * GET /api/lecturer/students-with-thesis/:classId
+ * Get all students of a class with their thesis topics and latest submission
+ */
+exports.getStudentsWithThesis = async (req, res) => {
+  try {
+    const { classId } = req.params;
+
+    if (!classId || isNaN(classId)) {
+      return res.status(400).json({ message: "classId không hợp lệ" });
+    }
+
+    // Verify class exists and user is the lecturer
+    const pool = await poolPromise;
+    const classCheck = await pool
+      .request()
+      .input("classId", sql.Int, parseInt(classId))
+      .query("SELECT id, lecturer_id FROM Classes WHERE id = @classId");
+
+    if (classCheck.recordset.length === 0) {
+      return res.status(404).json({ message: "Lớp không tồn tại" });
+    }
+
+    const { lecturer_id } = classCheck.recordset[0];
+    if (lecturer_id !== req.user.id) {
+      return res.status(403).json({ message: "Bạn không có quyền xem danh sách sinh viên của lớp này" });
+    }
+
+    // Get all students in this class with their thesis information
+    const result = await pool
+      .request()
+      .input("classId", sql.Int, parseInt(classId))
+      .query(`
+        SELECT DISTINCT
+          u.id as student_id,
+          u.name as student_name,
+          u.email as student_email,
+          t.id as thesis_id,
+          t.title as thesis_title,
+          t.description as thesis_description,
+          MAX(s.id) as latest_submission_id,
+          MAX(s.submitted_at) as latest_submission_date
+        FROM ClassStudents cs
+        JOIN Users u ON u.id = cs.student_id
+        LEFT JOIN Thesis t ON t.student_id = u.id
+        LEFT JOIN Submissions s ON s.thesis_id = t.id AND s.note NOT IN ('FORUM_ANCHOR')
+        WHERE cs.class_id = @classId
+        GROUP BY 
+          u.id,
+          u.name,
+          u.email,
+          t.id,
+          t.title,
+          t.description
+        ORDER BY u.name ASC
+      `);
+
+    res.json({ data: result.recordset, total: result.recordset.length });
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi lấy danh sách sinh viên", error: err.message });
+  }
+};
