@@ -1,11 +1,9 @@
 const { poolPromise, sql } = require("../config/db");
 
-// 🌟 ĐÃ CẬP NHẬT: Thêm cột is_active vào danh sách SELECT
 const getUsers = async (req, res) => {
   try {
     const { role, search } = req.query;
     const pool = await poolPromise;
-    // Thêm cột is_active vào đây để Frontend không bị lỗi cột Trạng thái
     let query = "SELECT id, name, email, role, is_active FROM Users WHERE 1=1";
     const request = pool.request();
 
