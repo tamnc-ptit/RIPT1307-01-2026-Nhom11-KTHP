@@ -27,14 +27,10 @@ const createThesis = async (req, res) => {
  
   const current_student_id = req.user ? req.user.id : req.body.student_id; 
 
-  const { title, description, domain, lecturer_id, session_id } = req.body;
+  const { title, description, domain, lecturer_id } = req.body;
 
   if (!title) {
     return res.status(400).json({ message: "Thiếu tiêu đề đề tài bắt buộc" });
-  }
-
-  if (!session_id) {
-    return res.status(400).json({ message: "Thiếu thông tin Đợt đăng ký (session_id)!" });
   }
 
   try {

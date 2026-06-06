@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, List, Button, Modal, Form, Input, Radio, Select, message, Badge, Empty } from "antd";
 import { BellOutlined, SendOutlined, CheckOutlined } from "@ant-design/icons";
+import { useModel } from "umi";
 import { getNotifications, markNotificationRead, broadcastNotification } from "@/services/lecturer/notifications";
 import { getLecturerClasses, getLecturerTheses, getClassStudents } from "@/services/lecturer";
 
@@ -22,11 +23,15 @@ const NotificationsPage: React.FC = () => {
   const [optionsLoading, setOptionsLoading] = useState(false);
 
   const [form] = Form.useForm();
+  const { initialState } = useModel("@@initialState");
+  const lecturerId = initialState?.currentUser?.id;
 
   useEffect(() => {
     fetchNotifications();
-    fetchOptions();
-  }, []);
+    if (lecturerId) {
+      fetchOptions();
+    }
+  }, [lecturerId]);
 
   const fetchNotifications = async () => {
     setLoading(true);
@@ -41,9 +46,11 @@ const NotificationsPage: React.FC = () => {
   };
 
   const fetchOptions = async () => {
+    if (!lecturerId) return;
+
     setOptionsLoading(true);
     try {
-      const classData = await getLecturerClasses();
+      const classData = await getLecturerClasses(lecturerId);
       const thesisData = await getLecturerTheses({ pageSize: 500 });
 
       setClasses(classData || []);
@@ -145,11 +152,17 @@ const NotificationsPage: React.FC = () => {
         ) : (
           <List
             loading={loading}
-            itemLayout="vertical"
+            split
             dataSource={notifications}
             renderItem={(item: any) => (
               <List.Item
                 key={item.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                  padding: "14px 0",
+                }}
                 actions={
                   !item.is_read
                     ? [
@@ -165,21 +178,60 @@ const NotificationsPage: React.FC = () => {
                     : []
                 }
               >
-                <List.Item.Meta
-                  title={
-                    <span>
-                      {!item.is_read ? (
-                        <Badge dot>
-                          <span style={{ marginRight: 8 }}>{item.title}</span>
-                        </Badge>
-                      ) : (
-                        <span>{item.title}</span>
-                      )}
-                    </span>
-                  }
-                  description={new Date(item.created_at).toLocaleString()}
-                />
-                <div style={{ whiteSpace: "pre-wrap" }}>{item.message}</div>
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ paddingTop: 6, flexShrink: 0 }}>
+                    {!item.is_read ? (
+                      <Badge status="processing" />
+                    ) : (
+                      <Badge status="default" />
+                    )}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontWeight: item.is_read ? 400 : 600,
+                          fontSize: 15,
+                          color: item.is_read ? "rgba(0,0,0,0.65)" : "rgba(0,0,0,0.88)",
+                        }}
+                      >
+                        {item.title}
+                      </span>
+                      <span style={{ color: "rgba(0,0,0,0.45)", fontSize: 12, whiteSpace: "nowrap" }}>
+                        {new Date(item.created_at).toLocaleString("vi-VN")}
+                      </span>
+                    </div>
+                    {item.message && (
+                      <div
+                        style={{
+                          marginTop: 4,
+                          color: "rgba(0,0,0,0.65)",
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {item.message}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </List.Item>
             )}
           />

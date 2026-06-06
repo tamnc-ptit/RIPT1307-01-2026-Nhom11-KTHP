@@ -96,6 +96,7 @@ const ThesisRegistrationPage: React.FC = () => {
       domain: topic.domain,
       lecturer_id: myLecturer?.id, 
       suggestion_id: topic.id,
+      session_id: topic.session_id,
     });
     message.success('Đã điền tự động thông tin từ gợi ý của Giảng viên!');
   };
@@ -121,7 +122,6 @@ const ThesisRegistrationPage: React.FC = () => {
           const payload = { 
               ...values, 
               student_id: studentId,
-              session_id: 1 
           };
           
           console.log(">>> Payload chuẩn bị bắn xuống Backend:", payload);

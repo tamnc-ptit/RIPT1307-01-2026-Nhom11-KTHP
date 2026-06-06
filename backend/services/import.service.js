@@ -58,8 +58,8 @@ exports.importAndAutoAssignClasses = async (fileBuffer) => {
         .input("email", sql.NVarChar, email)
         .input("password_hash", sql.NVarChar, defaultPasswordHash)
         .input("name", sql.NVarChar, fullName).query(`
-          INSERT INTO Users (email, password_hash, role, name, created_at, updated_at)
-          VALUES (@email, @password_hash, 'student', @name, GETDATE(), GETDATE());
+          INSERT INTO Users (email, password_hash, role, name, is_active, created_at, updated_at)
+          VALUES (@email, @password_hash, 'student', @name, 1, GETDATE(), GETDATE());
           SELECT SCOPE_IDENTITY() AS userId;
         `);
 
