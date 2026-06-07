@@ -36,8 +36,7 @@ const StudentView: React.FC = () => {
             method: "GET",
           },
         );
-        // Umi plugin request với dataField:'data' tự unwrap { data: ... }
-        // nên res đã là IStudentDashboardInfo trực tiếp
+        // apiRequest dùng native fetch, backend trả về flat object trực tiếp
         if (res) {
           setDashboardData(res);
         }
