@@ -53,7 +53,7 @@ const getLecturers = async (req, res) => {
     const pool = await poolPromise;
     const result = await pool.request().query(`
       SELECT u.id, u.name, u.email,
-             up.phone, up.degree, up.domain
+             u.phone, u.degree, u.domain
       FROM Users u
       LEFT JOIN UserProfiles up ON u.id = up.user_id
       WHERE u.role = 'lecturer'

@@ -2,7 +2,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { poolPromise, sql } = require("../config/db");
 
-const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_token";
+const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_key";
 const SALT_ROUNDS = 10;
 
 // REGISTER USER
