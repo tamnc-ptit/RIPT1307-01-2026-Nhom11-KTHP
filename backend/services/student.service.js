@@ -3,7 +3,6 @@ const { poolPromise, sql } = require("../config/db");
 const getStudentDashboard = async (studentId) => {
   const pool = await poolPromise;
   
-  // Truy vấn lấy thông tin đề tài của sinh viên
   const result = await pool.request()
     .input("studentId", sql.Int, studentId)
     .query(`

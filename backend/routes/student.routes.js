@@ -1,32 +1,37 @@
 const express = require("express");
 const router = express.Router();
-
-// Import Middleware
 const auth = require("../middlewares/auth");
 const upload = require("../middlewares/upload.middleware");
 
-// Import Controllers
 const studentController = require("../controllers/student.controller");
 const progressController = require("../controllers/progress.controller");
 
-// Xác thực sinh viên (Tất cả route bên dưới đều phải có token)
 router.use(auth);
 
 // 1. DASHBOARD
 router.get("/dashboard", studentController.getStudentDashboard);
 
-// 2. PROFILE (Hồ sơ cá nhân)
+// 2. PROFILE
 router.get("/profile", studentController.getProfile);
 router.put("/profile", studentController.updateProfile);
 
-// 3. MILESTONES (Cột mốc)
+// 3. MILESTONES
 router.get("/theses/:thesisId/milestones", progressController.getMilestones);
 router.post("/milestones", progressController.createMilestone);
 router.patch("/milestones/:id", progressController.updateMilestone);
 
-// 4. PROGRESS (Nộp bài báo cáo)
+// 4. PROGRESS
 router.get("/theses/:thesisId/progress", progressController.getThesisProgress);
-router.post("/progress", upload.single("file"), progressController.submitProgress);
+router.post(
+  "/progress",
+  upload.single("file"),
+  progressController.submitProgress,
+);
 router.delete("/submissions/:id", progressController.deleteSubmission);
+
+// ✅ THÊM MỚI: 5. ĐĂNG KÝ ĐỀ TÀI
+router.get("/lecturers", studentController.getLecturers);
+router.get("/topics", studentController.getSuggestedTopics);
+router.post("/thesis/register", studentController.submitRegistration);
 
 module.exports = router;
