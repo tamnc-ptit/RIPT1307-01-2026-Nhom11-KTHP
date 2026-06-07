@@ -20,6 +20,21 @@ app.use(
   }),
 );
 
+// 🛠️ GIA CỐ PHÒNG THỦ: Ép trả về thành công ngay lập tức cho request OPTIONS (Preflight)
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+    );
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.header("Access-Control-Allow-Credentials", "true");
+    return res.sendStatus(200); // Trả về 200 OK ngay lập tức, giải phóng hàng đợi cho request GET/POST phía sau
+  }
+  next();
+});
+
 app.use(express.json());
 
 // Middleware log request để theo dõi dưới bảng Console
