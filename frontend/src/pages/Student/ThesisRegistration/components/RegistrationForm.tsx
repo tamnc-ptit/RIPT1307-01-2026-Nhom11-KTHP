@@ -7,7 +7,6 @@ import {
   Select,
   Row,
   Col,
-  Space,
   Avatar,
   Tag,
   Button,
@@ -55,6 +54,11 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
 }) => {
   const isLocked = status === "pending" || status === "approved";
 
+  // --- Khóa phòng thủ chỉ tiêu sinh viên ---
+  const quota = myLecturer?.quota ?? 0;
+  const maxQuota = myLecturer?.maxQuota ?? 5;
+  const isQuotaFull = quota >= maxQuota;
+
   return (
     <Card
       bordered={false}
@@ -67,7 +71,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
           ? "linear-gradient(135deg, #f8fcff 0%, #f0f9ff 100%)"
           : "#fff",
       }}
-      styles={{ body: { padding: 24 } }} // 🔥 ĐÃ SỬA: Thay đổi thuộc tính bodyStyle lỗi thời bằng styles.body chuẩn Antd mới
+      styles={{ body: { padding: 24 } }}
     >
       {/* Header */}
       <div
@@ -182,16 +186,21 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
                     src={myLecturer.avatar}
                     icon={<UserOutlined />}
                   />
-                  <Text style={{ flex: 1 }}>{myLecturer.name}</Text>
+                  <Text
+                    style={{
+                      flex: 1,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {myLecturer.name}
+                  </Text>
                   <Tag
-                    color={
-                      (myLecturer.quota || 0) >= (myLecturer.maxQuota || 5)
-                        ? "error"
-                        : "green"
-                    }
+                    color={isQuotaFull ? "error" : "green"}
                     style={{ margin: 0 }}
                   >
-                    {myLecturer.quota || 0}/{myLecturer.maxQuota || 5} SV
+                    {quota}/{maxQuota} SV
                   </Tag>
                 </div>
               ) : (
@@ -205,7 +214,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
                     color: "#bfbfbf",
                   }}
                 >
-                  Đang tải...
+                  Đang tải thông tin giảng viên...
                 </div>
               )}
             </Form.Item>
