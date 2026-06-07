@@ -32,7 +32,7 @@ exports.getSubmissions = async (req, res) => {
       }
     );
 
-    const baseUrl = process.env.BASE_URL || "http://localhost:3000";
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
     const data = submissions.map((s) => ({
       ...s,
       file_url: `${baseUrl}/${s.file_url}`,
@@ -49,7 +49,7 @@ exports.getSubmissionById = async (req, res) => {
     const submission = await submissionService.getSubmissionById(parseInt(req.params.id));
     
 
-    const baseUrl = process.env.BASE_URL || "http://localhost:3000";
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
     res.json({ ...submission, file_url: `${baseUrl}/${submission.file_url}` });
   } catch (err) {
     res.status(500).json({ message: "Lỗi lấy submission", error: err.message });
@@ -111,7 +111,7 @@ exports.createSubmission = async (req, res) => {
       // Không dừng quá trình nộp bài nếu notification lỗi
     }
 
-    const baseUrl = process.env.BASE_URL || "http://localhost:3000";
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
     res.status(201).json({
       message: "Nộp bài thành công!",
       data: { ...submission, file_url: `${baseUrl}/${submission.file_url}` },

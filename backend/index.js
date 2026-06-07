@@ -6,10 +6,12 @@ const path = require("path");
 dotenv.config();
 const app = express();
 
-const allowedOrigins = [
-  "http://localhost:8000",
-  "https://guileless-blancmange-410d86.netlify.app",
-];
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
+  : [
+      "http://localhost:8000",
+      "https://guileless-blancmange-410d86.netlify.app",
+    ];
 
 app.use(
   cors({
