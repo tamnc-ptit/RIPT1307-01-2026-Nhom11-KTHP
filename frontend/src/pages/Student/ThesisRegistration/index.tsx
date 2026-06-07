@@ -17,7 +17,8 @@ import {
   SyncOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import { useModel, request } from "umi";
+import { useModel } from "umi";
+import { apiRequest } from "@/services/api";
 import type {
   LecturerERD,
   TopicSuggestionERD,
@@ -117,9 +118,8 @@ const ThesisRegistrationPage: React.FC = () => {
         let actualStatus: ThesisStatus = "not_registered";
         if (token) {
           try {
-            const dashboardRes = (await request("/api/student/dashboard", {
+            const dashboardRes = (await apiRequest("/api/student/dashboard", {
               method: "GET",
-              headers: { Authorization: `Bearer ${token}` },
             })) as DashboardApiResponse;
 
             actualStatus = (dashboardRes?.data?.status ||

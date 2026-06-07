@@ -29,7 +29,7 @@ const LoginPage: React.FC = () => {
     }
 
     try {
-      const API_BASE = "https://thesis-backend-pgf4.onrender.com";
+      const API_BASE = process.env.UMI_APP_API_URL || "https://thesis-backend-pgf4.onrender.com";
 
       // Gọi API chính xác tới Server Render
       const response = await fetch(`${API_BASE}/api/auth/login`, {

@@ -11,7 +11,8 @@ import {
   message,
 } from "antd";
 import { BookOutlined, MailOutlined, RocketOutlined } from "@ant-design/icons";
-import { history, request } from "umi";
+import { history } from "umi";
+import { apiRequest } from "@/services/api";
 
 import { IStudentDashboardInfo } from "../../../types/StudentTypes/StudentDashboardTypes";
 
@@ -29,13 +30,10 @@ const StudentView: React.FC = () => {
         const token = localStorage.getItem("token");
 
         // Kẹp token vào headers để đi qua cổng bảo vệ
-        const res = await request<{ data: IStudentDashboardInfo }>(
+        const res = await apiRequest<{ data: IStudentDashboardInfo }>(
           "/api/student/dashboard",
           {
             method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
           },
         );
 

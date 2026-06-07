@@ -41,7 +41,8 @@ import {
 } from "@ant-design/icons";
 import type { UploadFile } from "antd/es/upload/interface";
 import type { RadioChangeEvent } from "antd";
-import { request, useModel, history } from "umi";
+import { useModel, history } from "umi";
+import { apiRequest } from "@/services/api";
 import moment from "moment";
 
 import {
@@ -683,10 +684,8 @@ const ProgressReportSection: React.FC<ProgressReportSectionProps> = ({
     submissionId: number,
   ): Promise<void> => {
     try {
-      const token = localStorage.getItem("token");
-      await request(`/api/progress/submissions/${submissionId}`, {
+      await apiRequest(`/api/progress/submissions/${submissionId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
       });
       void messageApi.success("Đã thu hồi báo cáo thành công!");
       void fetchHistory();
@@ -1018,11 +1017,8 @@ const Progress: React.FC = () => {
 
       try {
         setLoadingInitial(true);
-        const token = localStorage.getItem("token");
-
-        const dashRes = (await request("/api/student/dashboard", {
+        const dashRes = (await apiRequest("/api/student/dashboard", {
           method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
         })) as DashboardApiResponse;
 
         const actualStatus =
@@ -1033,11 +1029,10 @@ const Progress: React.FC = () => {
           setIsApproved(true);
           setRealThesisId(fetchedThesisId);
 
-          const milestonesRes = (await request(
+          const milestonesRes = (await apiRequest(
             `/api/progress/milestones/${fetchedThesisId}`,
             {
               method: "GET",
-              headers: { Authorization: `Bearer ${token}` },
             },
           )) as Milestone[] | MilestonesApiResponse;
 
