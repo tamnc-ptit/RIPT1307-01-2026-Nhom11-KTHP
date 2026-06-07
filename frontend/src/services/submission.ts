@@ -1,4 +1,4 @@
-import { request } from "umi";
+import { apiRequest } from "@/services/api"; // 🔥 ĐÃ ĐỔI: Gọi hàm core để tự động cấu hình URL .env và kẹp Token bảo mật
 
 // Định nghĩa Enum trạng thái khớp Backend
 export enum SubmissionStatus {
@@ -35,33 +35,35 @@ interface ApiResponse<T> {
   data: T;
 }
 
-const getAuthHeader = (): Record<string, string> => {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+// ==============================================================
+// ĐƠN VỊ CÁC HÀM API SUBMISSION ĐÃ ĐƯỢC CHUẨN HÓA & KHÓA CORE
+// ==============================================================
 
-
+/**
+ * Lấy danh sách bài nộp của sinh viên dựa trên mốc thời gian và đề tài tương ứng
+ */
 export const getSubmissionsByMilestone = async (
   milestoneId: number,
   thesisId: number,
 ): Promise<ApiResponse<ISubmission[]>> => {
-  return request<ApiResponse<ISubmission[]>>(`/api/submission`, {
+  // Thay thế request bằng apiRequest để tự động kẹp Token và nhận diện URL môi trường Netlify
+  return apiRequest<ApiResponse<ISubmission[]>>(`/api/submission`, {
     method: "GET",
     params: {
       milestone_id: milestoneId,
       thesis_id: thesisId,
     },
-    headers: getAuthHeader(), // Kẹp token phòng thủ nếu API phân hệ này yêu cầu bảo mật
   });
 };
 
-
+/**
+ * Sinh viên thực hiện nộp tệp tin/báo cáo minh chứng cho mốc thời gian (Milestone)
+ */
 export const submitMilestone = async (
   payload: SubmitPayload,
 ): Promise<ApiResponse<ISubmission>> => {
-  return request<ApiResponse<ISubmission>>("/api/submission", {
+  return apiRequest<ApiResponse<ISubmission>>("/api/submission", {
     method: "POST",
     data: payload,
-    headers: getAuthHeader(),
   });
 };

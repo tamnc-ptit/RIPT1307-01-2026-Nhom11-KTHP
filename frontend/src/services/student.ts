@@ -1,4 +1,4 @@
-import { request } from "umi";
+import { apiRequest } from "@/services/api"; // 🔥 ĐÃ ĐỔI: Gọi hàm core để tự động cấu hình URL .env và kẹp Token bảo mật
 
 interface StudentProfileResponse {
   name: string;
@@ -16,22 +16,28 @@ interface ProfileUpdatePayload {
   phone: string;
 }
 
+// ==============================================================
+// ĐƠN VỊ CÁC HÀM API PROFILE SINH VIÊN ĐÃ ĐƯỢC CHUẨN HÓA KHÓA CORE
+// ==============================================================
+
+/**
+ * Lấy thông tin hồ sơ chi tiết của sinh viên hiện tại
+ */
 export const getStudentProfile = async (): Promise<StudentProfileResponse> => {
-  const token = localStorage.getItem("token");
-  return request<StudentProfileResponse>("/api/student/profile", {
+  // Đổi sang apiRequest để tự động kẹp token và nối URL gốc từ .env khi lên Netlify
+  return apiRequest<StudentProfileResponse>("/api/student/profile", {
     method: "GET",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 };
 
-
+/**
+ * Cập nhật số điện thoại liên lạc trong hồ sơ sinh viên
+ */
 export const updateStudentProfile = async (
   data: ProfileUpdatePayload,
 ): Promise<unknown> => {
-  const token = localStorage.getItem("token");
-  return request("/api/student/profile", {
-    method: "PUT",
+  return apiRequest("/api/student/profile", {
+    value: "PUT",
     data,
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 };

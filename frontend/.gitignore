@@ -1,10 +1,21 @@
+# Dependencies
 /node_modules
-/.env.local
-/.umirc.local.ts
-/config/config.local.ts
+
+.env
+.env.local
+.env.development
+.env.production
+.env.example.local
+
+# Umi temporary files
 /src/.umi
 /src/.umi-production
 /src/.umi-test
+/.umirc.local.ts
+/config/config.local.ts
+
 /dist
+
 .swc
 .turbopack
+.eslintcache

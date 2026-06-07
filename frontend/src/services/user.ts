@@ -1,4 +1,4 @@
-import { request } from "umi";
+import { apiRequest } from "@/services/api"; // 🔥 ĐÃ ĐỔI: Gọi hàm core để tự động cấu hình URL .env và kẹp Token bảo mật
 import type { UserRole, User } from "@/types/AuthTypes/Users";
 
 // --- Định cấu trúc Interface phản hồi API chuẩn hóa ---
@@ -13,13 +13,8 @@ interface UserParams {
   name?: string;
 }
 
-const getAuthHeader = (): Record<string, string> => {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
 // ==============================================================
-// ĐƠN VỊ CÁC HÀM API USER ĐÃ ĐƯỢC CHUẨN HÓA & KẸP TOKEN BẢO MẬT
+// ĐƠN VỊ CÁC HÀM API USER ĐÃ ĐƯỢC CHUẨN HÓA KHÓA CORE CỔNG .ENV
 // ==============================================================
 
 /**
@@ -28,21 +23,22 @@ const getAuthHeader = (): Record<string, string> => {
 export async function getUsers(
   params?: UserParams,
 ): Promise<ApiResponse<User[]>> {
-  return request<ApiResponse<User[]>>("/api/users", {
+  // Thay thế request bằng apiRequest để tự động kẹp Token và nhận diện URL môi trường Netlify
+  return apiRequest<ApiResponse<User[]>>("/api/users", {
     method: "GET",
     params,
-    headers: getAuthHeader(), 
   });
 }
 
-
+/**
+ * Cập nhật vai trò (Role) của người dùng trong hệ thống
+ */
 export const updateUserRole = async (
   id: number,
   role: UserRole,
 ): Promise<unknown> => {
-  return request(`/api/users/${id}/role`, {
+  return apiRequest(`/api/users/${id}/role`, {
     method: "PATCH",
     data: { role },
-    headers: getAuthHeader(),
   });
 };

@@ -1,7 +1,10 @@
 import { defineConfig } from "umi";
-import routes from "./routes"; 
+import routes from "./routes";
 
 export default defineConfig({
+  history: { type: "hash" },
+  publicPath: "/",
+
   routes: routes,
 
   plugins: [
@@ -31,11 +34,10 @@ export default defineConfig({
   },
 
   npmClient: "npm",
+
+ 
   define: {
-    "process.env.REACT_APP_API_URL":
-      process.env.NODE_ENV === "production"
-        ? "https://thesis-backend-pgf4.onrender.com"
-        : "http://localhost:5000",
+    "process.env.UMI_APP_API_URL": process.env.UMI_APP_API_URL || "",
   },
 
   proxy: {

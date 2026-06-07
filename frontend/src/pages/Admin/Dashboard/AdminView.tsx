@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Card, Row, Col, Button, Alert, Statistic, Spin } from "antd";
+import React, { useState, useEffect } from "react";
+import { Card, Row, Col, Button, Alert, Statistic, Spin, message } from "antd";
 import {
   UserOutlined,
   BookOutlined,
@@ -11,8 +11,13 @@ import {
 } from "@ant-design/icons";
 import { history } from "umi";
 import { AdminStats } from "../../../types/AdminTypes/AdminViewTypes";
+// 🔥 ĐÃ ĐỔI: Gọi hàm core để tự động cấu hình URL .env và kẹp Token bảo mật Admin
+import { apiRequest } from "@/services/api";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+interface BackendApiResponse<T> {
+  success?: boolean;
+  data?: T;
+}
 
 const AdminView: React.FC = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -21,44 +26,44 @@ const AdminView: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // FIX: Dùng Promise.allSettled để một API lỗi không làm sập toàn bộ dashboard
+        // 🔥 ĐÃ SỬA: Chuyển toàn bộ fetch thô sang apiRequest lõi kẹp Token đặc quyền Admin
         const [resUsers, resClasses, resSessions, resTheses] =
           await Promise.allSettled([
-            fetch(`${API}/api/admin/users`),
-            fetch(`${API}/api/admin/classes`),
-            fetch(`${API}/api/admin/sessions`),
-            fetch(`${API}/api/admin/thesis`),
+            apiRequest<any[]>("/api/admin/users", { method: "GET" }),
+            apiRequest<any[]>("/api/admin/classes", { method: "GET" }),
+            apiRequest<any[]>("/api/admin/sessions", { method: "GET" }),
+            apiRequest<any[]>("/api/admin/thesis", { method: "GET" }),
           ]);
 
-        const safeJson = async (
-          result: PromiseSettledResult<Response>,
-        ): Promise<unknown[]> => {
+        const safeExtractArray = (result: PromiseSettledResult<any>): any[] => {
           if (result.status === "rejected") return [];
-          try {
-            const data = await result.value.json();
-            return Array.isArray(data) ? data : [];
-          } catch {
-            return [];
+          const rawData = result.value;
+
+          // Bộ xử lý phòng thủ cấu hình trả về của Backend (Array gốc hoặc Object bọc data)
+          if (Array.isArray(rawData)) return rawData;
+          if (
+            rawData &&
+            Array.isArray((rawData as BackendApiResponse<any[]>).data)
+          ) {
+            return (rawData as BackendApiResponse<any[]>).data || [];
           }
+          return [];
         };
 
-        const [users, classes, sessions, theses] = await Promise.all([
-          safeJson(resUsers),
-          safeJson(resClasses),
-          safeJson(resSessions),
-          safeJson(resTheses),
-        ]);
+        const users = safeExtractArray(resUsers);
+        const classes = safeExtractArray(resClasses);
+        const sessions = safeExtractArray(resSessions);
+        const theses = safeExtractArray(resTheses);
 
         const activeSession =
           (
-            sessions.find(
-              (s: unknown) => (s as { is_active: boolean }).is_active,
-            ) as { name: string } | undefined
+            sessions.find((s: any) => s && s.is_active) as
+              | { name: string }
+              | undefined
           )?.name ?? null;
 
         const pendingTheses = theses.filter(
-          (t: unknown) =>
-            (t as { admin_status: string }).admin_status === "pending",
+          (t: any) => t && t.admin_status === "pending",
         ).length;
 
         setStats({
@@ -70,7 +75,8 @@ const AdminView: React.FC = () => {
           activeSession,
         });
       } catch (err) {
-        console.error("Không thể tải thống kê admin:", err);
+        console.error("Không thể tải thống kê admin tổng lực:", err);
+        void message.error("Hệ thống gặp sự cố khi tổng hợp số liệu thống kê");
         setStats({
           totalUsers: 0,
           totalClasses: 0,
@@ -84,7 +90,7 @@ const AdminView: React.FC = () => {
       }
     };
 
-    fetchStats();
+    void fetchStats();
   }, []);
 
   return (
