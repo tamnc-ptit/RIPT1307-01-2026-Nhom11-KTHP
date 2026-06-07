@@ -172,30 +172,40 @@ const MyProposals: React.FC = () => {
   };
 
   const handleSubmit = async (values: FormValues): Promise<void> => {
-    const payload = {
-      ...values,
-      title: values.title?.trim(),
-      description: values.description?.trim() || undefined,
-    };
-    try {
-      if (editingId) {
-        await updateProposal(editingId, payload);
-        void message.success("Đã cập nhật đề tài đề xuất");
-      } else {
-        await createProposal(payload);
-        void message.success("Đã đăng đề tài đề xuất mới");
-      }
-      setIsModalOpen(false);
-      form.resetFields();
-      setEditingId(null);
-      void fetchProposals();
-    } catch (error: unknown) {
-      const errorMsg =
-        error instanceof Error ? error.message : "Lỗi khi lưu đề xuất";
-      void message.error(errorMsg);
-    }
+  // 1. Kiểm tra phòng thủ nếu chưa có thông tin giảng viên đăng nhập
+  if (!lecturerId) {
+    void message.error("Không tìm thấy thông tin giảng viên. Vui lòng đăng nhập lại!");
+    return;
+  }
+
+  // 2. Gom payload chuẩn chỉnh, map đúng từ camelCase sang snake_case của Backend
+  const payload = {
+    lecturer_id: Number(lecturerId), // 🌟 BỔ SUNG THẰNG NÀY ĐỂ BACKEND KHÔNG BỊ LỖI
+    title: values.title?.trim(),
+    description: values.description?.trim() || undefined,
+    max_groups: values.max_groups || 1,
+    status: values.status || "open",
+    session_id: values.session_id,
   };
 
+  try {
+    if (editingId) {
+      await updateProposal(editingId, payload);
+      void message.success("Đã cập nhật đề tài đề xuất");
+    } else {
+      await createProposal(payload);
+      void message.success("Đã đăng đề tài đề xuất mới");
+    }
+    setIsModalOpen(false);
+    form.resetFields();
+    setEditingId(null);
+    void fetchProposals();
+  } catch (error: unknown) {
+    const errorMsg =
+      error instanceof Error ? error.message : "Lỗi khi lưu đề xuất";
+    void message.error(errorMsg);
+  }
+};
   const handleDelete = async (id: number): Promise<void> => {
     try {
       await deleteProposal(id);
