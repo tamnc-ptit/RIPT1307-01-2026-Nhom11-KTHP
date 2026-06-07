@@ -986,10 +986,10 @@ const ProgressReportSection: React.FC<ProgressReportSectionProps> = ({
 interface DashboardApiResponse {
   status?: string;
   thesisId?: number;
-  data?: {
-    status?: string;
-    thesisId?: number;
-  };
+  thesisTitle?: string | null;
+  advisorName?: string | null;
+  systemMessage?: string;
+  supportEmail?: string;
 }
 
 interface MilestonesApiResponse {
@@ -1021,9 +1021,9 @@ const Progress: React.FC = () => {
           method: "GET",
         })) as DashboardApiResponse;
 
-        const actualStatus =
-          dashRes?.status || dashRes?.data?.status || "not_registered";
-        const fetchedThesisId = dashRes?.thesisId || dashRes?.data?.thesisId;
+        // Umi dataField:'data' đã tự unwrap → dashRes là object thẳng
+        const actualStatus = dashRes?.status || "not_registered";
+        const fetchedThesisId = dashRes?.thesisId;
 
         if (actualStatus === "approved" && fetchedThesisId) {
           setIsApproved(true);
