@@ -32,9 +32,13 @@ exports.getMyProposals = async (lecturerId) => {
 exports.createProposal = async (data) => {
   const { session_id, lecturer_id, title, description, max_groups, status } = data;
   const pool = await poolPromise;
-
   if (!session_id) {
     throw new Error("Thiếu thông tin đợt đăng ký (session_id)!");
+  }
+
+  // Validate required fields to avoid DB NOT NULL constraint errors
+  if (!title || (typeof title === 'string' && title.trim() === '')) {
+    throw new Error("Thiếu tiêu đề đề xuất (title)! Vui lòng nhập tiêu đề.");
   }
 
   const result = await pool
