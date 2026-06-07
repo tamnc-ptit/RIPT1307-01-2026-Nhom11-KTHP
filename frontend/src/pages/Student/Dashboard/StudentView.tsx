@@ -61,6 +61,8 @@ const StudentView: React.FC = () => {
         return <Tag color="success">Đang thực hiện</Tag>;
       case "completed":
         return <Tag color="blue">Đã hoàn thành</Tag>;
+      case "rejected":
+        return <Tag color="error">Bị từ chối</Tag>;
       default:
         return <Tag color="default">Đang cập nhật</Tag>;
     }
@@ -99,8 +101,12 @@ const StudentView: React.FC = () => {
                 <Text>{dashboardData?.thesisTitle || "Chưa đăng ký"}</Text>
               </p>
               <p>
-                <Text strong>Giảng viên:</Text>{" "}
-                <Text>{dashboardData?.advisorName || "Chưa có"}</Text>
+                <Text strong>Giảng viên hướng dẫn:</Text>{" "}
+                <Text>
+                  {dashboardData?.status === "not_registered"
+                    ? "Chưa có (chưa đăng ký đề tài)"
+                    : dashboardData?.advisorName || "Đang chờ phân công"}
+                </Text>
               </p>
               <p>
                 <Text strong>Trạng thái:</Text>{" "}

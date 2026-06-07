@@ -25,23 +25,11 @@ const getStudentDashboard = async (studentId) => {
 
   // Nếu sinh viên chưa có đề tài
   if (result.recordset.length === 0) {
-    // 🔥 ĐÃ SỬA: Tự động truy vấn giảng viên phụ trách lớp tín chỉ của sinh viên
-    const classLecturerResult = await pool.request()
-      .input("studentId", sql.Int, studentId)
-      .query(`
-        SELECT TOP 1 u.name AS advisorName
-        FROM Users u
-        JOIN Classes c ON u.id = c.lecturer_id
-        JOIN ClassStudents cs ON c.id = cs.class_id
-        WHERE cs.student_id = @studentId
-      `);
-    
-    const advisorName = classLecturerResult.recordset[0]?.advisorName || null;
-
+    // Chưa đăng ký đề tài → advisorName = null (giảng viên lớp ≠ GVHD, không hiển thị nhầm)
     return {
       thesisId: null, 
       thesisTitle: null,
-      advisorName: advisorName,
+      advisorName: null,
       status: "not_registered",
       systemMessage: "Bạn chưa đăng ký đề tài khóa luận. Vui lòng vào mục đăng ký.",
       supportEmail: "support@ptit.edu.vn"
@@ -53,8 +41,8 @@ const getStudentDashboard = async (studentId) => {
   return {
     thesisId: data.thesisId, 
     thesisTitle: data.thesisTitle,
-    advisorName: data.advisorName || "Đang chờ phân công",
-    status: data.status || "approved",
+    advisorName: data.advisorName || null,
+    status: data.status || "pending",  // fallback an toàn: chờ duyệt thay vì tự set approved
     systemMessage: "Chào mừng bạn quay lại hệ thống Workspace!",
     supportEmail: "support@ptit.edu.vn"
   };

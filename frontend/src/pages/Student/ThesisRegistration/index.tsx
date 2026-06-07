@@ -17,7 +17,7 @@ import {
   SyncOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import { useModel } from "umi";
+import { useModel, history } from "umi";
 import { apiRequest } from "@/services/api";
 import type {
   LecturerERD,
@@ -57,6 +57,7 @@ interface DashboardApiResponse {
   status?: string;
   data?: {
     status?: string;
+    advisorName?: string | null;
   };
 }
 
@@ -128,8 +129,14 @@ const ThesisRegistrationPage: React.FC = () => {
               dashboardRes?.status ||
               "not_registered") as ThesisStatus;
             
-            advisorName = dashboardRes?.data?.advisorName || (dashboardRes as any)?.advisorName;
+            advisorName = dashboardRes?.data?.advisorName ?? undefined;
             setStatus(actualStatus);
+
+            // Nếu đã được duyệt → redirect sang trang tiến độ
+            if (actualStatus === "approved" || actualStatus === "completed") {
+              void history.push("/student/progress");
+              return;
+            }
           } catch (err) {
             console.error("Lỗi khi kiểm tra trạng thái đề tài:", err);
           }
@@ -142,8 +149,9 @@ const ThesisRegistrationPage: React.FC = () => {
           : [];
         setLecturers(lecturersList);
 
-        // Khớp giảng viên hiện tại của SV hoặc lấy giảng viên đầu tiên
-        let currentLecturer = lecturersList[0];
+        // Khớp giảng viên theo advisorName (nếu đã có GVHD từ đề tài)
+        // KHÔNG default sang lecturersList[0] để tránh hiển thị sai GV
+        let currentLecturer: LecturerERD | undefined = undefined;
         if (advisorName) {
           const found = lecturersList.find((l) => l.name === advisorName);
           if (found) {
