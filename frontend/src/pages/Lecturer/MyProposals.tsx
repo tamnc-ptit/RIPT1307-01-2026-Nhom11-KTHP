@@ -18,9 +18,15 @@ import {
   Drawer,
   Empty,
   Avatar,
-  List
+  List,
 } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined, TeamOutlined } from "@ant-design/icons";
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  UserOutlined,
+  TeamOutlined,
+} from "@ant-design/icons";
 import { useModel } from "umi";
 import {
   getMyProposals,
@@ -28,19 +34,19 @@ import {
   updateProposal,
   deleteProposal,
   getSessions,
-  getProposalRegistrations
+  getProposalRegistrations,
 } from "@/services/lecturer";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 
-// --- Định nghĩa Hệ thống Interface Chặt chẽ ---
+// --- Hệ thống Interface Chặt chẽ ---
 interface Proposal {
   id: number;
   title: string;
   description: string;
-max_groups: number;
+  max_groups: number;
   status: string;
   lecturer_note?: string;
   registration_count?: number;
@@ -82,10 +88,14 @@ const MyProposals: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [sessions, setSessions] = useState<SessionItem[]>([]);
-  const [registrationDrawerOpen, setRegistrationDrawerOpen] = useState<boolean>(false);
+  const [registrationDrawerOpen, setRegistrationDrawerOpen] =
+    useState<boolean>(false);
   const [registrations, setRegistrations] = useState<Registration[]>([]);
-  const [registrationLoading, setRegistrationLoading] = useState<boolean>(false);
-  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
+  const [registrationLoading, setRegistrationLoading] =
+    useState<boolean>(false);
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(
+    null,
+  );
 
   const { initialState } = useModel("@@initialState");
   const lecturerId = initialState?.currentUser?.id;
@@ -95,7 +105,8 @@ const MyProposals: React.FC = () => {
     setLoading(true);
     try {
       const res = await getMyProposals();
-      setProposals((res as Proposal[]) || []);
+      // 🔥 PHÒNG THỦ MẢNG: Ép kiểu mảng an toàn trước khi set dữ liệu vào bảng
+      setProposals(Array.isArray(res) ? (res as Proposal[]) : []);
     } catch {
       void message.error("Lỗi khi tải danh sách đề xuất");
     } finally {
@@ -107,7 +118,9 @@ const MyProposals: React.FC = () => {
     if (!lecturerId) return;
     try {
       const res = await getSessions(lecturerId);
-      setSessions((res as SessionItem[]) || []);
+      // 🔥 PHÒNG THỦ MẢNG: Đảm bảo dữ liệu học kỳ luôn thuộc dạng mảng hợp lệ
+      const sessionList = Array.isArray(res) ? (res as SessionItem[]) : [];
+      setSessions(sessionList);
     } catch {
       void message.error("Không thể tải danh sách học kỳ");
     }
@@ -124,7 +137,7 @@ const MyProposals: React.FC = () => {
       form.setFieldsValue({
         title: record.title,
         description: record.description,
-max_groups: record.max_groups,
+        max_groups: record.max_groups,
         status: record.status,
         session_id: record.session_id,
       });
@@ -143,7 +156,7 @@ max_groups: record.max_groups,
     setRegistrationLoading(true);
     try {
       const res = await getProposalRegistrations(proposalId);
-      setRegistrations((res as Registration[]) || []);
+      setRegistrations(Array.isArray(res) ? (res as Registration[]) : []);
     } catch {
       void message.error("Lỗi khi tải danh sách đăng ký");
       setRegistrations([]);
@@ -172,7 +185,8 @@ max_groups: record.max_groups,
       setEditingId(null);
       void fetchProposals();
     } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : "Lỗi khi lưu đề xuất";
+      const errorMsg =
+        error instanceof Error ? error.message : "Lỗi khi lưu đề xuất";
       void message.error(errorMsg);
     }
   };
@@ -183,7 +197,8 @@ max_groups: record.max_groups,
       void message.success("Đã xóa đề tài đề xuất");
       void fetchProposals();
     } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : "Không thể xóa đề xuất này";
+      const errorMsg =
+        error instanceof Error ? error.message : "Không thể xóa đề xuất này";
       void message.error(errorMsg);
     }
   };
@@ -193,14 +208,18 @@ max_groups: record.max_groups,
       title: "Tên đề tài đề xuất",
       dataIndex: "title",
       key: "title",
-      render: (text: string): React.ReactNode => <Text strong style={{ color: "#1e3c72" }}>{text}</Text>
+      render: (text: string): React.ReactNode => (
+        <Text strong style={{ color: "#1e3c72" }}>
+          {text}
+        </Text>
+      ),
     },
     {
       title: "Mô tả",
       dataIndex: "description",
       key: "description",
       ellipsis: true,
-      render: (text: string): React.ReactNode => text || "-"
+      render: (text: string): React.ReactNode => text || "-",
     },
     {
       title: "Đăng ký",
@@ -208,10 +227,14 @@ max_groups: record.max_groups,
       width: 120,
       align: "center" as const,
       render: (unknownText: unknown, record: Proposal): React.ReactNode => (
-        <Tag color="cyan" style={{ cursor: "pointer" }} onClick={() => openRegistrationDrawer(record)}>
+        <Tag
+          color="cyan"
+          style={{ cursor: "pointer" }}
+          onClick={() => openRegistrationDrawer(record)}
+        >
           <TeamOutlined /> {record.registration_count || 0}/{record.max_groups}
         </Tag>
-      )
+      ),
     },
     {
       title: "Số nhóm tối đa",
@@ -219,7 +242,9 @@ max_groups: record.max_groups,
       key: "max_groups",
       width: 120,
       align: "center" as const,
-      render: (val: number): React.ReactNode => <Tag color="blue">{val} nhóm</Tag>
+      render: (val: number): React.ReactNode => (
+        <Tag color="blue">{val} nhóm</Tag>
+      ),
     },
     {
       title: "Trạng thái",
@@ -232,7 +257,7 @@ max_groups: record.max_groups,
         if (status === "closed") color = "error";
         if (status === "draft") color = "warning";
         return <Tag color={color}>{status?.toUpperCase()}</Tag>;
-      }
+      },
     },
     {
       title: "Thao tác",
@@ -249,22 +274,27 @@ max_groups: record.max_groups,
           />
           <Popconfirm
             title="Xóa đề tài đề xuất này?"
-            onConfirm={() => { void handleDelete(record.id); }}
+            onConfirm={() => {
+              void handleDelete(record.id);
+            }}
             okText="Xóa"
             cancelText="Hủy"
           >
             <Button danger type="text" icon={<DeleteOutlined />} title="Xóa" />
           </Popconfirm>
         </Space>
-      )
-    }
+      ),
+    },
   ];
 
   return (
     <div style={{ padding: "24px", background: "#f5f7fa", minHeight: "100vh" }}>
       <Card
         bordered={false}
-        style={{ borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}
+        style={{
+          borderRadius: "16px",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+        }}
         title={
           <Row justify="space-between" align="middle">
             <Col>
@@ -277,7 +307,11 @@ max_groups: record.max_groups,
                 type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => openModal()}
-                style={{ borderRadius: "8px", background: "#1e3c72", borderColor: "#1e3c72" }}
+                style={{
+                  borderRadius: "8px",
+                  background: "#1e3c72",
+                  borderColor: "#1e3c72",
+                }}
               >
                 Đăng đề tài đề xuất mới
               </Button>
@@ -306,23 +340,32 @@ max_groups: record.max_groups,
         }}
         okText={editingId ? "Cập nhật" : "Đăng đề tài"}
         cancelText="Hủy"
-        okButtonProps={{ style: { background: "#1e3c72", borderColor: "#1e3c72" } }}
+        okButtonProps={{
+          style: { background: "#1e3c72", borderColor: "#1e3c72" },
+        }}
         width={700}
       >
-        <Form form={form} layout="vertical" onFinish={(values) => { void handleSubmit(values); }}>
-          <Form.Item name="title" label="Tên đề tài" rules={[{ required: true, message: "Vui lòng nhập tên đề tài" }]}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={(values) => {
+            void handleSubmit(values);
+          }}
+        >
+          <Form.Item
+            name="title"
+            label="Tên đề tài"
+            rules={[{ required: true, message: "Vui lòng nhập tên đề tài" }]}
+          >
             <Input placeholder="Ví dụ: Hệ thống quản lý đồ án tốt nghiệp" />
           </Form.Item>
 
-          <Form.Item 
-            name="session_id" 
-            label="Học kỳ / Đợt đăng ký" 
+          <Form.Item
+            name="session_id"
+            label="Học kỳ / Đợt đăng ký"
             rules={[{ required: true, message: "Vui lòng chọn học kỳ" }]}
           >
-            <Select 
-              placeholder="Chọn học kỳ áp dụng" 
-              disabled={!!editingId}
-            >
+            <Select placeholder="Chọn học kỳ áp dụng" disabled={!!editingId}>
               {sessions.map((s) => (
                 <Option key={s.id} value={s.id}>
                   {s.sessionName || s.name || `Học kỳ ${s.id}`}
@@ -332,12 +375,19 @@ max_groups: record.max_groups,
           </Form.Item>
 
           <Form.Item name="description" label="Mô tả chi tiết">
-            <TextArea rows={4} placeholder="Mô tả yêu cầu, công nghệ, kết quả mong đợi..." />
+            <TextArea
+              rows={4}
+              placeholder="Mô tả yêu cầu, công nghệ, kết quả mong đợi..."
+            />
           </Form.Item>
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="max_groups" label="Số nhóm tối đa" initialValue={1}>
+              <Form.Item
+                name="max_groups"
+                label="Số nhóm tối đa"
+                initialValue={1}
+              >
                 <InputNumber min={1} max={10} style={{ width: "100%" }} />
               </Form.Item>
             </Col>
@@ -373,11 +423,18 @@ max_groups: record.max_groups,
             renderItem={(reg: Registration) => (
               <List.Item>
                 <List.Item.Meta
-                  avatar={<Avatar icon={<UserOutlined />} style={{ backgroundColor: "#1e3c72" }} />}
+                  avatar={
+                    <Avatar
+                      icon={<UserOutlined />}
+                      style={{ backgroundColor: "#1e3c72" }}
+                    />
+                  }
                   title={
                     <div>
                       <Text strong>{reg.student_name}</Text>
-                      <div style={{ fontSize: "12px", color: "#666" }}>MSSV: {reg.student_id}</div>
+                      <div style={{ fontSize: "12px", color: "#666" }}>
+                        MSSV: {reg.student_id}
+                      </div>
                     </div>
                   }
                   description={
@@ -385,10 +442,21 @@ max_groups: record.max_groups,
                       <div>📧 {reg.email}</div>
                       {reg.phone && <div>📞 {reg.phone}</div>}
                       <div style={{ marginTop: "8px" }}>
-                        <Tag color={reg.lecturer_status === "approved" ? "green" : "orange"}>
+                        <Tag
+                          color={
+                            reg.lecturer_status === "approved"
+                              ? "green"
+                              : "orange"
+                          }
+                        >
                           GV: {reg.lecturer_status?.toUpperCase()}
                         </Tag>
-                        <Tag color={reg.admin_status === "approved" ? "green" : "orange"} style={{ marginLeft: "4px" }}>
+                        <Tag
+                          color={
+                            reg.admin_status === "approved" ? "green" : "orange"
+                          }
+                          style={{ marginLeft: "4px" }}
+                        >
                           Admin: {reg.admin_status?.toUpperCase()}
                         </Tag>
                       </div>

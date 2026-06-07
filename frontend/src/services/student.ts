@@ -1,18 +1,37 @@
-import { request } from 'umi';
+import { request } from "umi";
 
-export const getStudentProfile = async () => {
-  const token = localStorage.getItem('token');
-  return request('/api/student/profile', {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${token}` },
+interface StudentProfileResponse {
+  name: string;
+  student_code: string;
+  email: string;
+  class_name?: string;
+  phone?: string;
+  thesis_id?: number | null;
+  thesis_title?: string;
+  lecturer_name?: string;
+  progress_percentage?: number;
+}
+
+interface ProfileUpdatePayload {
+  phone: string;
+}
+
+export const getStudentProfile = async (): Promise<StudentProfileResponse> => {
+  const token = localStorage.getItem("token");
+  return request<StudentProfileResponse>("/api/student/profile", {
+    method: "GET",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 };
 
-export const updateStudentProfile = async (data: { phone: string }) => {
-  const token = localStorage.getItem('token');
-  return request('/api/student/profile', {
-    method: 'PUT',
+
+export const updateStudentProfile = async (
+  data: ProfileUpdatePayload,
+): Promise<unknown> => {
+  const token = localStorage.getItem("token");
+  return request("/api/student/profile", {
+    method: "PUT",
     data,
-    headers: { Authorization: `Bearer ${token}` },
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
 };
