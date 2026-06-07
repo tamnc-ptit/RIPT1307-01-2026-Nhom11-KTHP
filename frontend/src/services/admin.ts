@@ -1,20 +1,25 @@
 import { request } from "umi";
 
-export async function getAuditLogs(params: {
+// --- Định nghĩa Hệ thống Interface Chặt chẽ ---
+interface AuditLogsParams {
   page: number;
   limit: number;
   search?: string;
-}) {
-  return request("http://localhost:8000/api/admin/audit-logs", {
+}
+
+
+export async function getAuditLogs(params: AuditLogsParams): Promise<unknown> {
+  return request("/api/admin/audit-logs", {
     method: "GET",
     params,
   });
 }
 
-export async function importStudentExcel(file: any) {
+export async function importStudentExcel(file: Blob | File): Promise<unknown> {
   const formData = new FormData();
   formData.append("file", file);
-  return request("http://localhost:8000/api/admin/import/students", {
+
+  return request("/api/admin/import/students", {
     method: "POST",
     data: formData,
   });

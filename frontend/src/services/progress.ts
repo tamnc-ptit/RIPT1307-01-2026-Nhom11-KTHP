@@ -1,39 +1,42 @@
-import { request } from 'umi';
-import { ProgressPayload, ProgressResponse } from '../types/StudentTypes/ProgressTypes';
-import { MilestoneStatus } from '../types/LecturerTypes/MilestonesTypes';
+import { request } from "umi";
+import type {
+  ProgressPayload,
+  ProgressResponse,
+} from "../types/StudentTypes/ProgressTypes";
+import type { MilestoneStatus } from "../types/LecturerTypes/MilestonesTypes";
 
 const getAuthHeader = (): Record<string, string> => {
   const token = localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-/**
- * Lấy danh sách tiến độ theo thesisId
- */
-export const getProgressByThesis = (thesisId: number) => {
+export const getProgressByThesis = async (
+  thesisId: number,
+): Promise<{ data: ProgressResponse[] }> => {
   return request<{ data: ProgressResponse[] }>(`/api/progress/${thesisId}`, {
-    method: 'GET',
+    method: "GET",
     headers: getAuthHeader(),
   });
 };
 
-/**
- * Nộp bài báo cáo tiến độ
- */
-export const createProgress = (data: ProgressPayload) => {
-  return request<{ message: string; data: ProgressResponse }>('/api/progress', {
-    method: 'POST',
+
+export const createProgress = async (
+  data: ProgressPayload,
+): Promise<{ message: string; data: ProgressResponse }> => {
+  return request<{ message: string; data: ProgressResponse }>("/api/progress", {
+    method: "POST",
     data,
     headers: getAuthHeader(),
   });
 };
 
-/**
- * CẬP NHẬT TRẠNG THÁI MILESTONE (Đã khớp với route mới /api/progress/status/:id)
- */
-export const updateStudentMilestoneStatus = (taskId: number, status: MilestoneStatus) => {
+
+export const updateStudentMilestoneStatus = async (
+  taskId: number,
+  status: MilestoneStatus,
+): Promise<unknown> => {
   return request(`/api/progress/status/${taskId}`, {
-    method: 'PATCH',
+    method: "PATCH",
     data: { status },
     headers: getAuthHeader(),
   });
