@@ -29,7 +29,6 @@ router.post(
 );
 router.delete("/submissions/:id", progressController.deleteSubmission);
 
-// ✅ THÊM MỚI: 5. ĐĂNG KÝ ĐỀ TÀI
 router.get("/lecturers", studentController.getLecturers);
 router.get("/topics", studentController.getSuggestedTopics);
 router.post("/thesis/register", studentController.submitRegistration);

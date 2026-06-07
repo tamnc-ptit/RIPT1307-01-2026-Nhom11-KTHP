@@ -1,6 +1,53 @@
-// Thêm vào cuối file student.controller.js
+const studentService = require("../services/student.service");
+const { poolPromise, sql } = require("../config/db");
 
-// Lấy danh sách giảng viên cho student chọn
+// =========================================================================
+// 1. CÁC HÀM ĐIỀU HƯỚNG CŨ (Gọi trực tiếp từ student.service.js sang)
+// =========================================================================
+
+const getStudentDashboard = async (req, res) => {
+  if (!req.user || req.user.role !== "student") {
+    return res.status(403).json({ message: "Chỉ sinh viên mới được truy cập" });
+  }
+  const studentId = req.user.id;
+  try {
+    const data = await studentService.getStudentDashboard(studentId);
+    res.json({ success: true, data });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ message: "Lỗi lấy dữ liệu Dashboard", error: err.message });
+  }
+};
+
+const getProfile = async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ message: "Chưa đăng nhập" });
+  try {
+    const profile = await studentService.getProfile(userId);
+    if (!profile)
+      return res.status(404).json({ message: "Không tìm thấy thông tin" });
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
+  }
+};
+
+const updateProfile = async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ message: "Chưa đăng nhập" });
+  try {
+    await studentService.updateProfile(userId, req.body);
+    res.json({ message: "Cập nhật hồ sơ thành công!" });
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi Server", error: err.message });
+  }
+};
+
+// =========================================================================
+// 2. CÁC HÀM MỚI THÊM (Tương tác trực tiếp với Database cho việc đăng ký đề tài)
+// =========================================================================
+
 const getLecturers = async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -18,7 +65,6 @@ const getLecturers = async (req, res) => {
   }
 };
 
-// Lấy danh sách đề tài gợi ý (open)
 const getSuggestedTopics = async (req, res) => {
   try {
     const { lecturerId, status = "open" } = req.query;
@@ -45,7 +91,6 @@ const getSuggestedTopics = async (req, res) => {
   }
 };
 
-// Sinh viên nộp phiếu đăng ký đề tài
 const submitRegistration = async (req, res) => {
   try {
     const {
@@ -56,11 +101,10 @@ const submitRegistration = async (req, res) => {
       suggestion_id,
       session_id,
     } = req.body;
-    const student_id = req.user.id; // Lấy từ token, không tin req.body
+    const student_id = req.user.id;
 
     const pool = await poolPromise;
 
-    // Kiểm tra sinh viên đã có đề tài chưa
     const existing = await pool
       .request()
       .input("studentId", sql.Int, student_id)
@@ -93,11 +137,14 @@ const submitRegistration = async (req, res) => {
   }
 };
 
+// =========================================================================
+// 3. EXPORT TẬP TRUNG - KHỚP 100% VỚI FILE STUDENT.ROUTES.JS
+// =========================================================================
 module.exports = {
   getStudentDashboard,
   getProfile,
   updateProfile,
-  getLecturers, // ✅ export mới
-  getSuggestedTopics, // ✅ export mới
-  submitRegistration, // ✅ export mới
+  getLecturers,
+  getSuggestedTopics,
+  submitRegistration,
 };
