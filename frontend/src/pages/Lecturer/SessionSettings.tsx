@@ -58,6 +58,12 @@ interface FormValues {
   maxStudents: number;
 }
 
+// --- Interface phản thủ cho cấu trúc phản hồi API từ UmiJS ---
+interface BackendApiResponse<T> {
+  success?: boolean;
+  data?: T;
+}
+
 const SessionSettings: React.FC = () => {
   const [form] = Form.useForm<FormValues>();
   const [sessions, setSessions] = useState<SessionConfigType[]>([]);
@@ -72,13 +78,46 @@ const SessionSettings: React.FC = () => {
     setLoading(true);
     try {
       const [classesRes, sessionsRes] = await Promise.all([
-        getLecturerClasses(lecturerId),
-        getSessions(lecturerId),
+        getLecturerClasses(lecturerId) as Promise<
+          ClassItem[] | BackendApiResponse<ClassItem[]>
+        >,
+        getSessions(lecturerId) as Promise<
+          SessionConfigType[] | BackendApiResponse<SessionConfigType[]>
+        >,
       ]);
-      setClasses((classesRes as ClassItem[]) || []);
-      setSessions((sessionsRes as SessionConfigType[]) || []);
-    } catch {
-      void message.error("Lỗi khi tải dữ liệu");
+
+      // 🔥 BƯỚC PHÒNG THỦ 1: Phân tách cấu trúc an toàn cho danh sách lớp học
+      if (Array.isArray(classesRes)) {
+        setClasses(classesRes);
+      } else if (
+        classesRes &&
+        Array.isArray((classesRes as BackendApiResponse<ClassItem[]>).data)
+      ) {
+        setClasses((classesRes as BackendApiResponse<ClassItem[]>).data || []);
+      } else {
+        setClasses([]);
+      }
+
+      // 🔥 BƯỚC PHÒNG THỦ 2: Phân tách cấu trúc an toàn cho danh sách học kỳ/đợt đăng ký
+      if (Array.isArray(sessionsRes)) {
+        setSessions(sessionsRes);
+      } else if (
+        sessionsRes &&
+        Array.isArray(
+          (sessionsRes as BackendApiResponse<SessionConfigType[]>).data,
+        )
+      ) {
+        setSessions(
+          (sessionsRes as BackendApiResponse<SessionConfigType[]>).data || [],
+        );
+      } else {
+        setSessions([]);
+      }
+    } catch (error: unknown) {
+      console.error("Failed to fetch session settings data:", error);
+      void message.error("Lỗi khi tải dữ liệu từ hệ thống");
+      setClasses([]);
+      setSessions([]);
     } finally {
       setLoading(false);
     }
@@ -213,11 +252,13 @@ const SessionSettings: React.FC = () => {
                   placeholder="Chọn lớp học..."
                   style={{ borderRadius: "6px" }}
                 >
-                  {classes.map((c) => (
-                    <Option key={c.id} value={c.id}>
-                      {c.name || c.class_name || `Lớp ${c.id}`}
-                    </Option>
-                  ))}
+                  {/* 🔥 BƯỚC PHÒNG THỦ 3: Duyệt mảng classes an toàn */}
+                  {Array.isArray(classes) &&
+                    classes.map((c) => (
+                      <Option key={c.id} value={c.id}>
+                        {c.name || c.class_name || `Lớp ${c.id}`}
+                      </Option>
+                    ))}
                 </Select>
               </Form.Item>
 
@@ -282,8 +323,9 @@ const SessionSettings: React.FC = () => {
               boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
             }}
           >
+            {/* 🔥 BƯỚC PHÒNG THỦ 4: Table dataSource kẹp mảng sạch */}
             <Table
-              dataSource={sessions}
+              dataSource={Array.isArray(sessions) ? sessions : []}
               columns={columns}
               rowKey="id"
               pagination={false}
