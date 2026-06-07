@@ -57,12 +57,19 @@ interface FormValues {
   message?: string;
 }
 
-// Tránh sử dụng kiểu 'any' cho các hàm bổ trợ
-const sortNewestFirst = (items: NotificationItem[]): NotificationItem[] =>
-  [...items].sort(
+interface BackendApiResponse<T> {
+  success?: boolean;
+  data?: T;
+  items?: T;
+}
+
+const sortNewestFirst = (items: NotificationItem[]): NotificationItem[] => {
+  if (!Array.isArray(items)) return [];
+  return [...items].sort(
     (a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
+};
 
 const NotificationsPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -90,9 +97,24 @@ const NotificationsPage: React.FC = () => {
     setLoading(true);
     try {
       const res = await getNotifications();
-      setNotifications(sortNewestFirst(res || []));
+      // 🔥 BƯỚC PHÒNG THỦ 1: Kiểm tra cấu trúc phản hồi danh sách thông báo
+      if (Array.isArray(res)) {
+        setNotifications(sortNewestFirst(res));
+      } else if (
+        res &&
+        Array.isArray((res as BackendApiResponse<NotificationItem[]>).data)
+      ) {
+        setNotifications(
+          sortNewestFirst(
+            (res as BackendApiResponse<NotificationItem[]>).data || [],
+          ),
+        );
+      } else {
+        setNotifications([]);
+      }
     } catch {
       void message.error("Không thể tải thông báo");
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -104,13 +126,34 @@ const NotificationsPage: React.FC = () => {
     setOptionsLoading(true);
     try {
       const classData = await getLecturerClasses(lecturerId);
-      // Giả định API trả về cấu trúc phân trang hoặc mảng thô
       const thesisData = await getLecturerTheses({ pageSize: 500 });
 
-      setClasses((classData as ClassItem[]) || []);
-      setTheses((thesisData?.items as ThesisItem[]) || []);
+      // 🔥 BƯỚC PHÒNG THỦ 2: Kiểm tra cấu trúc mảng lớp tín chỉ hướng dẫn
+      if (Array.isArray(classData)) {
+        setClasses(classData);
+      } else if (
+        classData &&
+        Array.isArray((classData as BackendApiResponse<ClassItem[]>).data)
+      ) {
+        setClasses((classData as BackendApiResponse<ClassItem[]>).data || []);
+      } else {
+        setClasses([]);
+      }
+
+      // 🔥 BƯỚC PHÒNG THỦ 3: Kiểm tra cấu trúc mảng danh sách đề tài đồ án
+      if (thesisData && Array.isArray((thesisData as any).items)) {
+        setTheses((thesisData as any).items);
+      } else if (thesisData && Array.isArray((thesisData as any).data)) {
+        setTheses((thesisData as any).data);
+      } else if (Array.isArray(thesisData)) {
+        setTheses(thesisData);
+      } else {
+        setTheses([]);
+      }
     } catch {
       void message.error("Không thể tải danh sách lớp hoặc đề tài");
+      setClasses([]);
+      setTheses([]);
     } finally {
       setOptionsLoading(false);
     }
@@ -120,7 +163,17 @@ const NotificationsPage: React.FC = () => {
     setStudentsLoading(true);
     try {
       const res = await getClassStudents(classId);
-      setStudents((res as StudentItem[]) || []);
+      // 🔥 BƯỚC PHÒNG THỦ 4: Kiểm tra cấu trúc danh sách sinh viên theo lớp
+      if (Array.isArray(res)) {
+        setStudents(res);
+      } else if (
+        res &&
+        Array.isArray((res as BackendApiResponse<StudentItem[]>).data)
+      ) {
+        setStudents((res as BackendApiResponse<StudentItem[]>).data || []);
+      } else {
+        setStudents([]);
+      }
     } catch {
       void message.error("Không thể tải danh sách sinh viên");
       setStudents([]);
@@ -210,10 +263,10 @@ const NotificationsPage: React.FC = () => {
           </Button>
         }
       >
-        {notifications.length === 0 ? (
-          <Empty description="Chưa có thông báo" />
-        ) : (
-          <Spin spinning={loading}>
+        <Spin spinning={loading}>
+          {!Array.isArray(notifications) || notifications.length === 0 ? (
+            <Empty description="Chưa có thông báo" />
+          ) : (
             <div style={{ display: "flex", flexDirection: "column" }}>
               {notifications.map((item, index) => (
                 <div
@@ -306,8 +359,8 @@ const NotificationsPage: React.FC = () => {
                 </div>
               ))}
             </div>
-          </Spin>
-        )}
+          )}
+        </Spin>
       </Card>
 
       <Modal
@@ -347,11 +400,12 @@ const NotificationsPage: React.FC = () => {
                 showSearch
                 optionFilterProp="children"
               >
-                {classes.map((cls) => (
-                  <Option key={cls.id} value={cls.id}>
-                    {cls.class_name || `Lớp ${cls.id}`}
-                  </Option>
-                ))}
+                {Array.isArray(classes) &&
+                  classes.map((cls) => (
+                    <Option key={cls.id} value={cls.id}>
+                      {cls.class_name || `Lớp ${cls.id}`}
+                    </Option>
+                  ))}
               </Select>
             </Form.Item>
           )}
@@ -368,11 +422,12 @@ const NotificationsPage: React.FC = () => {
                 showSearch
                 optionFilterProp="children"
               >
-                {theses.map((thesis) => (
-                  <Option key={thesis.id} value={thesis.id}>
-                    {thesis.title || `Đề tài ${thesis.id}`}
-                  </Option>
-                ))}
+                {Array.isArray(theses) &&
+                  theses.map((thesis) => (
+                    <Option key={thesis.id} value={thesis.id}>
+                      {thesis.title || `Đề tài ${thesis.id}`}
+                    </Option>
+                  ))}
               </Select>
             </Form.Item>
           )}
@@ -393,11 +448,12 @@ const NotificationsPage: React.FC = () => {
                     void handleClassChange(val);
                   }}
                 >
-                  {classes.map((cls) => (
-                    <Option key={cls.id} value={cls.id}>
-                      {cls.class_name || `Lớp ${cls.id}`}
-                    </Option>
-                  ))}
+                  {Array.isArray(classes) &&
+                    classes.map((cls) => (
+                      <Option key={cls.id} value={cls.id}>
+                        {cls.class_name || `Lớp ${cls.id}`}
+                      </Option>
+                    ))}
                 </Select>
               </Form.Item>
 
@@ -414,11 +470,12 @@ const NotificationsPage: React.FC = () => {
                   showSearch
                   optionFilterProp="children"
                 >
-                  {students.map((student) => (
-                    <Option key={student.id} value={student.id}>
-                      {student.name || `SV ${student.id}`}
-                    </Option>
-                  ))}
+                  {Array.isArray(students) &&
+                    students.map((student) => (
+                      <Option key={student.id} value={student.id}>
+                        {student.name || `SV ${student.id}`}
+                      </Option>
+                    ))}
                 </Select>
               </Form.Item>
             </>
