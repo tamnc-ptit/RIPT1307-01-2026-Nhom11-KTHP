@@ -54,11 +54,12 @@ interface RegistrationFormFields {
 }
 
 interface DashboardApiResponse {
+  thesisId?: number | null;
+  thesisTitle?: string | null;
+  advisorName?: string | null;
   status?: string;
-  data?: {
-    status?: string;
-    advisorName?: string | null;
-  };
+  systemMessage?: string;
+  supportEmail?: string;
 }
 
 const statusMeta: Record<ThesisStatus, StatusMetaConfig> = {
@@ -121,15 +122,14 @@ const ThesisRegistrationPage: React.FC = () => {
         let advisorName: string | undefined = undefined;
         if (token) {
           try {
-            const dashboardRes = (await apiRequest("student/dashboard", {
-              method: "GET",
-            })) as DashboardApiResponse;
+            // Umi plugin tự unwrap { data: ... } nên nhận thẳng object
+            const dashboardRes = await apiRequest<DashboardApiResponse>(
+              "student/dashboard",
+              { method: "GET" },
+            );
 
-            actualStatus = (dashboardRes?.data?.status ||
-              dashboardRes?.status ||
-              "not_registered") as ThesisStatus;
-            
-            advisorName = dashboardRes?.data?.advisorName ?? undefined;
+            actualStatus = (dashboardRes?.status || "not_registered") as ThesisStatus;
+            advisorName = dashboardRes?.advisorName ?? undefined;
             setStatus(actualStatus);
 
             // Nếu đã được duyệt → redirect sang trang tiến độ

@@ -30,15 +30,16 @@ const StudentView: React.FC = () => {
         const token = localStorage.getItem("token");
 
         // Kẹp token vào headers để đi qua cổng bảo vệ
-        const res = await apiRequest<{ data: IStudentDashboardInfo }>(
+        const res = await apiRequest<IStudentDashboardInfo>(
           "student/dashboard",
           {
             method: "GET",
           },
         );
-        const dashboardInfo = (res && res.data) ? res.data : res;
-        if (dashboardInfo) {
-          setDashboardData(dashboardInfo);
+        // Umi plugin request với dataField:'data' tự unwrap { data: ... }
+        // nên res đã là IStudentDashboardInfo trực tiếp
+        if (res) {
+          setDashboardData(res);
         }
       } catch (error: unknown) {
         console.error("Failed to fetch student dashboard info:", error);
