@@ -36,9 +36,9 @@ const StudentView: React.FC = () => {
             method: "GET",
           },
         );
-
-        if (res && res.data) {
-          setDashboardData(res.data);
+        const dashboardInfo = (res && res.data) ? res.data : res;
+        if (dashboardInfo) {
+          setDashboardData(dashboardInfo);
         }
       } catch (error: unknown) {
         console.error("Failed to fetch student dashboard info:", error);
