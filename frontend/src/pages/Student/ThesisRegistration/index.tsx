@@ -31,7 +31,8 @@ import AdvisorCard from "./components/AdvisorCard";
 import RegistrationForm from "./components/RegistrationForm";
 import RegistrationProcess from "./components/RegistrationProcess";
 
-const { Text } = Typography;
+// 🔥 ĐÃ SỬA: Khai báo giải phóng cả Title và Text từ Typography để dập tắt lỗi ReferenceError
+const { Title, Text } = Typography;
 
 // --- Định cấu trúc Interface chi tiết cho các Đối tượng ---
 interface StatusMetaConfig {
@@ -325,52 +326,55 @@ const ThesisRegistrationPage: React.FC = () => {
                   Gợi ý đề tài từ Giảng viên
                 </Title>
                 <Row gutter={[16, 16]}>
-                  {suggestedTopics.map((topic) => (
-                    <Col xs={24} md={12} key={topic.id}>
-                      <Card
-                        style={{
-                          borderRadius: 12,
-                          cursor: "pointer",
-                          height: "100%",
-                        }}
-                        hoverable
-                        onClick={() => handleSelectSuggested(topic)}
-                      >
-                        <Tag
-                          color="blue"
+                  {/* 🔥 ĐÃ SỬA: Bọc kiểm tra mảng phòng thủ trước khi duyệt .map danh sách gợi ý đề tài */}
+                  {Array.isArray(suggestedTopics) &&
+                    suggestedTopics.map((topic) => (
+                      <Col xs={24} md={12} key={topic.id}>
+                        <Card
                           style={{
-                            borderRadius: 4,
-                            border: "none",
-                            fontWeight: 600,
+                            borderRadius: 12,
+                            cursor: "pointer",
+                            height: "100%",
                           }}
+                          hoverable
+                          onClick={() => handleSelectSuggested(topic)}
                         >
-                          {topic.domain || "Đề tài"}
-                        </Tag>
-                        <Text
-                          strong
-                          style={{
-                            display: "block",
-                            marginTop: 12,
-                            color: "#1a1a2e",
-                            fontSize: "14px",
-                          }}
-                        >
-                          {topic.title}
-                        </Text>
-                        <Text
-                          type="secondary"
-                          style={{
-                            fontSize: 12,
-                            display: "block",
-                            marginTop: 8,
-                          }}
-                        >
-                          {topic.description}
-                        </Text>
-                      </Card>
-                    </Col>
-                  ))}
-                  {suggestedTopics.length === 0 && (
+                          <Tag
+                            color="blue"
+                            style={{
+                              borderRadius: 4,
+                              border: "none",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {topic.domain || "Đề tài"}
+                          </Tag>
+                          <Text
+                            strong
+                            style={{
+                              display: "block",
+                              marginTop: 12,
+                              color: "#1a1a2e",
+                              fontSize: "14px",
+                            }}
+                          >
+                            {topic.title}
+                          </Text>
+                          <Text
+                            type="secondary"
+                            style={{
+                              fontSize: 12,
+                              display: "block",
+                              marginTop: 8,
+                            }}
+                          >
+                            {topic.description}
+                          </Text>
+                        </Card>
+                      </Col>
+                    ))}
+                  {(!Array.isArray(suggestedTopics) ||
+                    suggestedTopics.length === 0) && (
                     <Col span={24}>
                       <Text type="secondary">
                         Chưa có đề tài gợi ý nào từ giảng viên này.
