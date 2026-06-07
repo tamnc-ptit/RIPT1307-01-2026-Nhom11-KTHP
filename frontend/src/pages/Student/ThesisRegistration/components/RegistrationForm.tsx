@@ -168,26 +168,22 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
 
           {/* Giảng viên hướng dẫn */}
           <Col xs={24} md={12}>
+            <Form.Item name="lecturer_id" hidden>
+              <Input />
+            </Form.Item>
             <Form.Item
-              name="lecturer_id"
-              label={<Text strong>Giảng viên hướng dẫn</Text>}
-              rules={[
-                { required: true, message: "Vui lòng chọn giảng viên hướng dẫn!" },
-              ]}
+              label={<Text strong>Giảng viên hướng dẫn trực tiếp</Text>}
             >
-              <Select
+              <Input
                 size="large"
-                placeholder="-- Chọn giảng viên hướng dẫn --"
-                disabled={isLocked}
-                onChange={onLecturerChange}
-                style={{ borderRadius: 8 }}
-              >
-                {lecturersList.map((lecturer) => (
-                  <Option key={lecturer.id} value={lecturer.id}>
-                    {lecturer.name} ({lecturer.quota ?? 0}/{lecturer.maxQuota ?? 5} SV)
-                  </Option>
-                ))}
-              </Select>
+                value={
+                  myLecturer
+                    ? `${myLecturer.name} (${myLecturer.quota ?? 0}/${myLecturer.maxQuota ?? 5} SV)`
+                    : "Chưa phân công giảng viên"
+                }
+                disabled
+                style={{ borderRadius: 8, color: "rgba(0, 0, 0, 0.85)" }}
+              />
             </Form.Item>
           </Col>
 

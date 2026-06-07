@@ -25,10 +25,23 @@ const getStudentDashboard = async (studentId) => {
 
   // Nếu sinh viên chưa có đề tài
   if (result.recordset.length === 0) {
+    // 🔥 ĐÃ SỬA: Tự động truy vấn giảng viên phụ trách lớp tín chỉ của sinh viên
+    const classLecturerResult = await pool.request()
+      .input("studentId", sql.Int, studentId)
+      .query(`
+        SELECT TOP 1 u.name AS advisorName
+        FROM Users u
+        JOIN Classes c ON u.id = c.lecturer_id
+        JOIN ClassStudents cs ON c.id = cs.class_id
+        WHERE cs.student_id = @studentId
+      `);
+    
+    const advisorName = classLecturerResult.recordset[0]?.advisorName || null;
+
     return {
       thesisId: null, 
       thesisTitle: null,
-      advisorName: null,
+      advisorName: advisorName,
       status: "not_registered",
       systemMessage: "Bạn chưa đăng ký đề tài khóa luận. Vui lòng vào mục đăng ký.",
       supportEmail: "support@ptit.edu.vn"
