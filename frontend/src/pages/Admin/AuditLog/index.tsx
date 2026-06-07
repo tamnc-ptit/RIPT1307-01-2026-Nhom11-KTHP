@@ -1,13 +1,23 @@
-import React, { useEffect, useState } from "react";
-import { Table, Card, Tag, Typography, message, Input, Space } from "antd";
+import React, { useState, useEffect } from "react";
+import {
+  Table,
+  Card,
+  Tag,
+  Typography,
+  message,
+  Input,
+  Space,
+  Button,
+} from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { getAuditLogs } from "../../../services/admin";
 import dayjs from "dayjs";
-import { AuditLogItem, AuditLogResponse } from "../../../types/AdminTypes/AuditLogTypes";
+import {
+  AuditLogItem,
+  AuditLogResponse,
+} from "../../../types/AdminTypes/AuditLogTypes";
 
 const { Title } = Typography;
-
-
 
 const ACTION_COLOR: Record<string, string> = {
   CREATE: "green",
@@ -26,6 +36,7 @@ const AuditLog: React.FC = () => {
   const [search, setSearch] = useState<string>("");
   const [searchInput, setSearchInput] = useState<string>("");
 
+  // Chuẩn hóa hàm fetch nhận giá trị trực tiếp để tránh độ trễ state của React
   const fetchLogs = async (page: number, limit: number, searchText: string) => {
     setLoading(true);
     try {
@@ -42,15 +53,17 @@ const AuditLog: React.FC = () => {
         setData([]);
         setTotal(0);
       }
-    } catch {
-      message.error("Không thể tải nhật ký hệ thống!");
+    } catch (err) {
+      console.error("Lỗi khi tải nhật ký hệ thống:", err);
+      void message.error("Không thể tải nhật ký hệ thống!");
     } finally {
       setLoading(false);
     }
   };
 
+  // 🔥 ĐÃ SỬA: useEffect chỉ tập trung lắng nghe biến điều hướng thực tế từ trigger phân trang hoặc tìm kiếm
   useEffect(() => {
-    fetchLogs(current, pageSize, search);
+    void fetchLogs(current, pageSize, search);
   }, [current, pageSize, search]);
 
   const handleSearch = () => {
@@ -109,7 +122,7 @@ const AuditLog: React.FC = () => {
           {record.old_value && (
             <div style={{ color: "#cf1322" }}>
               <strong>Cũ:</strong>{" "}
-              <span style={{ fontFamily: "monospace" }}>
+              <span style={{ fontFamily: "monospace", wordBreak: "break-all" }}>
                 {record.old_value}
               </span>
             </div>
@@ -117,7 +130,7 @@ const AuditLog: React.FC = () => {
           {record.new_value && (
             <div style={{ color: "#389e0d", marginTop: 4 }}>
               <strong>Mới:</strong>{" "}
-              <span style={{ fontFamily: "monospace" }}>
+              <span style={{ fontFamily: "monospace", wordBreak: "break-all" }}>
                 {record.new_value}
               </span>
             </div>
@@ -153,18 +166,14 @@ const AuditLog: React.FC = () => {
           onPressEnter={handleSearch}
           style={{ width: 340 }}
         />
-        <Typography.Text
-          type="link"
-          style={{ cursor: "pointer" }}
-          onClick={handleSearch}
-        >
+        <Button type="primary" onClick={handleSearch}>
           Tìm kiếm
-        </Typography.Text>
+        </Button>
       </Space>
 
       <Table
         columns={columns}
-        dataSource={data}
+        dataSource={Array.isArray(data) ? data : []}
         rowKey="id"
         loading={loading}
         bordered
@@ -176,8 +185,10 @@ const AuditLog: React.FC = () => {
           total,
           showSizeChanger: true,
           showTotal: (t) => `Tổng ${t} bản ghi`,
+          // 🔥 ĐÃ SỬA: Khống chế giá trị trực tiếp để triệt tiêu lỗi bất đồng bộ khi đổi số lượng hiển thị
           onChange: (page, size) => {
-            setCurrent(page);
+            const nextProductivePage = size !== pageSize ? 1 : page;
+            setCurrent(nextProductivePage);
             setPageSize(size ?? 10);
           },
         }}

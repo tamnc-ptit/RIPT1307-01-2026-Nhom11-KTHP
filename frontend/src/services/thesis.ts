@@ -1,4 +1,4 @@
-import { request } from "umi";
+import { apiRequest } from "@/services/api"; // 🔥 ĐÃ ĐỔI: Gọi hàm core để tự động cấu hình URL .env và kẹp Token bảo mật
 import type { ThesisItem } from "@/types/LecturerTypes/ThesisTypes";
 import type { IRegistrationSubmitPayload } from "../types/StudentTypes/RegistrationTypes";
 
@@ -19,11 +19,6 @@ interface UpdateThesisPayload {
   status?: string;
 }
 
-const getAuthHeader = (): Record<string, string> => {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
 // ==============================================================
 // CÁC HÀM API ĐỘC LẬP (QUẢN LÝ ĐỀ TÀI CHUNG)
 // ==============================================================
@@ -31,10 +26,9 @@ const getAuthHeader = (): Record<string, string> => {
 export async function getThesisList(
   params?: ThesisParams,
 ): Promise<ThesisItem[]> {
-  return request<ThesisItem[]>("/api/thesis", {
+  return apiRequest<ThesisItem[]>("/api/thesis", {
     method: "GET",
     params,
-    headers: getAuthHeader(),
   });
 }
 
@@ -42,17 +36,15 @@ export const updateThesis = async (
   id: number,
   data: UpdateThesisPayload,
 ): Promise<unknown> => {
-  return request(`/api/thesis/${id}`, {
+  return apiRequest(`/api/thesis/${id}`, {
     method: "PUT",
     data,
-    headers: getAuthHeader(),
   });
 };
 
 export const deleteThesis = async (id: number): Promise<unknown> => {
-  return request(`/api/thesis/${id}`, {
+  return apiRequest(`/api/thesis/${id}`, {
     method: "DELETE",
-    headers: getAuthHeader(),
   });
 };
 
@@ -73,22 +65,20 @@ interface ThesisRegistrationServiceType {
 
 export const thesisRegistrationService: ThesisRegistrationServiceType = {
   getLecturers: async (): Promise<unknown> => {
-    return request("/api/users", {
+    return apiRequest("/api/users", {
       method: "GET",
       params: { role: "lecturer" },
-      headers: getAuthHeader(),
     });
   },
 
   // Đề tài mẫu từ TopicSuggestions (chưa có sinh viên nhận)
   getSuggestedTopics: async (lecturerId?: number): Promise<unknown> => {
-    return request("/api/topics", {
+    return apiRequest("/api/topics", {
       method: "GET",
       params: {
         lecturerId,
         status: "open",
       },
-      headers: getAuthHeader(),
     });
   },
 
@@ -96,10 +86,9 @@ export const thesisRegistrationService: ThesisRegistrationServiceType = {
   submitRegistration: async (
     payload: Partial<IRegistrationSubmitPayload> & { student_id?: number },
   ): Promise<unknown> => {
-    return request("/api/thesis", {
+    return apiRequest("/api/thesis", {
       method: "POST",
       data: payload,
-      headers: getAuthHeader(),
     });
   },
 
@@ -107,10 +96,9 @@ export const thesisRegistrationService: ThesisRegistrationServiceType = {
     suggestionId: number,
     payload?: Record<string, unknown>,
   ): Promise<unknown> => {
-    return request(`/api/topics/${suggestionId}/register`, {
+    return apiRequest(`/api/topics/${suggestionId}/register`, {
       method: "POST",
       data: payload || {},
-      headers: getAuthHeader(),
     });
   },
 };

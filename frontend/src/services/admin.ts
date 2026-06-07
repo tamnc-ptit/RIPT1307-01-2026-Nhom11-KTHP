@@ -1,6 +1,5 @@
-import { request } from "umi";
+import { apiRequest } from "@/services/api"; 
 
-// --- Định nghĩa Hệ thống Interface Chặt chẽ ---
 interface AuditLogsParams {
   page: number;
   limit: number;
@@ -9,17 +8,19 @@ interface AuditLogsParams {
 
 
 export async function getAuditLogs(params: AuditLogsParams): Promise<unknown> {
-  return request("/api/admin/audit-logs", {
+  // Đổi từ request(...) thành apiRequest(...) để tự động nối BASE_URL từ .env
+  return apiRequest("/api/admin/audit-logs", {
     method: "GET",
     params,
   });
 }
 
+
 export async function importStudentExcel(file: Blob | File): Promise<unknown> {
   const formData = new FormData();
   formData.append("file", file);
 
-  return request("/api/admin/import/students", {
+  return apiRequest("/api/admin/import/students", {
     method: "POST",
     data: formData,
   });
