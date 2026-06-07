@@ -143,39 +143,39 @@ const ThesisReview: React.FC = () => {
     }
   };
 
-  // 🔥 ĐÃ SỬA: Dọn sạch khối code lặp cấu trúc, gọi Endpoint chuẩn số nhiều có chữ s "/api/admin/theses"
-  const fetchTheses = async (f: FilterParams) => {
-    setLoading(true);
-    try {
-      const params: Record<string, string | number> = {};
-      if (f.adminStatus) params.admin_status = f.adminStatus;
-      if (f.lecturerStatus) params.lecturer_status = f.lecturerStatus;
-      if (f.classId) params.classId = f.classId;
-      if (f.sessionId) params.session_id = f.sessionId;
+const fetchTheses = async (f: FilterParams) => {
+  setLoading(true);
+  try {
+    const params: Record<string, string | number> = {};
+    if (f.adminStatus) params.admin_status = f.adminStatus;
+    if (f.lecturerStatus) params.lecturer_status = f.lecturerStatus;
+    if (f.classId) params.classId = f.classId;
+    if (f.sessionId) params.session_id = f.sessionId;
 
-      const tData = await apiRequest<any>("/api/admin/theses", {
-        method: "GET",
-        params,
-      });
+    // 🔥 SỬA LẠI: Bỏ chữ s đi để khớp chuẩn với 404 hiển thị ở Console Backend của bạn
+    const tData = await apiRequest<any>("/api/admin/thesis", {
+      method: "GET",
+      params,
+    });
 
-      if (Array.isArray(tData)) {
-        setTheses(tData);
-      } else if (
-        tData &&
-        Array.isArray((tData as BackendApiResponse<ThesisItem[]>).data)
-      ) {
-        setTheses((tData as BackendApiResponse<ThesisItem[]>).data || []);
-      } else {
-        setTheses([]);
-      }
-    } catch (err) {
-      console.error("Lỗi tải danh sách đề tài Admin:", err);
-      void message.error("Không thể kết nối dữ liệu giám sát đề tài!");
+    // Giữ nguyên đoạn code nắn dòng mảng phía dưới
+    if (Array.isArray(tData)) {
+      setTheses(tData);
+    } else if (
+      tData &&
+      Array.isArray((tData as BackendApiResponse<ThesisItem[]>).data)
+    ) {
+      setTheses((tData as BackendApiResponse<ThesisItem[]>).data || []);
+    } else {
       setTheses([]);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err) {
+    console.error("Lỗi tải danh sách đề tài Admin:", err);
+    setTheses([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     void fetchFilterData();
