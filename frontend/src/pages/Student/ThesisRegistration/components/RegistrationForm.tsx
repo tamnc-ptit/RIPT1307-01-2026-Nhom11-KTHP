@@ -42,6 +42,8 @@ interface RegistrationFormProps {
   onSubmit: (values: RegistrationFormFields) => void;
   onSaveDraft: () => void;
   isSubmitting?: boolean;
+  lecturersList?: LecturerERD[];
+  onLecturerChange?: (id: number) => void;
 }
 
 const RegistrationForm: React.FC<RegistrationFormProps> = ({
@@ -51,6 +53,8 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
   onSubmit,
   onSaveDraft,
   isSubmitting = false,
+  lecturersList = [],
+  onLecturerChange,
 }) => {
   const isLocked = status === "pending" || status === "approved";
 
@@ -125,9 +129,6 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
         <Form.Item name="suggestion_id" hidden>
           <Input />
         </Form.Item>
-        <Form.Item name="lecturer_id" hidden>
-          <Input />
-        </Form.Item>
 
         <Row gutter={20}>
           {/* Tên đề tài */}
@@ -165,58 +166,28 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
             </Form.Item>
           </Col>
 
-          {/* Giảng viên – READ-ONLY */}
+          {/* Giảng viên hướng dẫn */}
           <Col xs={24} md={12}>
-            <Form.Item label={<Text strong>Giảng viên hướng dẫn</Text>}>
-              {myLecturer ? (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    border: "1px solid #d9d9d9",
-                    background: "#fafafa",
-                    height: 40,
-                  }}
-                >
-                  <Avatar
-                    size="small"
-                    src={myLecturer.avatar}
-                    icon={<UserOutlined />}
-                  />
-                  <Text
-                    style={{
-                      flex: 1,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {myLecturer.name}
-                  </Text>
-                  <Tag
-                    color={isQuotaFull ? "error" : "green"}
-                    style={{ margin: 0 }}
-                  >
-                    {quota}/{maxQuota} SV
-                  </Tag>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    border: "1px solid #d9d9d9",
-                    background: "#fafafa",
-                    height: 40,
-                    color: "#bfbfbf",
-                  }}
-                >
-                  Đang tải thông tin giảng viên...
-                </div>
-              )}
+            <Form.Item
+              name="lecturer_id"
+              label={<Text strong>Giảng viên hướng dẫn</Text>}
+              rules={[
+                { required: true, message: "Vui lòng chọn giảng viên hướng dẫn!" },
+              ]}
+            >
+              <Select
+                size="large"
+                placeholder="-- Chọn giảng viên hướng dẫn --"
+                disabled={isLocked}
+                onChange={onLecturerChange}
+                style={{ borderRadius: 8 }}
+              >
+                {lecturersList.map((lecturer) => (
+                  <Option key={lecturer.id} value={lecturer.id}>
+                    {lecturer.name} ({lecturer.quota ?? 0}/{lecturer.maxQuota ?? 5} SV)
+                  </Option>
+                ))}
+              </Select>
             </Form.Item>
           </Col>
 

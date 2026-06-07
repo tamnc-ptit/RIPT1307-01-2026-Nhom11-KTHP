@@ -97,6 +97,7 @@ const ThesisRegistrationPage: React.FC = () => {
 
   const [form] = Form.useForm<RegistrationFormFields>();
   const [status, setStatus] = useState<ThesisStatus>("not_registered");
+  const [lecturers, setLecturers] = useState<LecturerERD[]>([]);
   const [myLecturer, setMyLecturer] = useState<LecturerERD | undefined>(
     undefined,
   );
@@ -116,6 +117,7 @@ const ThesisRegistrationPage: React.FC = () => {
 
         // 1. Kiểm tra trạng thái đăng ký thực tế từ Backend
         let actualStatus: ThesisStatus = "not_registered";
+        let advisorName: string | undefined = undefined;
         if (token) {
           try {
             const dashboardRes = (await apiRequest("/api/student/dashboard", {
@@ -125,34 +127,45 @@ const ThesisRegistrationPage: React.FC = () => {
             actualStatus = (dashboardRes?.data?.status ||
               dashboardRes?.status ||
               "not_registered") as ThesisStatus;
+            
+            advisorName = dashboardRes?.data?.advisorName || (dashboardRes as any)?.advisorName;
             setStatus(actualStatus);
           } catch (err) {
             console.error("Lỗi khi kiểm tra trạng thái đề tài:", err);
           }
         }
 
-        // 2. Tải danh sách giảng viên và gợi ý đề tài kèm BƯỚC PHÒNG THỦ MẢNG
+        // 2. Tải danh sách giảng viên
         const lecturersData = await thesisRegistrationService.getLecturers();
-        const lecturers = Array.isArray(lecturersData)
+        const lecturersList = Array.isArray(lecturersData)
           ? (lecturersData as LecturerERD[])
           : [];
-        const firstLecturer = lecturers[0];
+        setLecturers(lecturersList);
+
+        // Khớp giảng viên hiện tại của SV hoặc lấy giảng viên đầu tiên
+        let currentLecturer = lecturersList[0];
+        if (advisorName) {
+          const found = lecturersList.find((l) => l.name === advisorName);
+          if (found) {
+            currentLecturer = found;
+          }
+        }
 
         let tops: TopicSuggestionERD[] = [];
-        if (firstLecturer?.id) {
+        if (currentLecturer?.id) {
           const topsData = await thesisRegistrationService.getSuggestedTopics(
-            firstLecturer.id,
+            currentLecturer.id,
           );
           tops = Array.isArray(topsData)
             ? (topsData as TopicSuggestionERD[])
             : [];
         }
 
-        setMyLecturer(firstLecturer);
+        setMyLecturer(currentLecturer);
         setSuggestedTopics(tops);
 
-        if (firstLecturer) {
-          form.setFieldsValue({ lecturer_id: firstLecturer.id });
+        if (currentLecturer) {
+          form.setFieldsValue({ lecturer_id: currentLecturer.id });
         }
 
         // 3. Điền bản nháp từ localStorage nếu sinh viên chưa nộp đơn
@@ -162,9 +175,23 @@ const ThesisRegistrationPage: React.FC = () => {
             const parsedData = JSON.parse(
               draftData,
             ) as Partial<RegistrationFormFields>;
+            
+            // Nếu có lưu nháp giảng viên khác, nạp giảng viên đó
+            const draftLecturerId = parsedData.lecturer_id;
+            if (draftLecturerId) {
+              const draftLec = lecturersList.find((l) => l.id === draftLecturerId);
+              if (draftLec) {
+                setMyLecturer(draftLec);
+                const topsData = await thesisRegistrationService.getSuggestedTopics(
+                  draftLec.id,
+                );
+                setSuggestedTopics(Array.isArray(topsData) ? (topsData as TopicSuggestionERD[]) : []);
+              }
+            }
+
             form.setFieldsValue({
               ...parsedData,
-              lecturer_id: firstLecturer?.id,
+              lecturer_id: draftLecturerId || currentLecturer?.id,
             });
           } catch (err) {
             console.error("Lỗi parse dữ liệu nháp:", err);
@@ -180,6 +207,25 @@ const ThesisRegistrationPage: React.FC = () => {
 
     void fetchData();
   }, [form]);
+
+  // Handler khi đổi giảng viên hướng dẫn
+  const handleLecturerChange = async (lecturerId: number): Promise<void> => {
+    const selected = lecturers.find((l) => l.id === lecturerId);
+    if (selected) {
+      setMyLecturer(selected);
+      form.setFieldsValue({
+        lecturer_id: lecturerId,
+        suggestion_id: undefined, // Clear suggestion_id khi chuyển giảng viên
+      });
+      // Tải lại các gợi ý đề tài mới từ giảng viên này
+      try {
+        const topsData = await thesisRegistrationService.getSuggestedTopics(lecturerId);
+        setSuggestedTopics(Array.isArray(topsData) ? (topsData as TopicSuggestionERD[]) : []);
+      } catch (err) {
+        console.error("Lỗi tải gợi ý đề tài của giảng viên mới:", err);
+      }
+    }
+  };
 
   const handleSaveDraft = (): void => {
     localStorage.setItem(
@@ -305,6 +351,8 @@ const ThesisRegistrationPage: React.FC = () => {
               onSubmit={handleFormSubmit}
               onSaveDraft={handleSaveDraft}
               isSubmitting={isSubmitting}
+              lecturersList={lecturers}
+              onLecturerChange={handleLecturerChange}
             />
 
             {status === "not_registered" && (
