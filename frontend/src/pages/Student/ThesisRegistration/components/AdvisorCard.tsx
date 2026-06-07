@@ -20,7 +20,7 @@ const AdvisorCard: React.FC<AdvisorCardProps> = ({ advisor }) => {
           background: "#fafafa",
           textAlign: "center",
         }}
-        styles={{ body: { padding: "40px 20px" } }} // 🔥 ĐÃ SỬA: Chuyển bodyStyle thành styles.body
+        styles={{ body: { padding: "40px 20px" } }}
       >
         <UserOutlined
           style={{ fontSize: 40, color: "#bfbfbf", marginBottom: 16 }}
@@ -32,11 +32,12 @@ const AdvisorCard: React.FC<AdvisorCardProps> = ({ advisor }) => {
     );
   }
 
-  const quota = advisor.quota || 0;
-  const maxQuota = advisor.maxQuota || 5;
+  // --- Khóa phòng thủ chỉ tiêu hạn mức ---
+  const quota = advisor.quota ?? 0;
+  const maxQuota = advisor.maxQuota ?? 5;
   const isFull = quota >= maxQuota;
 
-  // 🔥 BƯỚC PHÒNG THỦ: Đảm bảo domains luôn là mảng trước khi dùng .join()
+  // --- Khóa phòng thủ: Đảm bảo domains luôn hợp lệ trước khi dùng .join() ---
   const displayDomains = Array.isArray(advisor.domains)
     ? advisor.domains.join(", ")
     : typeof advisor.domains === "string"
@@ -55,7 +56,7 @@ const AdvisorCard: React.FC<AdvisorCardProps> = ({ advisor }) => {
         position: "relative",
         overflow: "hidden",
       }}
-      styles={{ body: { padding: 24 } }} // 🔥 ĐÃ SỬA: Chuyển bodyStyle thành styles.body
+      styles={{ body: { padding: 24 } }}
     >
       <div style={{ textAlign: "center", marginBottom: 20 }}>
         <Avatar
