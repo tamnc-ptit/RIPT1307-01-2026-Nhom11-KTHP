@@ -34,6 +34,11 @@ interface RequestOptions {
   [key: string]: unknown;
 }
 
+interface BackendApiResponse<T> {
+  success?: boolean;
+  data?: T;
+}
+
 export function rootContainer(container: React.ReactNode): React.ReactNode {
   return <App>{container}</App>;
 }
@@ -59,11 +64,15 @@ export async function getInitialState(): Promise<InitialState> {
   };
 }
 
+// 🔥 ĐÃ SỬA: Loại bỏ hoàn toàn link Render cũ viết cứng (Hardcode)
+// Hệ thống bắt buộc phải lấy dữ liệu động từ biến môi trường UMI_APP_API_URL
 const isProduction = process.env.NODE_ENV === "production";
-const API_URL = isProduction
-  ? process.env.UMI_APP_API_URL ||
-    "https://thesis-backend-pgf4.onrender.com"
-  : "http://localhost:5000/api";
+const BASE_URL = isProduction
+  ? process.env.UMI_APP_API_URL || ""
+  : "http://localhost:5000";
+
+// Tự động kẹp thêm tiền tố /api nếu chuỗi gốc chưa có
+const API_URL = BASE_URL.endsWith("/api") ? BASE_URL : `${BASE_URL}/api`;
 
 export const request = {
   timeout: 30000,
@@ -94,16 +103,27 @@ const NotificationIndicator: React.FC = () => {
   const loadCount = async (): Promise<void> => {
     setLoading(true);
     try {
-      const notifications = await getNotifications();
-      if (Array.isArray(notifications)) {
-        const unreadCount = (notifications as NotificationItem[]).filter(
-          (item) => !item.is_read,
-        ).length;
+      const res = await getNotifications();
+      let list: NotificationItem[] = [];
+
+      // Bộ phòng thủ mảng 2 lớp để bảo vệ thanh Header không bị sập giao diện
+      if (Array.isArray(res)) {
+        list = res;
+      } else if (
+        res &&
+        Array.isArray((res as BackendApiResponse<NotificationItem[]>).data)
+      ) {
+        list = (res as BackendApiResponse<NotificationItem[]>).data || [];
+      }
+
+      if (list && list.length > 0) {
+        const unreadCount = list.filter((item) => item && !item.is_read).length;
         setCount(unreadCount);
       } else {
         setCount(0);
       }
-    } catch {
+    } catch (err) {
+      console.error("Lỗi tải số lượng thông báo chưa đọc trên Header:", err);
       setCount(0);
     } finally {
       setLoading(false);
@@ -128,7 +148,6 @@ const NotificationIndicator: React.FC = () => {
     </Tooltip>
   );
 };
-
 
 export const layout = ({
   initialState,

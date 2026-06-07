@@ -56,17 +56,14 @@ exports.getClasses = async (lecturerId) => {
 
 exports.exportClassReport = async (classId) => {
   const pool = await poolPromise;
-  
+
   const classRes = await pool
     .request()
     .input("classId", sql.Int, classId)
     .query("SELECT class_name FROM Classes WHERE id = @classId");
   const className = classRes.recordset[0]?.class_name || `Lớp ${classId}`;
 
-  const result = await pool
-    .request()
-    .input("classId", sql.Int, classId)
-    .query(`
+  const result = await pool.request().input("classId", sql.Int, classId).query(`
       SELECT 
         u.name AS studentName,
         t.topicName,
@@ -99,12 +96,16 @@ exports.exportClassReport = async (classId) => {
     { header: "Tên Đề Tài", key: "topicName", width: 40 },
     { header: "Trạng thái GV", key: "lecturer_status", width: 15 },
     { header: "Trạng thái Admin", key: "admin_status", width: 15 },
-    { header: "Điểm Tổng Kết", key: "finalScore", width: 15 }
+    { header: "Điểm Tổng Kết", key: "finalScore", width: 15 },
   ];
 
   result.recordset.forEach((row) => {
     let finalScore = row.final_score ?? "-";
-    if (finalScore === "-" && row.lecturer_note && row.lecturer_note.startsWith("final_score=")) {
+    if (
+      finalScore === "-" &&
+      row.lecturer_note &&
+      row.lecturer_note.startsWith("final_score=")
+    ) {
       finalScore = row.lecturer_note.split("=")[1];
     }
     summarySheet.addRow({
@@ -112,7 +113,7 @@ exports.exportClassReport = async (classId) => {
       topicName: row.topicName || "Chưa đăng ký",
       lecturer_status: row.lecturer_status || "-",
       admin_status: row.admin_status || "-",
-      finalScore
+      finalScore,
     });
   });
 
@@ -126,13 +127,13 @@ exports.exportClassReport = async (classId) => {
     { header: "Hạn nộp", key: "deadline", width: 18 },
     { header: "Ngày nộp", key: "submitted_at", width: 18 },
     { header: "Điểm mốc", key: "score", width: 12 },
-    { header: "Trạng thái mốc", key: "milestoneStatus", width: 14 }
+    { header: "Trạng thái mốc", key: "milestoneStatus", width: 14 },
   ];
 
-  // Fetch all milestones + submissions for the class
-  const milestonesRes = await pool
-    .request()
-    .input("classId", sql.Int, classId)
+  // =========================================================================
+  // 🔥 ĐÃ SỬA: Loại trừ mốc thảo luận ảo (FORUM_ANCHOR) để lấy đúng tiến độ thật
+  // =========================================================================
+  const milestonesRes = await pool.request().input("classId", sql.Int, classId)
     .query(`
       SELECT 
         u.name AS studentName,
@@ -149,11 +150,11 @@ exports.exportClassReport = async (classId) => {
           t2.title AS topicName,
           t2.id AS thesisId
         FROM Thesis t2
-        WHERE t2.student_id = u.id
+        WHERE t2.student_id = u.id AND t2.status <> 'forum' -- 🔥 CHẶN: Không lấy đề tài ảo của diễn đàn chung
         ORDER BY CASE WHEN t2.class_id = cs.class_id THEN 0 ELSE 1 END, t2.id DESC
       ) t
-      LEFT JOIN Milestones m ON m.thesis_id = t.thesisId
-      LEFT JOIN Submissions s ON s.milestone_id = m.id AND s.thesis_id = t.thesisId
+      LEFT JOIN Milestones m ON m.thesis_id = t.thesisId AND m.title <> 'FORUM_ANCHOR' -- 🔥 CHẶN: Bỏ qua mốc thảo luận ảo
+      LEFT JOIN Submissions s ON s.milestone_id = m.id AND s.thesis_id = t.thesisId AND s.note <> 'FORUM_ANCHOR'
       WHERE cs.class_id = @classId
       ORDER BY u.name, m.deadline
     `);
@@ -162,11 +163,15 @@ exports.exportClassReport = async (classId) => {
     detailSheet.addRow({
       studentName: row.studentName,
       topicName: row.topicName || "Chưa đăng ký",
-      milestoneTitle: row.milestoneTitle || "-",
-      deadline: row.deadline ? new Date(row.deadline).toLocaleDateString("vi-VN") : "-",
-      submitted_at: row.submitted_at ? new Date(row.submitted_at).toLocaleDateString("vi-VN") : "-",
+      milestoneTitle: row.milestoneTitle || "Chưa có mốc tiến độ",
+      deadline: row.deadline
+        ? new Date(row.deadline).toLocaleDateString("vi-VN")
+        : "-",
+      submitted_at: row.submitted_at
+        ? new Date(row.submitted_at).toLocaleDateString("vi-VN")
+        : "Chưa nộp bài",
       score: row.score ?? "-",
-      milestoneStatus: row.milestoneStatus || "-"
+      milestoneStatus: row.milestoneStatus || "-",
     });
   });
 
@@ -298,4 +303,38 @@ exports.logAudit = async (data) => {
       INSERT INTO AuditLogs (actor_id, actor_name, action, target_table, target_id, old_value, new_value, ip_address, created_at)
       VALUES (@actor_id, @actor_name, @action, @target_table, @target_id, @old_value, @new_value, @ip_address, GETDATE())
     `);
+};
+// Thêm vào lecturer.service.js
+exports.verifyThesisOwnership = async (thesisId, lecturerId) => {
+  const pool = await poolPromise;
+  const res = await pool
+    .request()
+    .input("thesisId", sql.Int, thesisId)
+    .input("lecturerId", sql.Int, lecturerId)
+    .query(`
+      SELECT id FROM Thesis 
+      WHERE id = @thesisId AND lecturer_id = @lecturerId
+    `);
+  return res.recordset.length > 0;
+};
+
+exports.createMilestone = async (data) => {
+  const { thesis_id, title, description, deadline, order_no, created_by } = data;
+  const pool = await poolPromise;
+  const result = await pool
+    .request()
+    .input("thesisId", sql.Int, thesis_id)
+    .input("title", sql.NVarChar, title)
+    .input("description", sql.NVarChar, description || null)
+    .input("deadline", sql.DateTime, deadline ? new Date(deadline) : null)
+    .input("orderNo", sql.Int, order_no || 1)
+    .input("createdBy", sql.Int, created_by || null)
+    .query(`
+      INSERT INTO Milestones 
+        (thesis_id, title, description, deadline, order_no, status, created_by, created_at)
+      VALUES 
+        (@thesisId, @title, @description, @deadline, @orderNo, 'pending', @createdBy, GETDATE());
+      SELECT * FROM Milestones WHERE id = SCOPE_IDENTITY();
+    `);
+  return result.recordset[0];
 };

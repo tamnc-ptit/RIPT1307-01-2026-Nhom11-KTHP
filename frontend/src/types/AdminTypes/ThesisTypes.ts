@@ -1,12 +1,17 @@
 // ===================== 1. USER & ROLE =====================
 export type UserRole = "admin" | "lecturer" | "student";
-export type ThesisStatus = "not_registered" | "pending" | "approved" | "rejected";
+export type ThesisStatus =
+  | "not_registered"
+  | "pending"
+  | "approved"
+  | "rejected";
 
 export interface User {
   id: number;
   name: string;
   email: string;
   role: UserRole;
+  avatar?: string; // Bổ sung phòng thủ avatar cho tài khoản chung
 }
 
 export interface UserFormValues {
@@ -38,10 +43,10 @@ export interface TopicSuggestionERD {
   max_groups: number;
   status: "draft" | "open" | "closed";
   domain: string;
+  session_name?: string; // Mở rộng hiển thị tên đợt ở bảng gợi ý
 }
 
 // ===================== 3. THESIS (Gộp ERD và Item để hiển thị) =====================
-// Giữ lại ThesisERD để làm việc với DB và ThesisItem để làm việc với Table UI
 export interface ThesisERD {
   id: number;
   session_id: number;
@@ -104,6 +109,7 @@ export interface FilterParams {
   adminStatus?: string;
   lecturerStatus?: string;
   classId?: number;
-  sessionId?: number; 
-  semester?: string;  
+  sessionId?: number;
+  semester?: string;
+  keyword?: string; // Thêm trường tìm kiếm từ khóa cho Table Filters
 }

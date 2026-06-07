@@ -25,8 +25,13 @@ import {
   LecturerItem,
   ClassFormValues,
 } from "../../../types/AdminTypes/ClassTypes";
+// 🔥 ĐÃ ĐỔI: Gọi hàm core để tự động cấu hình URL .env và kẹp Token bảo mật Admin
+import { apiRequest } from "@/services/api";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+interface BackendApiResponse<T> {
+  success?: boolean;
+  data?: T;
+}
 
 const ClassManagement: React.FC = () => {
   const [classes, setClasses] = useState<ClassItem[]>([]);
@@ -39,38 +44,67 @@ const ClassManagement: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const res = await fetch(`${API}/api/admin/classes`);
-      if (res.ok) {
-        const classesData = await res.json();
-        setClasses(Array.isArray(classesData) ? classesData : []);
+      // 1. Tải danh sách lớp tín chỉ kèm bộ phòng thủ dữ liệu mảng
+      const classesData = await apiRequest<
+        ClassItem[] | BackendApiResponse<ClassItem[]>
+      >("/api/admin/classes", { method: "GET" });
+      if (Array.isArray(classesData)) {
+        setClasses(classesData);
+      } else if (
+        classesData &&
+        Array.isArray((classesData as BackendApiResponse<ClassItem[]>).data)
+      ) {
+        setClasses((classesData as BackendApiResponse<ClassItem[]>).data || []);
+      } else {
+        setClasses([]);
       }
-    } catch (err) {
-      console.error("Lỗi tải lớp:", err);
-    }
 
-    try {
-      const res = await fetch(`${API}/api/admin/sessions`);
-      if (res.ok) {
-        const sessionsData = await res.json();
-        setSessions(Array.isArray(sessionsData) ? sessionsData : []);
+      // 2. Tải danh sách học kỳ kèm bộ phòng thủ dữ liệu mảng
+      const sessionsData = await apiRequest<
+        SessionItem[] | BackendApiResponse<SessionItem[]>
+      >("/api/admin/sessions", { method: "GET" });
+      if (Array.isArray(sessionsData)) {
+        setSessions(sessionsData);
+      } else if (
+        sessionsData &&
+        Array.isArray((sessionsData as BackendApiResponse<SessionItem[]>).data)
+      ) {
+        setSessions(
+          (sessionsData as BackendApiResponse<SessionItem[]>).data || [],
+        );
+      } else {
+        setSessions([]);
       }
-    } catch (err) {
-      console.error("Lỗi tải học kỳ:", err);
-    }
 
-    try {
-      const res = await fetch(`${API}/api/admin/users?role=lecturer`);
-      if (res.ok) {
-        const lecturersData = await res.json();
-        setLecturers(Array.isArray(lecturersData) ? lecturersData : []);
+      // 3. Tải danh sách giảng viên kèm bộ phòng thủ dữ liệu mảng
+      const lecturersData = await apiRequest<
+        LecturerItem[] | BackendApiResponse<LecturerItem[]>
+      >("/api/admin/users", {
+        method: "GET",
+        params: { role: "lecturer" },
+      });
+      if (Array.isArray(lecturersData)) {
+        setLecturers(lecturersData);
+      } else if (
+        lecturersData &&
+        Array.isArray(
+          (lecturersData as BackendApiResponse<LecturerItem[]>).data,
+        )
+      ) {
+        setLecturers(
+          (lecturersData as BackendApiResponse<LecturerItem[]>).data || [],
+        );
+      } else {
+        setLecturers([]);
       }
     } catch (err) {
-      console.error("Lỗi tải giảng viên:", err);
+      console.error("Lỗi tải danh mục hệ thống Admin:", err);
+      void message.error("Không thể kết nối dữ liệu danh mục lớp học!");
     }
   };
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
   }, []);
 
   const handleOpenCreate = () => {
@@ -98,32 +132,27 @@ const ClassManagement: React.FC = () => {
     try {
       const isEditing = !!editingClass;
       const url = isEditing
-        ? `${API}/api/admin/classes/${editingClass!.id}`
-        : `${API}/api/admin/classes`;
+        ? `/api/admin/classes/${editingClass!.id}`
+        : `/api/admin/classes`;
       const method = isEditing ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      await apiRequest(url, {
         method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        data: {
           ...values,
           session_id: Number(values.session_id),
           lecturer_id: Number(values.lecturer_id),
           max_students: Number(values.max_students),
-        }),
+        },
       });
 
-      if (res.ok) {
-        message.success(`${isEditing ? "Cập nhật" : "Tạo"} lớp thành công!`);
-        setIsModalOpen(false);
-        form.resetFields();
-        fetchData();
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        message.error(errData.message || "Lưu lớp thất bại!");
-      }
-    } catch (err) {
-      message.error("Lỗi hệ thống khi lưu lớp!");
+      void message.success(`${isEditing ? "Cập nhật" : "Tạo"} lớp thành công!`);
+      setIsModalOpen(false);
+      form.resetFields();
+      void fetchData();
+    } catch (err: any) {
+      console.error("Lỗi lưu lớp học phần:", err);
+      void message.error(err?.message || "Lưu cấu hình lớp học phần thất bại!");
     } finally {
       setSubmitting(false);
     }
@@ -131,21 +160,14 @@ const ClassManagement: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      const res = await fetch(`${API}/api/admin/classes/${id}`, {
+      await apiRequest(`/api/admin/classes/${id}`, {
         method: "DELETE",
       });
-
-      if (res.ok) {
-        message.success("Xóa lớp thành công!");
-        fetchData();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        message.error(
-          err.message || "Không thể xóa lớp. Vui lòng kiểm tra lại!",
-        );
-      }
-    } catch (err) {
-      message.error("Lỗi kết nối khi xóa!");
+      void message.success("Xóa lớp học phần thành công!");
+      void fetchData();
+    } catch (err: any) {
+      console.error("Lỗi xóa lớp học phần:", err);
+      void message.error(err?.message || "Không thể thực hiện tác vụ xóa lớp!");
     }
   };
 
@@ -165,9 +187,9 @@ const ClassManagement: React.FC = () => {
       dataIndex: "session_id",
       key: "session_id",
       render: (id: number) => {
-        const matchedSession = sessions.find(
-          (s) => Number(s.id) === Number(id),
-        );
+        const matchedSession = Array.isArray(sessions)
+          ? sessions.find((s) => Number(s.id) === Number(id))
+          : null;
         return (
           <Tag color="purple">
             {matchedSession ? matchedSession.name : `Mã kỳ: ${id}`}
@@ -185,10 +207,9 @@ const ClassManagement: React.FC = () => {
       title: "Sĩ số (Hiện tại / Tối đa)",
       key: "class_size",
       align: "center" as const,
-      // FIX: Bỏ any, dùng ClassItem
       render: (_: unknown, record: ClassItem) => {
-        const current = record.current_students || 0;
-        const max = record.max_students || 0;
+        const current = record.current_students ?? 0;
+        const max = record.max_students ?? 0;
         const isFull = current >= max;
         return (
           <span
@@ -251,7 +272,7 @@ const ClassManagement: React.FC = () => {
       style={{ margin: 24 }}
     >
       <Table
-        dataSource={classes}
+        dataSource={Array.isArray(classes) ? classes : []}
         columns={columns}
         rowKey="id"
         bordered
@@ -299,18 +320,21 @@ const ClassManagement: React.FC = () => {
             rules={[{ required: true, message: "Vui lòng chọn học kỳ" }]}
           >
             <Select placeholder="Chọn học kỳ">
-              {sessions.map((session) => (
-                <Select.Option key={session.id} value={Number(session.id)}>
-                  {session.name}
-                  {/* FIX: Normalize is_active — DB trả bit (0/1), check cả hai */}
-                  {(session.is_active === true ||
-                    (session.is_active as unknown as number) === 1) && (
-                    <Tag color="green" style={{ marginLeft: 8, fontSize: 11 }}>
-                      Đang mở
-                    </Tag>
-                  )}
-                </Select.Option>
-              ))}
+              {Array.isArray(sessions) &&
+                sessions.map((session) => (
+                  <Select.Option key={session.id} value={Number(session.id)}>
+                    {session.name}
+                    {(session.is_active === true ||
+                      (session.is_active as unknown as number) === 1) && (
+                      <Tag
+                        color="green"
+                        style={{ marginLeft: 8, fontSize: 11 }}
+                      >
+                        Đang mở
+                      </Tag>
+                    )}
+                  </Select.Option>
+                ))}
             </Select>
           </Form.Item>
 
@@ -324,11 +348,12 @@ const ClassManagement: React.FC = () => {
               showSearch
               optionFilterProp="children"
             >
-              {lecturers.map((lec) => (
-                <Select.Option key={lec.id} value={Number(lec.id)}>
-                  {lec.name}
-                </Select.Option>
-              ))}
+              {Array.isArray(lecturers) &&
+                lecturers.map((lec) => (
+                  <Select.Option key={lec.id} value={Number(lec.id)}>
+                    {lec.name}
+                  </Select.Option>
+                ))}
             </Select>
           </Form.Item>
 

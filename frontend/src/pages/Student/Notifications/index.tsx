@@ -25,9 +25,10 @@ const StudentNotifications: React.FC = () => {
       setLoading(true);
       const res = await getMyNotifications();
       if (res && Array.isArray(res)) {
-        setNotifications(sortNewestFirst(res));
+        setNotifications(sortNewestFirst(res as NotificationItem[]));
       }
-    } catch {
+    } catch (error: unknown) {
+      console.error("Failed to fetch student notifications:", error);
       void message.error("Lỗi khi tải thông báo từ hệ thống");
     } finally {
       setLoading(false);
@@ -49,7 +50,8 @@ const StudentNotifications: React.FC = () => {
         ),
       );
       void message.success("Đã đánh dấu là đã đọc");
-    } catch {
+    } catch (error: unknown) {
+      console.error(`Failed to mark notification ${id} as read:`, error);
       void message.error("Lỗi khi cập nhật trạng thái");
     }
   };

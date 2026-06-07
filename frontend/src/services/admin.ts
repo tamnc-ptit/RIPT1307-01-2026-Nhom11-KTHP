@@ -1,20 +1,26 @@
-import { request } from "umi";
+import { apiRequest } from "@/services/api"; 
 
-export async function getAuditLogs(params: {
+interface AuditLogsParams {
   page: number;
   limit: number;
   search?: string;
-}) {
-  return request("http://localhost:8000/api/admin/audit-logs", {
+}
+
+
+export async function getAuditLogs(params: AuditLogsParams): Promise<unknown> {
+  // Đổi từ request(...) thành apiRequest(...) để tự động nối BASE_URL từ .env
+  return apiRequest("/api/admin/audit-logs", {
     method: "GET",
     params,
   });
 }
 
-export async function importStudentExcel(file: any) {
+
+export async function importStudentExcel(file: Blob | File): Promise<unknown> {
   const formData = new FormData();
   formData.append("file", file);
-  return request("http://localhost:8000/api/admin/import/students", {
+
+  return apiRequest("/api/admin/import/students", {
     method: "POST",
     data: formData,
   });

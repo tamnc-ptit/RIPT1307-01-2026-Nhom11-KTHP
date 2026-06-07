@@ -26,13 +26,18 @@ import {
   SessionItem,
   SessionFormValues,
 } from "../../../types/AdminTypes/SessionTypes";
+// 🔥 ĐÃ ĐỔI: Gọi hàm core để tự động cấu hình URL .env và kẹp Token bảo mật Admin
+import { apiRequest } from "@/services/api";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+interface BackendApiResponse<T> {
+  success?: boolean;
+  data?: T;
+}
 
-// FIX: Helper normalize is_active — DB trả bit (0/1 hoặc true/false)
+// Helper normalize is_active — DB trả bit (0/1 hoặc true/false)
 const isActive = (val: SessionItem["is_active"]): boolean =>
   val === true || (val as unknown as number) === 1;
 
@@ -45,14 +50,29 @@ const SessionSettings: React.FC = () => {
   const fetchSessions = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/admin/sessions`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setSessions(Array.isArray(data) ? data : []);
+      // 🔥 ĐÃ SỬA: Chuyển sang apiRequest, tự động xử lý kẹp token và URL .env
+      const resData = await apiRequest<
+        SessionItem[] | BackendApiResponse<SessionItem[]>
+      >("/api/admin/sessions", {
+        method: "GET",
+      });
+
+      // Bộ xử lý phòng thủ dữ liệu tránh bẻ gãy hàm .map() của Antd Table
+      if (Array.isArray(resData)) {
+        setSessions(resData);
+      } else if (
+        resData &&
+        Array.isArray((resData as BackendApiResponse<SessionItem[]>).data)
+      ) {
+        setSessions((resData as BackendApiResponse<SessionItem[]>).data || []);
+      } else {
+        setSessions([]);
+      }
     } catch (err) {
+      console.error("Lỗi nạp cấu hình học kỳ Admin:", err);
       notification.error({
-        message: "Lỗi kết nối",
-        description: "Không thể tải danh sách đợt đồ án từ server.",
+        message: "Lỗi kết nối dữ liệu",
+        description: "Không thể tải danh sách đợt đồ án từ hệ thống.",
       });
     } finally {
       setLoading(false);
@@ -60,28 +80,26 @@ const SessionSettings: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchSessions();
+    void fetchSessions();
   }, []);
 
   const handleCloseSession = async (id: number) => {
     try {
-      const res = await fetch(`${API}/api/admin/sessions/${id}`, {
+      // 🔥 ĐÃ SỬA: Đồng bộ hóa Patch cập nhật trạng thái đợt đồ án
+      await apiRequest(`/api/admin/sessions/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_active: 0 }),
+        data: { is_active: 0 },
       });
 
-      if (res.ok) {
-        notification.success({ message: "Đã đóng đợt đồ án thành công." });
-        fetchSessions();
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        notification.error({
-          message: errData.message || "Không thể đóng đợt đồ án này.",
-        });
-      }
-    } catch (err) {
-      notification.error({ message: "Lỗi hệ thống khi đóng đợt." });
+      notification.success({ message: "Đã đóng đợt đồ án thành công." });
+      void fetchSessions();
+    } catch (err: any) {
+      console.error("Lỗi đóng đợt đồ án:", err);
+      notification.error({
+        message: "Thao tác thất bại",
+        description:
+          err?.message || "Không thể thực hiện tác vụ đóng đợt đồ án này.",
+      });
     }
   };
 
@@ -94,31 +112,27 @@ const SessionSettings: React.FC = () => {
     };
 
     try {
-      const res = await fetch(`${API}/api/admin/sessions`, {
+      // 🔥 ĐÃ SỬA: Đồng bộ hóa Post tạo mới đợt đồ án sang apiRequest
+      await apiRequest("/api/admin/sessions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        data: payload,
       });
 
-      if (res.ok) {
-        notification.success({
-          message: "Thành công",
-          description: `Đã kích hoạt đợt "${payload.name}" thành công.`,
-        });
-        setIsModalOpen(false);
-        form.resetFields();
-        fetchSessions();
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        notification.error({
-          message: "Tạo đợt thất bại",
-          description:
-            errData.message ||
-            "Tên đợt có thể đã tồn tại hoặc dữ liệu không hợp lệ.",
-        });
-      }
-    } catch (err) {
-      notification.error({ message: "Lỗi hệ thống khi tạo đợt." });
+      notification.success({
+        message: "Thành công",
+        description: `Đã kích hoạt đợt học phần "${payload.name}" thành công.`,
+      });
+      setIsModalOpen(false);
+      form.resetFields();
+      void fetchSessions();
+    } catch (err: any) {
+      console.error("Lỗi khởi tạo đợt đồ án mới:", err);
+      notification.error({
+        message: "Tạo đợt thất bại",
+        description:
+          err?.message ||
+          "Tên đợt có thể đã tồn tại hoặc dữ liệu nhập vào không hợp lệ.",
+      });
     }
   };
 
@@ -148,7 +162,6 @@ const SessionSettings: React.FC = () => {
       dataIndex: "is_active",
       key: "is_active",
       align: "center",
-      // FIX: Dùng helper isActive() thay vì check rải rác
       render: (active: SessionItem["is_active"]) => {
         const active_ = isActive(active);
         return (
@@ -166,7 +179,6 @@ const SessionSettings: React.FC = () => {
       key: "action",
       align: "center",
       render: (_, record) => {
-        // FIX: Dùng helper isActive() thống nhất
         const active_ = isActive(record.is_active);
         return active_ ? (
           <Popconfirm
@@ -202,7 +214,12 @@ const SessionSettings: React.FC = () => {
         }
         extra={
           <Space>
-            <Button icon={<ReloadOutlined />} onClick={fetchSessions} />
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => {
+                void fetchSessions();
+              }}
+            />
             <Button
               type="primary"
               icon={<PlusOutlined />}
@@ -223,7 +240,7 @@ const SessionSettings: React.FC = () => {
 
         <Table
           columns={columns}
-          dataSource={sessions}
+          dataSource={Array.isArray(sessions) ? sessions : []}
           rowKey="id"
           loading={loading}
           bordered

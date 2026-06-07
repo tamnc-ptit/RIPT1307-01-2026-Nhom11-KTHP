@@ -34,8 +34,13 @@ import {
   ImportResult,
 } from "../../types/AdminTypes/UserTypes";
 import { importStudentExcel } from "../../services/admin";
+// 🔥 ĐÃ ĐỔI: Gọi hàm core apiRequest và bộ sinh link động từ tệp api tổng
+import { apiRequest, getApiUrl } from "@/services/api";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+interface BackendApiResponse<T> {
+  success?: boolean;
+  data?: T;
+}
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -55,55 +60,63 @@ const AdminUsers: React.FC = () => {
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [importSuccess, setImportSuccess] = useState<number>(0);
 
-  // FIX: Track deleting per row để tránh double-click xóa
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
 
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/admin/users`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: User[] = await res.json();
-      setUsers(Array.isArray(data) ? data : []);
-    } catch {
-      message.error("Không thể tải danh sách người dùng");
+      // 🔥 ĐÃ SỬA: Chuyển sang apiRequest để tự động kẹp Token đặc quyền Admin và đọc URL .env
+      const resData = await apiRequest<User[] | BackendApiResponse<User[]>>(
+        "/api/admin/users",
+        { method: "GET" },
+      );
+      if (Array.isArray(resData)) {
+        setUsers(resData);
+      } else if (
+        resData &&
+        Array.isArray((resData as BackendApiResponse<User[]>).data)
+      ) {
+        setUsers((resData as BackendApiResponse<User[]>).data || []);
+      } else {
+        setUsers([]);
+      }
+    } catch (err) {
+      console.error("Lỗi nạp danh sách người dùng:", err);
+      void message.error("Không thể tải danh sách người dùng hệ thống!");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
+    void fetchUsers();
   }, []);
 
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch = searchText
-      ? user.name?.toLowerCase().includes(searchText.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchText.toLowerCase())
-      : true;
-    const matchesRole = roleFilter ? user.role === roleFilter : true;
-    return matchesSearch && matchesRole;
-  });
+  const filteredUsers = Array.isArray(users)
+    ? users.filter((user) => {
+        if (!user) return false;
+        const matchesSearch = searchText
+          ? user.name?.toLowerCase().includes(searchText.toLowerCase()) ||
+            user.email?.toLowerCase().includes(searchText.toLowerCase())
+          : true;
+        const matchesRole = roleFilter ? user.role === roleFilter : true;
+        return matchesSearch && matchesRole;
+      })
+    : [];
 
   const handleDelete = async (id: number) => {
     if (deletingIds.has(id)) return;
     setDeletingIds((prev) => new Set(prev).add(id));
     try {
-      const res = await fetch(`${API}/api/admin/users/${id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        message.success("Xóa người dùng thành công");
-        fetchUsers();
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        message.error(
-          errorData.message ||
-            "Không thể xóa do người dùng có dữ liệu liên quan!",
-        );
-      }
-    } catch {
-      message.error("Lỗi kết nối hệ thống khi xóa");
+      // 🔥 ĐÃ SỬA: Đồng bộ hóa lệnh Xóa tài khoản qua apiRequest
+      await apiRequest(`/api/admin/users/${id}`, { method: "DELETE" });
+      void message.success("Xóa người dùng thành công");
+      void fetchUsers();
+    } catch (err: any) {
+      console.error("Lỗi xóa user:", err);
+      void message.error(
+        err?.message || "Không thể xóa do người dùng có dữ liệu liên quan!",
+      );
     } finally {
       setDeletingIds((prev) => {
         const next = new Set(prev);
@@ -131,22 +144,18 @@ const AdminUsers: React.FC = () => {
   const handleCreate = async (values: CreateUserValues) => {
     setSubmitting(true);
     try {
-      const res = await fetch(`${API}/api/auth/register`, {
+      // 🔥 ĐÃ SỬA: Chuyển sang gọi apiRequest cho route đăng ký tài khoản mới
+      await apiRequest("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        data: values,
       });
-      if (res.ok) {
-        message.success("Tạo mới người dùng thành công");
-        setIsModalVisible(false);
-        createForm.resetFields();
-        fetchUsers();
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        message.error(errData.message || "Tạo mới thất bại");
-      }
-    } catch {
-      message.error("Lỗi kết nối hệ thống");
+      void message.success("Tạo mới người dùng thành công");
+      setIsModalVisible(false);
+      createForm.resetFields();
+      void fetchUsers();
+    } catch (err: any) {
+      console.error("Lỗi tạo user:", err);
+      void message.error(err?.message || "Tạo mới người dùng thất bại!");
     } finally {
       setSubmitting(false);
     }
@@ -156,25 +165,21 @@ const AdminUsers: React.FC = () => {
     if (!editingUser) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${API}/api/admin/users/${editingUser.id}/role`, {
+      // 🔥 ĐÃ SỬA: Đồng bộ hóa PATCH cập nhật vai trò/trạng thái tài khoản
+      await apiRequest(`/api/admin/users/${editingUser.id}/role`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        data: {
           role: values.role,
           is_active: values.is_active,
-        }),
+        },
       });
-      if (res.ok) {
-        message.success("Cập nhật người dùng thành công");
-        setIsModalVisible(false);
-        editForm.resetFields();
-        fetchUsers();
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        message.error(errData.message || "Cập nhật thất bại");
-      }
-    } catch {
-      message.error("Lỗi kết nối hệ thống");
+      void message.success("Cập nhật người dùng thành công");
+      setIsModalVisible(false);
+      editForm.resetFields();
+      void fetchUsers();
+    } catch (err: any) {
+      console.error("Lỗi cập nhật user:", err);
+      void message.error(err?.message || "Cập nhật tài khoản thất bại!");
     } finally {
       setSubmitting(false);
     }
@@ -189,7 +194,7 @@ const AdminUsers: React.FC = () => {
 
   const handleImport = async () => {
     if (!importFile?.originFileObj) {
-      message.warning("Vui lòng chọn file Excel trước khi import.");
+      void message.warning("Vui lòng chọn file Excel trước khi import.");
       return;
     }
     setImporting(true);
@@ -209,14 +214,15 @@ const AdminUsers: React.FC = () => {
       setImportErrors(errors);
 
       if (imported > 0) {
-        message.success(`Import thành công ${imported} sinh viên.`);
-        fetchUsers();
+        void message.success(`Import thành công ${imported} sinh viên.`);
+        void fetchUsers();
       }
       if (errors.length === 0 && imported > 0) {
         setTimeout(() => setIsImportModalOpen(false), 1500);
       }
-    } catch {
-      message.error("Lỗi hệ thống khi import file Excel!");
+    } catch (err) {
+      console.error("Lỗi import file Excel:", err);
+      void message.error("Lỗi hệ thống khi import file Excel!");
     } finally {
       setImporting(false);
     }
@@ -348,7 +354,7 @@ const AdminUsers: React.FC = () => {
 
       <Table
         columns={columns}
-        dataSource={filteredUsers}
+        dataSource={Array.isArray(filteredUsers) ? filteredUsers : []}
         rowKey="id"
         loading={loading}
         bordered
@@ -506,10 +512,11 @@ const AdminUsers: React.FC = () => {
             }
           />
 
+          {/* 🔥 ĐÃ SỬA: Link tải file mẫu động, tự động nhận biết domain Production thông qua helper getApiUrl */}
           <Button
             type="link"
             icon={<DownloadOutlined />}
-            href={`${API}/api/admin/import/students/template`}
+            href={`${getApiUrl()}/api/admin/import/students/template`}
             target="_blank"
             style={{ padding: 0 }}
           >
@@ -525,12 +532,12 @@ const AdminUsers: React.FC = () => {
                   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
                 file.type === "application/vnd.ms-excel";
               if (!isExcel) {
-                message.error("Chỉ chấp nhận file .xlsx hoặc .xls!");
+                void message.error("Chỉ chấp nhận file .xlsx hoặc .xls!");
                 return Upload.LIST_IGNORE;
               }
               const isUnder5MB = file.size / 1024 / 1024 < 5;
               if (!isUnder5MB) {
-                message.error("File không được vượt quá 5MB!");
+                void message.error("File không được vượt quá 5MB!");
                 return Upload.LIST_IGNORE;
               }
               return false;
