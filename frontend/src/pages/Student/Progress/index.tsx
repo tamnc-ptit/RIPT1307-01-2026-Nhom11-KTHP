@@ -126,7 +126,7 @@ const priorityConfig: Record<string, { color: string; label: string }> = {
 const getDerivedProgress = (status: MilestoneStatus): number =>
   status === "completed" ? 100 : 0;
 
-const API_BASE = process.env.REACT_APP_API_URL || "";
+const API_BASE = (typeof process !== "undefined" && process.env && process.env.UMI_APP_API_URL) || "http://localhost:5000";
 
 // ==========================================
 // 1. Component TaskCard
@@ -684,7 +684,7 @@ const ProgressReportSection: React.FC<ProgressReportSectionProps> = ({
     submissionId: number,
   ): Promise<void> => {
     try {
-      await apiRequest(`/api/progress/submissions/${submissionId}`, {
+      await apiRequest(`progress/submissions/${submissionId}`, {
         method: "DELETE",
       });
       void messageApi.success("Đã thu hồi báo cáo thành công!");
@@ -879,7 +879,7 @@ const ProgressReportSection: React.FC<ProgressReportSectionProps> = ({
                             href={
                               item.file_url?.startsWith("http")
                                 ? item.file_url
-                                : `${process.env.REACT_APP_API_URL || "http://localhost:5000"}${item.file_url}`
+                                : `${API_BASE}${item.file_url}`
                             }
                             target="_blank"
                             rel="noreferrer"
@@ -1017,7 +1017,7 @@ const Progress: React.FC = () => {
 
       try {
         setLoadingInitial(true);
-        const dashRes = (await apiRequest("/api/student/dashboard", {
+        const dashRes = (await apiRequest("student/dashboard", {
           method: "GET",
         })) as DashboardApiResponse;
 
@@ -1030,7 +1030,7 @@ const Progress: React.FC = () => {
           setRealThesisId(fetchedThesisId);
 
           const milestonesRes = (await apiRequest(
-            `/api/progress/milestones/${fetchedThesisId}`,
+            `progress/milestones/${fetchedThesisId}`,
             {
               method: "GET",
             },

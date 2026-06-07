@@ -31,7 +31,7 @@ const StudentView: React.FC = () => {
 
         // Kẹp token vào headers để đi qua cổng bảo vệ
         const res = await apiRequest<{ data: IStudentDashboardInfo }>(
-          "/api/student/dashboard",
+          "student/dashboard",
           {
             method: "GET",
           },

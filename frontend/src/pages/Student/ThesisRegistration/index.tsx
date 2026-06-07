@@ -120,7 +120,7 @@ const ThesisRegistrationPage: React.FC = () => {
         let advisorName: string | undefined = undefined;
         if (token) {
           try {
-            const dashboardRes = (await apiRequest("/api/student/dashboard", {
+            const dashboardRes = (await apiRequest("student/dashboard", {
               method: "GET",
             })) as DashboardApiResponse;
 
