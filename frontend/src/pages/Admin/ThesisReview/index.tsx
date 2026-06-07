@@ -75,7 +75,9 @@ const ThesisReview: React.FC = () => {
   const [filters, setFilters] = useState<FilterParams>({});
 
   const [reviewTarget, setReviewTarget] = useState<ThesisItem | null>(null);
-  const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(null);
+  const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(
+    null,
+  );
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [rejectForm] = Form.useForm<{ reject_reason: string }>();
 
@@ -89,9 +91,14 @@ const ThesisReview: React.FC = () => {
 
   const fetchFilterData = async () => {
     try {
-      const cData = await apiRequest<ClassFilterItem[] | BackendApiResponse<ClassFilterItem[]>>("/api/admin/classes", { method: "GET" });
+      const cData = await apiRequest<
+        ClassFilterItem[] | BackendApiResponse<ClassFilterItem[]>
+      >("/api/admin/classes", { method: "GET" });
       if (Array.isArray(cData)) setClasses(cData);
-      else if (cData && Array.isArray((cData as BackendApiResponse<ClassFilterItem[]>).data)) {
+      else if (
+        cData &&
+        Array.isArray((cData as BackendApiResponse<ClassFilterItem[]>).data)
+      ) {
         setClasses((cData as BackendApiResponse<ClassFilterItem[]>).data || []);
       } else setClasses([]);
     } catch (err) {
@@ -99,29 +106,44 @@ const ThesisReview: React.FC = () => {
     }
 
     try {
-      const lData = await apiRequest<LecturerFilterItem[] | BackendApiResponse<LecturerFilterItem[]>>("/api/admin/users", {
+      const lData = await apiRequest<
+        LecturerFilterItem[] | BackendApiResponse<LecturerFilterItem[]>
+      >("/api/admin/users", {
         method: "GET",
         params: { role: "lecturer" },
       });
       if (Array.isArray(lData)) setLecturers(lData);
-      else if (lData && Array.isArray((lData as BackendApiResponse<LecturerFilterItem[]>).data)) {
-        setLecturers((lData as BackendApiResponse<LecturerFilterItem[]>).data || []);
+      else if (
+        lData &&
+        Array.isArray((lData as BackendApiResponse<LecturerFilterItem[]>).data)
+      ) {
+        setLecturers(
+          (lData as BackendApiResponse<LecturerFilterItem[]>).data || [],
+        );
       } else setLecturers([]);
     } catch (err) {
       console.error("Lỗi tải bộ lọc giảng viên:", err);
     }
 
     try {
-      const sData = await apiRequest<SessionFilterItem[] | BackendApiResponse<SessionFilterItem[]>>("/api/admin/sessions", { method: "GET" });
+      const sData = await apiRequest<
+        SessionFilterItem[] | BackendApiResponse<SessionFilterItem[]>
+      >("/api/admin/sessions", { method: "GET" });
       if (Array.isArray(sData)) setSessions(sData);
-      else if (sData && Array.isArray((sData as BackendApiResponse<SessionFilterItem[]>).data)) {
-        setSessions((sData as BackendApiResponse<SessionFilterItem[]>).data || []);
+      else if (
+        sData &&
+        Array.isArray((sData as BackendApiResponse<SessionFilterItem[]>).data)
+      ) {
+        setSessions(
+          (sData as BackendApiResponse<SessionFilterItem[]>).data || [],
+        );
       } else setSessions([]);
     } catch (err) {
       console.error("Lỗi tải bộ lọc học kỳ:", err);
     }
   };
 
+  // 🔥 ĐÃ SỬA: Dọn sạch khối code lặp cấu trúc, gọi Endpoint chuẩn số nhiều có chữ s "/api/admin/theses"
   const fetchTheses = async (f: FilterParams) => {
     setLoading(true);
     try {
@@ -131,18 +153,25 @@ const ThesisReview: React.FC = () => {
       if (f.classId) params.classId = f.classId;
       if (f.sessionId) params.session_id = f.sessionId;
 
-      const tData = await apiRequest<ThesisItem[] | BackendApiResponse<ThesisItem[]>>("/api/admin/thesis", {
+      const tData = await apiRequest<any>("/api/admin/theses", {
         method: "GET",
         params,
       });
 
-      if (Array.isArray(tData)) setTheses(tData);
-      else if (tData && Array.isArray((tData as BackendApiResponse<ThesisItem[]>).data)) {
+      if (Array.isArray(tData)) {
+        setTheses(tData);
+      } else if (
+        tData &&
+        Array.isArray((tData as BackendApiResponse<ThesisItem[]>).data)
+      ) {
         setTheses((tData as BackendApiResponse<ThesisItem[]>).data || []);
-      } else setTheses([]);
+      } else {
+        setTheses([]);
+      }
     } catch (err) {
-      console.error("Lỗi tải danh sách đề tài:", err);
-      void message.error("Không thể tải danh sách đề tài!");
+      console.error("Lỗi tải danh sách đề tài Admin:", err);
+      void message.error("Không thể kết nối dữ liệu giám sát đề tài!");
+      setTheses([]);
     } finally {
       setLoading(false);
     }
@@ -231,7 +260,10 @@ const ThesisReview: React.FC = () => {
     });
   };
 
-  const handleOverride = async (values: { class_id?: number; lecturer_id?: number }) => {
+  const handleOverride = async (values: {
+    class_id?: number;
+    lecturer_id?: number;
+  }) => {
     if (!overrideTarget) return;
     if (!values.class_id && !values.lecturer_id) {
       void message.warning("Vui lòng chọn ít nhất một thông tin cần thay đổi.");
@@ -241,7 +273,8 @@ const ThesisReview: React.FC = () => {
     try {
       const dataPayload: Record<string, number> = {};
       if (values.class_id) dataPayload.class_id = Number(values.class_id);
-      if (values.lecturer_id) dataPayload.lecturer_id = Number(values.lecturer_id);
+      if (values.lecturer_id)
+        dataPayload.lecturer_id = Number(values.lecturer_id);
 
       await apiRequest(`/api/admin/thesis/${overrideTarget.id}`, {
         method: "PATCH",
@@ -293,14 +326,16 @@ const ThesisReview: React.FC = () => {
       dataIndex: "class_name",
       key: "class_name",
       width: 130,
-      render: (text: string) => text || <span style={{ color: "#ff4d4f" }}>Chưa phân lớp</span>,
+      render: (text: string) =>
+        text || <span style={{ color: "#ff4d4f" }}>Chưa phân lớp</span>,
     },
     {
       title: "Giảng viên",
       dataIndex: "lecturer_name",
       key: "lecturer_name",
       width: 150,
-      render: (text: string) => text || <i style={{ color: "#aaa" }}>Chưa gán</i>,
+      render: (text: string) =>
+        text || <i style={{ color: "#aaa" }}>Chưa gán</i>,
     },
     {
       title: "Học kỳ",
@@ -328,7 +363,8 @@ const ThesisReview: React.FC = () => {
       dataIndex: "created_at",
       key: "created_at",
       width: 100,
-      render: (d: string) => (d ? new Date(d).toLocaleDateString("vi-VN") : "—"),
+      render: (d: string) =>
+        d ? new Date(d).toLocaleDateString("vi-VN") : "—",
     },
     {
       title: "Thao tác",
@@ -343,7 +379,11 @@ const ThesisReview: React.FC = () => {
         return (
           <Space size={4} wrap>
             <Tooltip title="Xem chi tiết đề tài">
-              <Button size="small" icon={<EyeOutlined />} onClick={() => setDetailTarget(record)} />
+              <Button
+                size="small"
+                icon={<EyeOutlined />}
+                onClick={() => setDetailTarget(record)}
+              />
             </Tooltip>
 
             {!isApproved && (
@@ -383,7 +423,11 @@ const ThesisReview: React.FC = () => {
             )}
 
             <Tooltip title="Đổi lớp / giảng viên">
-              <Button size="small" icon={<EditOutlined />} onClick={() => openOverride(record)}>
+              <Button
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => openOverride(record)}
+              >
                 Phân công
               </Button>
             </Tooltip>
@@ -417,7 +461,9 @@ const ThesisReview: React.FC = () => {
             <Button
               size="small"
               type="link"
-              onClick={() => setFilters((prev) => ({ ...prev, adminStatus: "pending" }))}
+              onClick={() =>
+                setFilters((prev) => ({ ...prev, adminStatus: "pending" }))
+              }
             >
               Lọc ngay
             </Button>
@@ -431,7 +477,9 @@ const ThesisReview: React.FC = () => {
           allowClear
           style={{ width: 190 }}
           value={filters.adminStatus}
-          onChange={(val) => setFilters((prev) => ({ ...prev, adminStatus: val }))}
+          onChange={(val) =>
+            setFilters((prev) => ({ ...prev, adminStatus: val }))
+          }
         >
           <Select.Option value="pending">Chờ Admin duyệt</Select.Option>
           <Select.Option value="approved">Admin đã duyệt</Select.Option>
@@ -443,7 +491,9 @@ const ThesisReview: React.FC = () => {
           allowClear
           style={{ width: 170 }}
           value={filters.lecturerStatus}
-          onChange={(val) => setFilters((prev) => ({ ...prev, lecturerStatus: val }))}
+          onChange={(val) =>
+            setFilters((prev) => ({ ...prev, lecturerStatus: val }))
+          }
         >
           <Select.Option value="pending">GV chưa duyệt</Select.Option>
           <Select.Option value="approved">GV đã duyệt</Select.Option>
@@ -459,11 +509,12 @@ const ThesisReview: React.FC = () => {
           value={filters.classId}
           onChange={(val) => setFilters((prev) => ({ ...prev, classId: val }))}
         >
-          {Array.isArray(classes) && classes.map((c) => (
-            <Select.Option key={c.id} value={c.id}>
-              {c.class_name}
-            </Select.Option>
-          ))}
+          {Array.isArray(classes) &&
+            classes.map((c) => (
+              <Select.Option key={c.id} value={c.id}>
+                {c.class_name}
+              </Select.Option>
+            ))}
         </Select>
 
         <Select
@@ -471,13 +522,16 @@ const ThesisReview: React.FC = () => {
           allowClear
           style={{ width: 170 }}
           value={filters.sessionId}
-          onChange={(val) => setFilters((prev) => ({ ...prev, sessionId: val }))}
+          onChange={(val) =>
+            setFilters((prev) => ({ ...prev, sessionId: val }))
+          }
         >
-          {Array.isArray(sessions) && sessions.map((s) => (
-            <Select.Option key={s.id} value={s.id}>
-              {s.name}
-            </Select.Option>
-          ))}
+          {Array.isArray(sessions) &&
+            sessions.map((s) => (
+              <Select.Option key={s.id} value={s.id}>
+                {s.name}
+              </Select.Option>
+            ))}
         </Select>
 
         <Button onClick={() => setFilters({})}>Xoá bộ lọc</Button>
@@ -492,7 +546,9 @@ const ThesisReview: React.FC = () => {
         pagination={{ pageSize: 10, showSizeChanger: true }}
         locale={{ emptyText: "Không có đề tài nào" }}
         scroll={{ x: 1400 }}
-        rowClassName={(record) => (record.admin_status === "pending" ? "ant-table-row-pending" : "")}
+        rowClassName={(record) =>
+          record.admin_status === "pending" ? "ant-table-row-pending" : ""
+        }
       />
 
       {/* MODAL 1: XEM CHI TIẾT */}
@@ -551,7 +607,9 @@ const ThesisReview: React.FC = () => {
               <strong>{detailTarget.title}</strong>
             </Descriptions.Item>
             <Descriptions.Item label="Mô tả">
-              {detailTarget.description || <i style={{ color: "#aaa" }}>Không có mô tả</i>}
+              {detailTarget.description || (
+                <i style={{ color: "#aaa" }}>Không có mô tả</i>
+              )}
             </Descriptions.Item>
             <Descriptions.Item label="Sinh viên">
               {detailTarget.student_name}
@@ -560,7 +618,9 @@ const ThesisReview: React.FC = () => {
               {detailTarget.lecturer_name}
             </Descriptions.Item>
             <Descriptions.Item label="Lớp học phần">
-              {detailTarget.class_name || <span style={{ color: "#ff4d4f" }}>Chưa phân lớp</span>}
+              {detailTarget.class_name || (
+                <span style={{ color: "#ff4d4f" }}>Chưa phân lớp</span>
+              )}
             </Descriptions.Item>
             <Descriptions.Item label="Học kỳ">
               {detailTarget.session_name || "—"}
@@ -578,14 +638,20 @@ const ThesisReview: React.FC = () => {
             </Descriptions.Item>
             {detailTarget.reject_reason && (
               <Descriptions.Item label="Lý do từ chối">
-                <span style={{ color: "#ff4d4f" }}>{detailTarget.reject_reason}</span>
+                <span style={{ color: "#ff4d4f" }}>
+                  {detailTarget.reject_reason}
+                </span>
               </Descriptions.Item>
             )}
             <Descriptions.Item label="Điểm cuối">
-              {detailTarget.final_score != null ? detailTarget.final_score : "Chưa có"}
+              {detailTarget.final_score != null
+                ? detailTarget.final_score
+                : "Chưa có"}
             </Descriptions.Item>
             <Descriptions.Item label="Ngày nộp">
-              {detailTarget.created_at ? new Date(detailTarget.created_at).toLocaleString("vi-VN") : "—"}
+              {detailTarget.created_at
+                ? new Date(detailTarget.created_at).toLocaleString("vi-VN")
+                : "—"}
             </Descriptions.Item>
             {detailTarget.approved_at && (
               <Descriptions.Item label="Ngày duyệt">
@@ -637,7 +703,10 @@ const ThesisReview: React.FC = () => {
                 label="Lý do từ chối"
                 rules={[
                   { required: true, message: "Vui lòng nhập lý do từ chối." },
-                  { min: 10, message: "Lý do quá ngắn, vui lòng mô tả rõ hơn." },
+                  {
+                    min: 10,
+                    message: "Lý do quá ngắn, vui lòng mô tả rõ hơn.",
+                  },
                 ]}
               >
                 <Input.TextArea
@@ -682,14 +751,21 @@ const ThesisReview: React.FC = () => {
             >
               <strong>Đề tài:</strong> {overrideTarget.title} <br />
               <strong>Sinh viên:</strong> {overrideTarget.student_name} <br />
-              <strong>GV hiện tại:</strong> {overrideTarget.lecturer_name} <br />
+              <strong>GV hiện tại:</strong> {overrideTarget.lecturer_name}{" "}
+              <br />
               <strong>Lớp hiện tại:</strong>{" "}
-              {overrideTarget.class_name || <span style={{ color: "#ff4d4f" }}>Chưa phân lớp</span>}
+              {overrideTarget.class_name || (
+                <span style={{ color: "#ff4d4f" }}>Chưa phân lớp</span>
+              )}
             </div>
 
             <Divider style={{ margin: "0 0 16px" }} />
 
-            <Form form={overrideForm} layout="vertical" onFinish={handleOverride}>
+            <Form
+              form={overrideForm}
+              layout="vertical"
+              onFinish={handleOverride}
+            >
               <Form.Item name="class_id" label="Chuyển sang Lớp khác">
                 <Select
                   showSearch
@@ -697,12 +773,15 @@ const ThesisReview: React.FC = () => {
                   placeholder="Giữ nguyên nếu không chọn"
                   allowClear
                 >
-                  {Array.isArray(classes) && classes.map((c) => (
-                    <Select.Option key={c.id} value={Number(c.id)}>
-                      {c.class_name}
-                      {(c as any).session_name ? ` (${(c as any).session_name})` : ""}
-                    </Select.Option>
-                  ))}
+                  {Array.isArray(classes) &&
+                    classes.map((c) => (
+                      <Select.Option key={c.id} value={Number(c.id)}>
+                        {c.class_name}
+                        {(c as any).session_name
+                          ? ` (${(c as any).session_name})`
+                          : ""}
+                      </Select.Option>
+                    ))}
                 </Select>
               </Form.Item>
 
@@ -717,11 +796,12 @@ const ThesisReview: React.FC = () => {
                   placeholder="Giữ nguyên nếu không chọn"
                   allowClear
                 >
-                  {Array.isArray(lecturers) && lecturers.map((lec) => (
-                    <Select.Option key={lec.id} value={Number(lec.id)}>
-                      {lec.name}
-                    </Select.Option>
-                  ))}
+                  {Array.isArray(lecturers) &&
+                    lecturers.map((lec) => (
+                      <Select.Option key={lec.id} value={Number(lec.id)}>
+                        {lec.name}
+                      </Select.Option>
+                    ))}
                 </Select>
               </Form.Item>
             </Form>
