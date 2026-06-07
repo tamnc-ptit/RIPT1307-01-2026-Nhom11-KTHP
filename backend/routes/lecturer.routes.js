@@ -2,19 +2,16 @@ const express = require("express");
 const router = express.Router();
 const lecturerController = require("../controllers/lecturer.controller");
 const dashboardController = require("../controllers/dashboard.controller");
-const classController = require("../config/../controllers/class.controller"); // Giữ nguyên path import của bạn
+const classController = require("../controllers/class.controller");
 const lecturerThesisController = require("../controllers/lecturerThesis.controller");
 const proposalController = require("../controllers/proposal.controller");
 const templateController = require("../controllers/template.controller");
 const commentController = require("../controllers/comment.controller");
 const auth = require("../middlewares/auth");
 
-// Áp dụng auth middleware cho toàn bộ các route bảo mật phía dưới
 router.use(auth);
 
-// =========================================================================
-// 1. DASHBOARD & LỚP HỌC PHẦN
-// =========================================================================
+
 router.get("/dashboard/stats", dashboardController.getLecturerDashboard);
 router.get("/dashboard/risks", dashboardController.getRiskFlags);
 router.get("/classes", classController.getLecturerClasses);
@@ -23,9 +20,7 @@ router.get(
   classController.getLecturerClassStudents,
 );
 
-// =========================================================================
-// 2. CỘT MỐC TIẾN ĐỘ & BÁO CÁO EXCEL
-// =========================================================================
+
 router.get("/milestones", lecturerController.getMilestones);
 router.post("/milestones", lecturerThesisController.createMilestone);
 router.put(
