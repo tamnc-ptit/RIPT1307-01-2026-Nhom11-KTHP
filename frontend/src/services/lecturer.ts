@@ -5,7 +5,7 @@ interface MilestonePayload {
   title: string;
   description?: string;
   deadline: string | null;
-  thesis_id: string;
+  thesis_id: number;
   created_by?: number;
 }
 

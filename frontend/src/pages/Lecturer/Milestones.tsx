@@ -171,8 +171,9 @@ const Milestones: React.FC = () => {
   const handleAddSubmit = async (
     values: AddMilestoneFormValues,
   ): Promise<void> => {
-    if (!selectedThesisId) {
-      void message.error("Vui lòng chọn đề tài trước khi thêm mốc tiến độ!");
+    const parsedThesisId = parseInt(selectedThesisId, 10);
+    if (!selectedThesisId || isNaN(parsedThesisId) || parsedThesisId <= 0) {
+      void message.error("Vui lòng chọn đề tài hợp lệ trước khi thêm mốc tiến độ!");
       return;
     }
     if (!lecturerId) {
@@ -182,8 +183,8 @@ const Milestones: React.FC = () => {
     try {
       await createMilestone({
         ...values,
-        thesis_id: selectedThesisId,
-        created_by: lecturerId,
+        thesis_id: parsedThesisId,
+        created_by: Number(lecturerId),
         deadline: values.deadline ? values.deadline.toISOString() : null,
       });
       void message.success("Đã thêm mốc tiến độ!");
