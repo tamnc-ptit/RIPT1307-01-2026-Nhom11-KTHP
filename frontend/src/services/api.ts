@@ -28,7 +28,22 @@ export async function apiRequest<T = unknown>(
     fullUrl = `${BASE_URL}${path}`;
   }
 
-  const { headers: optHeaders, method, body, data, ...rest } = options as RequestInit & RequestOptions & { data?: any };
+  const { headers: optHeaders, method, body, data, params, ...rest } = options as RequestInit & RequestOptions & { data?: any; params?: Record<string, any> };
+
+  let queryString = "";
+  if (params && Object.keys(params).length > 0) {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        searchParams.append(key, String(value));
+      }
+    });
+    const serialized = searchParams.toString();
+    if (serialized) {
+      queryString = (fullUrl.includes("?") ? "&" : "?") + serialized;
+    }
+  }
+  fullUrl = `${fullUrl}${queryString}`;
 
   let requestBody = body;
   if (!requestBody && data !== undefined) {

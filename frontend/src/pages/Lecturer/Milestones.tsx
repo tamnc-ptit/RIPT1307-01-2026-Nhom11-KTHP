@@ -91,7 +91,9 @@ const Milestones: React.FC = () => {
 
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const initialThesisId = queryParams.get("thesisId") || "";
+  const rawThesisId = queryParams.get("thesisId") || "";
+  const initialThesisId =
+    rawThesisId === "undefined" || rawThesisId === "null" ? "" : rawThesisId;
 
   const [selectedThesisId, setSelectedThesisId] =
     useState<string>(initialThesisId);
@@ -169,6 +171,14 @@ const Milestones: React.FC = () => {
   const handleAddSubmit = async (
     values: AddMilestoneFormValues,
   ): Promise<void> => {
+    if (!selectedThesisId) {
+      void message.error("Vui lòng chọn đề tài trước khi thêm mốc tiến độ!");
+      return;
+    }
+    if (!lecturerId) {
+      void message.error("Không tìm thấy thông tin giảng viên. Vui lòng đăng nhập lại!");
+      return;
+    }
     try {
       await createMilestone({
         ...values,
@@ -180,8 +190,9 @@ const Milestones: React.FC = () => {
       setIsAddModalOpen(false);
       addForm.resetFields();
       void fetchMilestones();
-    } catch {
-      void message.error("Lỗi khi thêm mốc tiến độ");
+    } catch (error: any) {
+      const errorMsg = error?.message || "Lỗi khi thêm mốc tiến độ";
+      void message.error(errorMsg);
     }
   };
 
