@@ -46,16 +46,28 @@ export async function apiRequest<T = unknown>(
   fullUrl = `${fullUrl}${queryString}`;
 
   let requestBody = body;
+  const isFormData = data instanceof FormData;
   if (!requestBody && data !== undefined) {
-    requestBody = JSON.stringify(data);
+    requestBody = isFormData ? data : JSON.stringify(data);
+  }
+
+  const defaultHeaders: Record<string, string> = {};
+  if (!isFormData) {
+    defaultHeaders["Content-Type"] = "application/json";
+  }
+
+  const customHeaders = { ...(optHeaders as Record<string, string> || {}) };
+  if (isFormData) {
+    delete customHeaders["Content-Type"];
+    delete customHeaders["content-type"];
   }
 
   const response = await fetch(fullUrl, {
     method: method || "GET",
     headers: {
-      "Content-Type": "application/json",
+      ...defaultHeaders,
       ...getAuthHeader(),
-      ...(optHeaders as Record<string, string> || {}),
+      ...customHeaders,
     },
     body: requestBody as BodyInit | undefined,
     ...rest,

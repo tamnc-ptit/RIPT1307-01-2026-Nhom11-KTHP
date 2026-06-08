@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useModel } from "umi";
+import { useParams, useModel, history } from "umi";
 import {
   Row,
   Col,
@@ -59,6 +59,16 @@ const SubmissionPage: React.FC = () => {
 
   const thesisId = Number(params.thesisId);
   const milestoneId = Number(params.milestoneId);
+
+  useEffect(() => {
+    if (isNaN(thesisId) || isNaN(milestoneId)) {
+      void messageApi.warning("Vui lòng truy cập từ trang Tiến độ & Phản hồi để chọn mốc nộp bài!");
+      const timer = setTimeout(() => {
+        history.replace("/student/progress");
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [thesisId, milestoneId, messageApi]);
 
   const { initialState } = useModel("@@initialState");
   const studentId =
