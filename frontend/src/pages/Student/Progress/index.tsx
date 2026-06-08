@@ -56,7 +56,7 @@ import {
 import StudentHeader from "../components/StudentHeader";
 import { ProgressResponse } from "../../../types/StudentTypes/ProgressTypes";
 import {
-  getCommentsBySubmission,
+  getStudentCommentsBySubmission,
   postComment,
 } from "../../../services/comment";
 import type { MessageInstance } from "antd/es/message/interface";
@@ -469,7 +469,7 @@ const CommentModal: React.FC<CommentModalProps> = ({
     if (!submissionId) return;
     setLoading(true);
     try {
-      const res = await getCommentsBySubmission(submissionId);
+      const res = await getStudentCommentsBySubmission(submissionId);
       setComments(Array.isArray(res) ? (res as BackendCommentItem[]) : []);
     } catch {
       void messageApi.error("Không thể tải comment!");

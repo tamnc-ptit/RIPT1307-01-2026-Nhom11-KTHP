@@ -33,6 +33,7 @@ import {
 } from "@/services/lecturer";
 import { useLocation, history, useModel } from "umi";
 import dayjs from "dayjs";  
+import { getApiUrl } from "@/services/api";
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -410,9 +411,16 @@ const Milestones: React.FC = () => {
           <Button
             type="link"
             icon={<FileTextOutlined />}
-            onClick={() =>
-              window.open(selectedMilestone?.evidence_url || "", "_blank")
-            }
+            onClick={() => {
+              if (!selectedMilestone?.evidence_url) return;
+              const cleanUrl = selectedMilestone.evidence_url.startsWith("/") 
+                ? selectedMilestone.evidence_url.slice(1) 
+                : selectedMilestone.evidence_url;
+              const url = selectedMilestone.evidence_url.startsWith("http")
+                ? selectedMilestone.evidence_url
+                : `${getApiUrl()}/${cleanUrl}`;
+              window.open(url, "_blank");
+            }}
             disabled={!selectedMilestone?.evidence_url}
             style={{ paddingLeft: 0 }}
           >
