@@ -28,7 +28,12 @@ export async function apiRequest<T = unknown>(
     fullUrl = `${BASE_URL}${path}`;
   }
 
-  const { headers: optHeaders, method, body, ...rest } = options as RequestInit & RequestOptions;
+  const { headers: optHeaders, method, body, data, ...rest } = options as RequestInit & RequestOptions & { data?: any };
+
+  let requestBody = body;
+  if (!requestBody && data !== undefined) {
+    requestBody = JSON.stringify(data);
+  }
 
   const response = await fetch(fullUrl, {
     method: method || "GET",
@@ -37,7 +42,7 @@ export async function apiRequest<T = unknown>(
       ...getAuthHeader(),
       ...(optHeaders as Record<string, string> || {}),
     },
-    body: body as BodyInit | undefined,
+    body: requestBody as BodyInit | undefined,
     ...rest,
   });
 
